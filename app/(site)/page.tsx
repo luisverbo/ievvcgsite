@@ -26,6 +26,18 @@ import {
 
 export const revalidate = 60;
 
+export async function generateMetadata() {
+  const config = await getConfigEvento();
+  return {
+    description: config.subtitulo_hero,
+    openGraph: {
+      title: "Festa das Nações 2026 — 11ª Edição",
+      description: config.subtitulo_hero,
+      ...(config.logo_url ? { images: [config.logo_url] } : {}),
+    },
+  };
+}
+
 export default async function Home() {
   const [config, artistas, programacao, comidas, galeria, faq, patrocinadores] =
     await Promise.all([
@@ -40,9 +52,9 @@ export default async function Home() {
 
   return (
     <>
-      <Header />
+      <Header config={config} />
       <Hero config={config} />
-      <Marquee />
+      <Marquee paises={comidas.map((c) => c.pais)} />
       <Sobre texto={config.texto_sobre} />
       <Lineup artistas={artistas} />
       <Programacao itens={programacao} />
@@ -55,7 +67,7 @@ export default async function Home() {
       <Testemunho />
       <Patrocinadores patrocinadores={patrocinadores} />
       <Footer config={config} />
-      <WhatsappFloat />
+      <WhatsappFloat numero={config.whatsapp_numero} />
     </>
   );
 }

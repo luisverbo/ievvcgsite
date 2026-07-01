@@ -25,6 +25,8 @@ create table if not exists config_evento (
   whatsapp_numero text,
   botao_lineup_texto text not null default 'Ver line-up',
   botao_lineup_visivel boolean not null default true,
+  logo_url text,
+  tema jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 

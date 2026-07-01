@@ -1,3 +1,22 @@
+export type TemaCores = {
+  night?: string;
+  night2?: string;
+  night3?: string;
+  cream?: string;
+  creamDim?: string;
+  gold?: string;
+  coral?: string;
+  green?: string;
+  pink?: string;
+  violet?: string;
+};
+
+export type Tema = {
+  cores?: TemaCores;
+  fonte_titulo?: string;
+  fonte_texto?: string;
+};
+
 export type ConfigEvento = {
   id: string;
   titulo_hero: string;
@@ -16,6 +35,8 @@ export type ConfigEvento = {
   whatsapp_numero: string | null;
   botao_lineup_texto: string;
   botao_lineup_visivel: boolean;
+  logo_url: string | null;
+  tema: Tema;
 };
 
 export type Artista = {

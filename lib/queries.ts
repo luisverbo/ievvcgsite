@@ -27,7 +27,14 @@ export async function getConfigEvento(): Promise<ConfigEvento> {
   if (!isSupabaseConfigured) return FALLBACK_CONFIG;
   const supabase = await createClient();
   const { data } = await supabase.from("config_evento").select("*").limit(1).maybeSingle();
-  return (data as ConfigEvento | null) ?? FALLBACK_CONFIG;
+  if (!data) return FALLBACK_CONFIG;
+  // Preenche campos que podem não existir em bancos criados antes das
+  // migrações mais recentes, para o site não quebrar enquanto o SQL não roda.
+  return {
+    ...FALLBACK_CONFIG,
+    ...(data as Partial<ConfigEvento>),
+    tema: (data as Partial<ConfigEvento>).tema ?? {},
+  } as ConfigEvento;
 }
 
 export async function getArtistas(): Promise<Artista[]> {

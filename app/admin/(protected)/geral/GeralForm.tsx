@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { saveConfigEvento } from "./actions";
 import type { ConfigEvento } from "@/lib/types";
 import { toDatetimeLocalValue } from "@/lib/format";
+import { CORES_PADRAO, COR_LABELS, FONTES_TITULO, FONTES_TEXTO, type CorKey } from "@/lib/theme";
 
 const inputClass =
   "rounded-lg border border-white/15 bg-night-2 px-4 py-2.5 text-cream outline-none focus-visible:border-gold";
@@ -17,6 +18,99 @@ export default function GeralForm({ config }: { config: ConfigEvento }) {
   return (
     <form action={formAction} className="flex max-w-2xl flex-col gap-5">
       {!isFallback && <input type="hidden" name="id" value={config.id} />}
+
+      <fieldset className="flex flex-col gap-4">
+        <legend className="mb-1 font-display text-lg font-extrabold">Aparência</legend>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className={fieldClass}>
+            <label className={labelClass}>Logo — upload (PNG com fundo transparente)</label>
+            <input type="file" name="logo_arquivo" accept="image/*" className={inputClass} />
+          </div>
+          <div className={fieldClass}>
+            <label className={labelClass} htmlFor="logo_url">
+              ou link do logo
+            </label>
+            <input
+              id="logo_url"
+              name="logo_url"
+              type="url"
+              placeholder="https://..."
+              defaultValue={config.logo_url ?? ""}
+              className={inputClass}
+            />
+          </div>
+        </div>
+        {config.logo_url && (
+          <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={config.logo_url} alt="Logo atual" className="h-10 w-auto" />
+            <label className="flex items-center gap-2 text-sm font-medium text-cream-dim">
+              <input type="checkbox" name="remover_logo" />
+              Remover logo (volta ao texto &ldquo;Festa das Nações&rdquo;)
+            </label>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {(Object.keys(CORES_PADRAO) as CorKey[]).map((key) => (
+            <div className={fieldClass} key={key}>
+              <label className={labelClass} htmlFor={`cor_${key}`}>
+                {COR_LABELS[key]}
+              </label>
+              <input
+                id={`cor_${key}`}
+                name={`cor_${key}`}
+                type="color"
+                defaultValue={config.tema.cores?.[key] ?? CORES_PADRAO[key]}
+                className="h-10 w-full cursor-pointer rounded-lg border border-white/15 bg-night-2"
+              />
+            </div>
+          ))}
+        </div>
+        <label className="flex items-center gap-2 text-sm font-medium text-cream-dim">
+          <input type="checkbox" name="resetar_cores" />
+          Restaurar cores padrão (ignora as cores acima)
+        </label>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className={fieldClass}>
+            <label className={labelClass} htmlFor="fonte_titulo">
+              Fonte dos títulos
+            </label>
+            <select
+              id="fonte_titulo"
+              name="fonte_titulo"
+              defaultValue={config.tema.fonte_titulo ?? ""}
+              className={inputClass}
+            >
+              <option value="">Bricolage Grotesque (padrão)</option>
+              {Object.keys(FONTES_TITULO).map((nome) => (
+                <option key={nome} value={nome}>
+                  {nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className={fieldClass}>
+            <label className={labelClass} htmlFor="fonte_texto">
+              Fonte do texto
+            </label>
+            <select
+              id="fonte_texto"
+              name="fonte_texto"
+              defaultValue={config.tema.fonte_texto ?? ""}
+              className={inputClass}
+            >
+              <option value="">Figtree (padrão)</option>
+              {Object.keys(FONTES_TEXTO).map((nome) => (
+                <option key={nome} value={nome}>
+                  {nome}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </fieldset>
 
       <fieldset className="flex flex-col gap-4">
         <legend className="mb-1 font-display text-lg font-extrabold">Hero</legend>

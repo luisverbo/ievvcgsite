@@ -82,7 +82,9 @@ export default function ArtistaForm({ artista }: { artista?: Artista }) {
         <div className={fieldClass}>
           <label className={labelClass}>Vídeo — upload</label>
           <input type="file" name="video_arquivo" accept="video/*" className={inputClass} />
-          <label className={labelClass}>ou link (YouTube/Instagram)</label>
+          <label className={labelClass}>
+            ou link (YouTube, Shorts, Instagram — Shorts aparecem em formato vertical)
+          </label>
           <input
             name="video_url"
             type="url"

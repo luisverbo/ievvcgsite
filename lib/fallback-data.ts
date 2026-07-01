@@ -30,6 +30,8 @@ export const FALLBACK_CONFIG: ConfigEvento = {
   whatsapp_numero: null,
   botao_lineup_texto: "Ver line-up",
   botao_lineup_visivel: true,
+  logo_url: null,
+  tema: {},
 };
 
 export const FALLBACK_ARTISTAS: Artista[] = [

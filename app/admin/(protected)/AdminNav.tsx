@@ -39,6 +39,14 @@ export default function AdminNav({ email }: { email: string | undefined }) {
         })}
       </nav>
       <div className="mt-auto flex flex-col gap-2 pt-4 text-sm text-cream-dim">
+        <a
+          href="/"
+          target="_blank"
+          rel="noreferrer"
+          className="font-semibold text-gold hover:underline"
+        >
+          Ver o site ↗
+        </a>
         {email && <span className="truncate">{email}</span>}
         <form action={logout}>
           <button type="submit" className="text-left font-semibold text-coral hover:underline">

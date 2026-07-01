@@ -9,9 +9,18 @@ export default function Footer({ config }: { config: ConfigEvento }) {
   return (
     <footer>
       <div className="wrap">
-        <div className="logo">
-          Festa das <span style={{ color: "var(--color-gold)" }}>Nações</span>
-        </div>
+        {config.logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={config.logo_url}
+            alt="Festa das Nações"
+            style={{ height: 44, width: "auto", justifySelf: "start" }}
+          />
+        ) : (
+          <div className="logo">
+            Festa das <span style={{ color: "var(--color-gold)" }}>Nações</span>
+          </div>
+        )}
         <p>Igreja Verbo da Vida Campo Grande — {config.endereco}.</p>
         <div className="social-row">
           {config.instagram_url && <a href={config.instagram_url}>Instagram</a>}

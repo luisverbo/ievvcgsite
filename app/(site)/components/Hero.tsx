@@ -1,9 +1,12 @@
 import StringLights from "./StringLights";
+import VideoPlayer from "./VideoPlayer";
 import type { ConfigEvento } from "@/lib/types";
 import { formatHeroDates, formatPrice } from "@/lib/format";
+import { isVerticalVideo } from "@/lib/video";
 
 export default function Hero({ config }: { config: ConfigEvento }) {
   const { day1, day2, month } = formatHeroDates(config.data_evento);
+  const videoVertical = config.video_hero_url ? isVerticalVideo(config.video_hero_url) : false;
 
   return (
     <section className="hero">
@@ -37,13 +40,13 @@ export default function Hero({ config }: { config: ConfigEvento }) {
           </div>
         </div>
 
-        <div className="hero-video">
+        <div className={`hero-video${videoVertical ? " vertical" : ""}`}>
           {config.video_hero_url ? (
-            <video src={config.video_hero_url} controls className="poster" />
+            <VideoPlayer url={config.video_hero_url} title="Vídeo de abertura" />
           ) : (
             <div className="poster">
               <div className="play" aria-hidden="true" />
-              <span className="poster-label">▶ vídeo de abertura — 0:42</span>
+              <span className="poster-label">▶ vídeo de abertura</span>
             </div>
           )}
         </div>

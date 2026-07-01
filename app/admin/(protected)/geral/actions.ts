@@ -2,12 +2,40 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { resolveMediaUrl } from "@/lib/admin/upload";
+import { CORES_PADRAO, FONTES_TITULO, FONTES_TEXTO, type CorKey } from "@/lib/theme";
+import type { Tema, TemaCores } from "@/lib/types";
 
 export type SaveState = { ok?: boolean; error?: string } | undefined;
 
 function str(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+}
+
+function buildTema(formData: FormData): Tema {
+  const tema: Tema = {};
+
+  if (formData.get("resetar_cores") !== "on") {
+    const cores: TemaCores = {};
+    for (const key of Object.keys(CORES_PADRAO) as CorKey[]) {
+      const valor = str(formData, `cor_${key}`)?.toLowerCase();
+      // Só grava o que difere do padrão, para o tema continuar acompanhando
+      // ajustes futuros nas cores padrão do site.
+      if (valor && /^#[0-9a-f]{6}$/.test(valor) && valor !== CORES_PADRAO[key]) {
+        cores[key] = valor;
+      }
+    }
+    if (Object.keys(cores).length > 0) tema.cores = cores;
+  }
+
+  const fonteTitulo = str(formData, "fonte_titulo");
+  if (fonteTitulo && FONTES_TITULO[fonteTitulo]) tema.fonte_titulo = fonteTitulo;
+
+  const fonteTexto = str(formData, "fonte_texto");
+  if (fonteTexto && FONTES_TEXTO[fonteTexto]) tema.fonte_texto = fonteTexto;
+
+  return tema;
 }
 
 export async function saveConfigEvento(
@@ -19,6 +47,10 @@ export async function saveConfigEvento(
   const id = str(formData, "id");
   const dataEvento = str(formData, "data_evento");
   const precoIngresso = str(formData, "preco_ingresso");
+  const logoUrl =
+    formData.get("remover_logo") === "on"
+      ? null
+      : await resolveMediaUrl(formData, "logo_arquivo", "logo_url", "logo");
 
   const payload = {
     titulo_hero: str(formData, "titulo_hero") ?? "FESTA DAS NAÇÕES",
@@ -38,6 +70,8 @@ export async function saveConfigEvento(
     whatsapp_numero: str(formData, "whatsapp_numero"),
     botao_lineup_texto: str(formData, "botao_lineup_texto") ?? "Ver line-up",
     botao_lineup_visivel: formData.get("botao_lineup_visivel") === "on",
+    logo_url: logoUrl,
+    tema: buildTema(formData),
   };
 
   const { error } = id
@@ -48,7 +82,8 @@ export async function saveConfigEvento(
     return { error: error.message };
   }
 
-  revalidatePath("/");
+  // "layout" porque o tema (cores/fontes) é aplicado no layout raiz
+  revalidatePath("/", "layout");
   revalidatePath("/admin");
   return { ok: true };
 }
