@@ -1,31 +1,22 @@
 import Reveal from "./Reveal";
+import type { ProgramacaoItem } from "@/lib/types";
 
-const PROGRAMACAO = [
-  {
-    dnum: "DIA 01",
-    dia: "Sexta · 17 jul",
-    itens: [
-      { horario: "18h", descricao: "Abertura dos portões e stands" },
-      { horario: "19h", descricao: "Atração musical" },
-      { horario: "21h", descricao: "Sorteios do passaporte" },
-      { horario: "22h", descricao: "Show principal" },
-      { horario: "00h", descricao: "Encerramento" },
-    ],
-  },
-  {
-    dnum: "DIA 02",
-    dia: "Sábado · 18 jul",
-    itens: [
-      { horario: "18h", descricao: "Abertura dos portões e stands" },
-      { horario: "19h", descricao: "Atração musical" },
-      { horario: "21h", descricao: "Sorteios do passaporte" },
-      { horario: "22h", descricao: "Show de encerramento" },
-      { horario: "00h", descricao: "Encerramento" },
-    ],
-  },
-];
+function groupByDia(itens: ProgramacaoItem[]) {
+  const dias: { dia: string; itens: ProgramacaoItem[] }[] = [];
+  for (const item of itens) {
+    let grupo = dias.find((d) => d.dia === item.dia);
+    if (!grupo) {
+      grupo = { dia: item.dia, itens: [] };
+      dias.push(grupo);
+    }
+    grupo.itens.push(item);
+  }
+  return dias;
+}
 
-export default function Programacao() {
+export default function Programacao({ itens }: { itens: ProgramacaoItem[] }) {
+  const dias = groupByDia(itens);
+
   return (
     <Reveal>
       <div className="wrap">
@@ -34,13 +25,13 @@ export default function Programacao() {
           <h2>Dois dias de festa</h2>
         </div>
         <div className="days">
-          {PROGRAMACAO.map((dia) => (
-            <div className="day" key={dia.dnum}>
-              <div className="dnum">{dia.dnum}</div>
-              <h3>{dia.dia}</h3>
+          {dias.map((grupo, i) => (
+            <div className="day" key={grupo.dia}>
+              <div className="dnum">DIA {String(i + 1).padStart(2, "0")}</div>
+              <h3>{grupo.dia}</h3>
               <ul>
-                {dia.itens.map((item) => (
-                  <li key={item.horario + item.descricao}>
+                {grupo.itens.map((item) => (
+                  <li key={item.id}>
                     <b>{item.horario}</b> {item.descricao}
                   </li>
                 ))}

@@ -1,7 +1,9 @@
 import Reveal from "./Reveal";
 import Countdown from "./Countdown";
+import type { ConfigEvento } from "@/lib/types";
+import { formatPrice } from "@/lib/format";
 
-export default function Ingresso() {
+export default function Ingresso({ config }: { config: ConfigEvento }) {
   return (
     <Reveal id="ingresso">
       <div className="wrap">
@@ -9,12 +11,12 @@ export default function Ingresso() {
           <div className="eyebrow" style={{ justifyContent: "center" }}>
             Garanta o seu
           </div>
-          <Countdown target="2026-07-17T18:00:00-03:00" />
+          <Countdown target={config.data_evento} />
           <div className="price">
-            R$ 12,50 <small>/ por dia</small>
+            {formatPrice(config.preco_ingresso)} <small>/ por dia</small>
           </div>
           <div className="cta-row">
-            <a className="btn btn-primary" href="#">
+            <a className="btn btn-primary" href={config.link_compra ?? "#"}>
               Comprar ingresso online
             </a>
           </div>

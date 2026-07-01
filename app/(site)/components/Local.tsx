@@ -8,7 +8,7 @@ const ITENS_SEGURANCA = [
   "Estacionamentos particulares próximos",
 ];
 
-export default function Local() {
+export default function Local({ endereco }: { endereco: string }) {
   return (
     <Reveal>
       <div className="wrap">
@@ -21,9 +21,7 @@ export default function Local() {
           </h2>
         </div>
         <div className="local">
-          <div className="addr">
-            📍 Espaço de Eventos Verbo CG — Rua Alfredo de Morais, 589, Campo Grande, RJ
-          </div>
+          <div className="addr">📍 Espaço de Eventos Verbo CG — {endereco}</div>
           <ul>
             {ITENS_SEGURANCA.map((item) => (
               <li key={item}>

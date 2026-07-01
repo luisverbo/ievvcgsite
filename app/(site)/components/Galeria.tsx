@@ -1,17 +1,8 @@
 import Reveal from "./Reveal";
+import type { GaleriaItem } from "@/lib/types";
+import { FALLBACK_GALERIA } from "@/lib/fallback-data";
 
-const GRADIENTES = [
-  "linear-gradient(150deg,#EF5B43,#7a2418)",
-  "linear-gradient(150deg,#37B08A,#123f30)",
-  "linear-gradient(150deg,#F4A62A,#7a5310)",
-  "linear-gradient(150deg,#EA5C93,#6e2144)",
-  "linear-gradient(150deg,#9D6BE0,#3d2569)",
-  "linear-gradient(150deg,#37B08A,#123f30)",
-  "linear-gradient(150deg,#EF5B43,#7a2418)",
-  "linear-gradient(150deg,#F4A62A,#7a5310)",
-];
-
-export default function Galeria() {
+export default function Galeria({ itens }: { itens: GaleriaItem[] }) {
   return (
     <Reveal>
       <div className="wrap">
@@ -20,9 +11,20 @@ export default function Galeria() {
           <h2>Quem vem, se apaixona</h2>
         </div>
         <div className="gallery">
-          {GRADIENTES.map((gradient, i) => (
-            <div className="g" key={i} style={{ background: gradient }} />
-          ))}
+          {itens.length > 0
+            ? itens.map((item) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  className="g"
+                  key={item.id}
+                  src={item.imagem_url}
+                  alt=""
+                  style={{ objectFit: "cover", width: "100%", height: "100%" }}
+                />
+              ))
+            : FALLBACK_GALERIA.map((gradient, i) => (
+                <div className="g" key={i} style={{ background: gradient }} />
+              ))}
         </div>
       </div>
     </Reveal>

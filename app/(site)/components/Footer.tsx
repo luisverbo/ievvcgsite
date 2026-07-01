@@ -1,17 +1,24 @@
-export default function Footer() {
+import type { ConfigEvento } from "@/lib/types";
+
+export default function Footer({ config }: { config: ConfigEvento }) {
+  const contatos = [
+    config.telefone && `Secretaria ${config.telefone}`,
+    config.email,
+  ].filter(Boolean);
+
   return (
     <footer>
       <div className="wrap">
         <div className="logo">
           Festa das <span style={{ color: "var(--color-gold)" }}>Nações</span>
         </div>
-        <p>Igreja Verbo da Vida Campo Grande — Rua Alfredo de Morais, 589, Campo Grande, RJ.</p>
+        <p>Igreja Verbo da Vida Campo Grande — {config.endereco}.</p>
         <div className="social-row">
-          <a href="#">Instagram</a>
-          <a href="#">Facebook</a>
-          <a href="#">Site oficial</a>
+          {config.instagram_url && <a href={config.instagram_url}>Instagram</a>}
+          {config.facebook_url && <a href={config.facebook_url}>Facebook</a>}
+          {config.site_url && <a href={config.site_url}>Site oficial</a>}
         </div>
-        <div className="fine">Secretaria (21) 98158-3331 · contato.festadasnacoes@gmail.com</div>
+        <div className="fine">{contatos.join(" · ")}</div>
       </div>
     </footer>
   );

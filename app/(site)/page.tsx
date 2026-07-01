@@ -14,25 +14,47 @@ import Testemunho from "./components/Testemunho";
 import Patrocinadores from "./components/Patrocinadores";
 import Footer from "./components/Footer";
 import WhatsappFloat from "./components/WhatsappFloat";
+import {
+  getArtistas,
+  getComidas,
+  getConfigEvento,
+  getFaq,
+  getGaleria,
+  getPatrocinadores,
+  getProgramacao,
+} from "@/lib/queries";
 
-export default function Home() {
+export const revalidate = 60;
+
+export default async function Home() {
+  const [config, artistas, programacao, comidas, galeria, faq, patrocinadores] =
+    await Promise.all([
+      getConfigEvento(),
+      getArtistas(),
+      getProgramacao(),
+      getComidas(),
+      getGaleria(),
+      getFaq(),
+      getPatrocinadores(),
+    ]);
+
   return (
     <>
       <Header />
-      <Hero />
+      <Hero config={config} />
       <Marquee />
-      <Sobre />
-      <Lineup />
-      <Programacao />
-      <Comidas />
+      <Sobre texto={config.texto_sobre} />
+      <Lineup artistas={artistas} />
+      <Programacao itens={programacao} />
+      <Comidas comidas={comidas} />
       <Destaques />
-      <Local />
-      <Galeria />
-      <Ingresso />
-      <FaqSection />
+      <Local endereco={config.endereco} />
+      <Galeria itens={galeria} />
+      <Ingresso config={config} />
+      <FaqSection items={faq} />
       <Testemunho />
-      <Patrocinadores />
-      <Footer />
+      <Patrocinadores patrocinadores={patrocinadores} />
+      <Footer config={config} />
       <WhatsappFloat />
     </>
   );

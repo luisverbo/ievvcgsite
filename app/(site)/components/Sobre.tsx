@@ -1,6 +1,6 @@
 import Reveal from "./Reveal";
 
-export default function Sobre() {
+export default function Sobre({ texto }: { texto: string }) {
   return (
     <Reveal>
       <div className="wrap">
@@ -17,12 +17,7 @@ export default function Sobre() {
             Em 2 dias, os <b>6 continentes</b> ganham vida em mais de <b>16 stands</b> —
             com comidas típicas, sorteios, atrações musicais e um grande bazar.
           </p>
-          <p className="sobre-body">
-            A tradicional Festa das Nações já faz parte do calendário de muitas famílias
-            da Zona Oeste. Mais do que uma festa, é um evento que une a igreja em um só
-            propósito: arrecadar fundos para a expansão da obra e a propagação do
-            evangelho.
-          </p>
+          <p className="sobre-body">{texto}</p>
         </div>
       </div>
     </Reveal>
