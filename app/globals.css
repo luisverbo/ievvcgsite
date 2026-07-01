@@ -142,7 +142,8 @@ header {
   left: 0;
   right: 0;
   z-index: 100;
-  background: rgba(30, 15, 38, 0.82);
+  /* deriva da cor de fundo do tema, mantendo a leve translucidez */
+  background: color-mix(in srgb, var(--color-night) 82%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
 }
@@ -1012,7 +1013,8 @@ section {
 
 /* ---------- footer ---------- */
 footer {
-  background: #150a1b;
+  /* um tom mais escuro que o fundo do tema */
+  background: color-mix(in srgb, var(--color-night) 86%, #000);
   border-top: 1px solid var(--line);
   padding: 44px 0 96px;
   margin-top: 12px;
