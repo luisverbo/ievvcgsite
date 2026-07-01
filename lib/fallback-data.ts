@@ -32,6 +32,8 @@ export const FALLBACK_CONFIG: ConfigEvento = {
   botao_lineup_visivel: true,
   logo_url: null,
   tema: {},
+  textos: {},
+  facebook_pixel_id: null,
 };
 
 export const FALLBACK_ARTISTAS: Artista[] = [

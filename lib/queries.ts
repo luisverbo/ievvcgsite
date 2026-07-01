@@ -30,10 +30,12 @@ export async function getConfigEvento(): Promise<ConfigEvento> {
   if (!data) return FALLBACK_CONFIG;
   // Preenche campos que podem não existir em bancos criados antes das
   // migrações mais recentes, para o site não quebrar enquanto o SQL não roda.
+  const row = data as Partial<ConfigEvento>;
   return {
     ...FALLBACK_CONFIG,
-    ...(data as Partial<ConfigEvento>),
-    tema: (data as Partial<ConfigEvento>).tema ?? {},
+    ...row,
+    tema: row.tema ?? {},
+    textos: row.textos ?? {},
   } as ConfigEvento;
 }
 

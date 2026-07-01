@@ -37,6 +37,8 @@ export type ConfigEvento = {
   botao_lineup_visivel: boolean;
   logo_url: string | null;
   tema: Tema;
+  textos: Record<string, string>;
+  facebook_pixel_id: string | null;
 };
 
 export type Artista = {

@@ -1,34 +1,24 @@
 import Reveal from "./Reveal";
+import { txt } from "@/lib/textos";
 
-export default function Destaques() {
+export default function Destaques({ textos }: { textos: Record<string, string> }) {
+  const cards = [
+    { cls: "feat-kids", n: 1 },
+    { cls: "feat-bazar", n: 2 },
+    { cls: "feat-pass", n: 3 },
+  ];
+
   return (
     <Reveal>
       <div className="wrap">
         <div className="feat-grid">
-          <div className="feat feat-kids">
-            <span className="ic">🎠</span>
-            <h3>Área Kids</h3>
-            <p>
-              Pescaria, ônibus da alegria e muitos brinquedos pra criançada gastar
-              energia com segurança.
-            </p>
-          </div>
-          <div className="feat feat-bazar">
-            <span className="ic">🛍️</span>
-            <h3>Bazar & Sorteios</h3>
-            <p>
-              Roupas em bom estado no precinho e prêmios incríveis sorteados durante
-              toda a festa.
-            </p>
-          </div>
-          <div className="feat feat-pass">
-            <span className="ic">🛂</span>
-            <h3>O Passaporte</h3>
-            <p>
-              Colecione 8 selos provando as comidas, preencha e concorra a prêmios na
-              Casa de Câmbio.
-            </p>
-          </div>
+          {cards.map((card) => (
+            <div className={`feat ${card.cls}`} key={card.n}>
+              <span className="ic">{txt(textos, `destaque${card.n}_emoji`)}</span>
+              <h3>{txt(textos, `destaque${card.n}_titulo`)}</h3>
+              <p>{txt(textos, `destaque${card.n}_texto`)}</p>
+            </div>
+          ))}
         </div>
       </div>
     </Reveal>

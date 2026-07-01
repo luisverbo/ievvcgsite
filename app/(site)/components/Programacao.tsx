@@ -1,16 +1,23 @@
 import Reveal from "./Reveal";
 import type { ProgramacaoItem } from "@/lib/types";
 import { groupProgramacaoByDia } from "@/lib/format";
+import { txt } from "@/lib/textos";
 
-export default function Programacao({ itens }: { itens: ProgramacaoItem[] }) {
+export default function Programacao({
+  itens,
+  textos,
+}: {
+  itens: ProgramacaoItem[];
+  textos: Record<string, string>;
+}) {
   const dias = groupProgramacaoByDia(itens);
 
   return (
     <Reveal>
       <div className="wrap">
         <div className="section-head">
-          <div className="eyebrow">Programação</div>
-          <h2>Dois dias de festa</h2>
+          <div className="eyebrow">{txt(textos, "programacao_eyebrow")}</div>
+          <h2>{txt(textos, "programacao_titulo")}</h2>
         </div>
         <div className="days">
           {dias.map((grupo, i) => (

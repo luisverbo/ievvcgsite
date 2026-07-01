@@ -1,21 +1,22 @@
 import Reveal from "./Reveal";
 import type { Comida } from "@/lib/types";
+import { txt } from "@/lib/textos";
+import { multiline } from "@/lib/multiline";
 
-export default function Comidas({ comidas }: { comidas: Comida[] }) {
+export default function Comidas({
+  comidas,
+  textos,
+}: {
+  comidas: Comida[];
+  textos: Record<string, string>;
+}) {
   return (
     <Reveal>
       <div className="wrap">
         <div className="section-head">
-          <div className="eyebrow">Comidas típicas</div>
-          <h2>
-            Uma volta ao mundo
-            <br />
-            em cada mordida
-          </h2>
-          <p>
-            Sanduíche de pernil da Alemanha ou costelinha barbecue da Austrália —
-            impossível provar e não se apaixonar.
-          </p>
+          <div className="eyebrow">{txt(textos, "comidas_eyebrow")}</div>
+          <h2>{multiline(txt(textos, "comidas_titulo"))}</h2>
+          <p>{txt(textos, "comidas_desc")}</p>
         </div>
         <div className="flag-grid">
           {comidas.map((item) => (

@@ -1,22 +1,23 @@
 import Reveal from "./Reveal";
+import { txt } from "@/lib/textos";
+import { multiline } from "@/lib/multiline";
 
-export default function Sobre({ texto }: { texto: string }) {
+export default function Sobre({
+  texto,
+  textos,
+}: {
+  texto: string;
+  textos: Record<string, string>;
+}) {
   return (
     <Reveal>
       <div className="wrap">
         <div className="section-head">
-          <div className="eyebrow">Sobre a festa</div>
-          <h2>
-            Toda a igreja,
-            <br />
-            um só propósito
-          </h2>
+          <div className="eyebrow">{txt(textos, "sobre_eyebrow")}</div>
+          <h2>{multiline(txt(textos, "sobre_titulo"))}</h2>
         </div>
         <div className="sobre">
-          <p className="sobre-lead">
-            Em 2 dias, os <b>6 continentes</b> ganham vida em mais de <b>16 stands</b> —
-            com comidas típicas, sorteios, atrações musicais e um grande bazar.
-          </p>
+          <p className="sobre-lead">{txt(textos, "sobre_lead")}</p>
           <p className="sobre-body">{texto}</p>
         </div>
       </div>

@@ -1,29 +1,34 @@
 import Reveal from "./Reveal";
+import { txt } from "@/lib/textos";
+import { multiline } from "@/lib/multiline";
 
-const ITENS_SEGURANCA = [
-  "Saídas de emergência sinalizadas",
-  "Equipe de segurança em todo o evento",
-  "Ambulância do Corpo de Bombeiros de plantão",
-  "Estrutura para até 5.000 pessoas com conforto",
-  "Estacionamentos particulares próximos",
-];
+export default function Local({
+  endereco,
+  textos,
+}: {
+  endereco: string;
+  textos: Record<string, string>;
+}) {
+  const itens = txt(textos, "local_itens")
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const nome = txt(textos, "local_nome");
 
-export default function Local({ endereco }: { endereco: string }) {
   return (
     <Reveal>
       <div className="wrap">
         <div className="section-head">
-          <div className="eyebrow">Local amplo e seguro</div>
-          <h2>
-            Pode ficar tranquilo,
-            <br />
-            cuidamos de tudo
-          </h2>
+          <div className="eyebrow">{txt(textos, "local_eyebrow")}</div>
+          <h2>{multiline(txt(textos, "local_titulo"))}</h2>
         </div>
         <div className="local">
-          <div className="addr">📍 Espaço de Eventos Verbo CG — {endereco}</div>
+          <div className="addr">
+            📍 {nome ? `${nome} — ` : ""}
+            {endereco}
+          </div>
           <ul>
-            {ITENS_SEGURANCA.map((item) => (
+            {itens.map((item) => (
               <li key={item}>
                 <b aria-hidden="true">✓</b> {item}
               </li>

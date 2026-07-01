@@ -72,6 +72,7 @@ export async function saveConfigEvento(
     botao_lineup_visivel: formData.get("botao_lineup_visivel") === "on",
     logo_url: logoUrl,
     tema: buildTema(formData),
+    facebook_pixel_id: str(formData, "facebook_pixel_id")?.replace(/\D/g, "") || null,
   };
 
   const { error } = id

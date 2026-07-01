@@ -3,23 +3,22 @@ import VideoPlayer from "./VideoPlayer";
 import type { ConfigEvento } from "@/lib/types";
 import { formatHeroDates, formatPrice } from "@/lib/format";
 import { isVerticalVideo } from "@/lib/video";
+import { txt } from "@/lib/textos";
+import { multiline } from "@/lib/multiline";
 
 export default function Hero({ config }: { config: ConfigEvento }) {
   const { day1, day2, month } = formatHeroDates(config.data_evento);
   const videoVertical = config.video_hero_url ? isVerticalVideo(config.video_hero_url) : false;
+  const t = config.textos;
 
   return (
     <section className="hero">
       <StringLights />
       <div className="wrap hero-inner">
-        <div className="badge">
-          🌎 11ª edição · <b>Igreja Verbo da Vida CG</b>
-        </div>
+        <div className="badge">{txt(t, "hero_badge")}</div>
         <h1>
-          FESTA DAS
-          <br />
-          NAÇÕES
-          <span className="line2">6 continentes · 16 países · 2 dias de festa</span>
+          {multiline(config.titulo_hero)}
+          <span className="line2">{txt(t, "hero_metricas")}</span>
         </h1>
         <p className="hero-sub">{config.subtitulo_hero}</p>
 
@@ -31,8 +30,8 @@ export default function Hero({ config }: { config: ConfigEvento }) {
             <span>{month}</span>
           </div>
           <div>
-            <b>18h—00h</b>
-            <span>dois dias</span>
+            <b>{txt(t, "hero_horario")}</b>
+            <span>{txt(t, "hero_horario_label")}</span>
           </div>
           <div>
             <b>{formatPrice(config.preco_ingresso)}</b>
@@ -52,8 +51,8 @@ export default function Hero({ config }: { config: ConfigEvento }) {
         </div>
 
         <div className="cta-row">
-          <a className="btn btn-primary" href="#ingresso">
-            Garantir ingresso
+          <a className="btn btn-primary" href="#ingresso" data-fbq="ClicouGarantirIngresso">
+            {txt(t, "hero_cta_garantir")}
           </a>
           {config.botao_lineup_visivel && (
             <a className="btn btn-ghost" href="#lineup">

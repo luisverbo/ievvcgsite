@@ -27,6 +27,8 @@ create table if not exists config_evento (
   botao_lineup_visivel boolean not null default true,
   logo_url text,
   tema jsonb not null default '{}'::jsonb,
+  textos jsonb not null default '{}'::jsonb,
+  facebook_pixel_id text,
   created_at timestamptz not null default now()
 );
 

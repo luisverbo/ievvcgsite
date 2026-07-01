@@ -1,10 +1,12 @@
 import type { ConfigEvento } from "@/lib/types";
+import { txt } from "@/lib/textos";
 
 export default function Footer({ config }: { config: ConfigEvento }) {
   const contatos = [
     config.telefone && `Secretaria ${config.telefone}`,
     config.email,
   ].filter(Boolean);
+  const desc = txt(config.textos, "footer_desc");
 
   return (
     <footer>
@@ -21,7 +23,9 @@ export default function Footer({ config }: { config: ConfigEvento }) {
             Festa das <span style={{ color: "var(--color-gold)" }}>Nações</span>
           </div>
         )}
-        <p>Igreja Verbo da Vida Campo Grande — {config.endereco}.</p>
+        <p>
+          {desc} — {config.endereco}.
+        </p>
         <div className="social-row">
           {config.instagram_url && <a href={config.instagram_url}>Instagram</a>}
           {config.facebook_url && <a href={config.facebook_url}>Facebook</a>}

@@ -1,14 +1,21 @@
 import Reveal from "./Reveal";
 import type { GaleriaItem } from "@/lib/types";
 import { FALLBACK_GALERIA } from "@/lib/fallback-data";
+import { txt } from "@/lib/textos";
 
-export default function Galeria({ itens }: { itens: GaleriaItem[] }) {
+export default function Galeria({
+  itens,
+  textos,
+}: {
+  itens: GaleriaItem[];
+  textos: Record<string, string>;
+}) {
   return (
     <Reveal>
       <div className="wrap">
         <div className="section-head">
-          <div className="eyebrow">Edições anteriores</div>
-          <h2>Quem vem, se apaixona</h2>
+          <div className="eyebrow">{txt(textos, "galeria_eyebrow")}</div>
+          <h2>{txt(textos, "galeria_titulo")}</h2>
         </div>
         <div className="gallery">
           {itens.length > 0

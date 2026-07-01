@@ -319,6 +319,26 @@ export default function GeralForm({ config }: { config: ConfigEvento }) {
         </div>
       </fieldset>
 
+      <fieldset className="flex flex-col gap-4">
+        <legend className="mb-1 font-display text-lg font-extrabold">
+          Métricas (Pixel do Facebook)
+        </legend>
+        <div className={fieldClass}>
+          <label className={labelClass} htmlFor="facebook_pixel_id">
+            ID do Pixel do Facebook (só os números). Mede visitas e cliques nos botões de
+            ingresso.
+          </label>
+          <input
+            id="facebook_pixel_id"
+            name="facebook_pixel_id"
+            inputMode="numeric"
+            placeholder="123456789012345"
+            defaultValue={config.facebook_pixel_id ?? ""}
+            className={inputClass}
+          />
+        </div>
+      </fieldset>
+
       {state?.error && <p className="text-sm text-coral">{state.error}</p>}
       {state?.ok && <p className="text-sm text-green">Salvo com sucesso.</p>}
 

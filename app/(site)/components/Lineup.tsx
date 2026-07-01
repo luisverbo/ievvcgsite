@@ -3,18 +3,22 @@ import VideoPlayer from "./VideoPlayer";
 import type { Artista } from "@/lib/types";
 import { artistaGradient } from "@/lib/fallback-data";
 import { isVerticalVideo } from "@/lib/video";
+import { txt } from "@/lib/textos";
 
-export default function Lineup({ artistas }: { artistas: Artista[] }) {
+export default function Lineup({
+  artistas,
+  textos,
+}: {
+  artistas: Artista[];
+  textos: Record<string, string>;
+}) {
   return (
     <Reveal id="lineup">
       <div className="wrap">
         <div className="section-head">
-          <div className="eyebrow">Atrações musicais</div>
-          <h2>Line-up 2026</h2>
-          <p>
-            Os artistas confirmados para os dois dias de festa. Toque no play para
-            assistir ao vídeo de cada um.
-          </p>
+          <div className="eyebrow">{txt(textos, "lineup_eyebrow")}</div>
+          <h2>{txt(textos, "lineup_titulo")}</h2>
+          <p>{txt(textos, "lineup_desc")}</p>
         </div>
 
         <div className="lineup">

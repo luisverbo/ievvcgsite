@@ -2,12 +2,14 @@ import Link from "next/link";
 
 const SECOES = [
   { href: "/admin/geral", label: "Geral" },
+  { href: "/admin/textos", label: "Textos" },
   { href: "/admin/lineup", label: "Line-up" },
   { href: "/admin/programacao", label: "Programação" },
   { href: "/admin/comidas", label: "Comidas" },
   { href: "/admin/galeria", label: "Galeria" },
   { href: "/admin/faq", label: "FAQ" },
   { href: "/admin/patrocinadores", label: "Patrocinadores" },
+  { href: "/admin/colaboradores", label: "Colaboradores" },
 ];
 
 export default function AdminDashboard() {

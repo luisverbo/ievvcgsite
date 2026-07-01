@@ -1,11 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { parseVideoUrl, youtubeEmbedUrl, youtubeThumb } from "@/lib/video";
+import {
+  parseVideoUrl,
+  youtubeEmbedUrl,
+  youtubeThumb,
+  youtubeThumbFallback,
+} from "@/lib/video";
 
 // Player unificado: arquivos (Supabase Storage) viram <video>, links do
-// YouTube viram thumbnail + play que carrega o iframe só ao clicar (leve
-// para mobile), Instagram vira embed direto.
+// YouTube viram thumbnail em alta + play que carrega o iframe só ao clicar
+// (leve para mobile), Instagram vira embed direto.
 export default function VideoPlayer({
   url,
   poster,
@@ -33,15 +38,24 @@ export default function VideoPlayer({
 
   if (video.kind === "youtube") {
     if (!playing) {
-      const thumb = poster ?? youtubeThumb(video.id);
       return (
         <button
           type="button"
           className="video-thumb"
-          style={{ backgroundImage: `url(${thumb})` }}
           onClick={() => setPlaying(true)}
           aria-label={`Assistir vídeo: ${title}`}
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="video-thumb-img"
+            src={poster ?? youtubeThumb(video.id)}
+            alt=""
+            onError={(e) => {
+              const img = e.currentTarget;
+              const fb = youtubeThumbFallback(video.id);
+              if (img.src !== fb) img.src = fb;
+            }}
+          />
           <span className="play" aria-hidden="true" />
         </button>
       );

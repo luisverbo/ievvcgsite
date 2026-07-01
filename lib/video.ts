@@ -36,7 +36,13 @@ export function parseVideoUrl(url: string): ParsedVideo {
   return { kind: "unknown", url };
 }
 
+// maxresdefault é a capa em alta (1280x720). Nem todo vídeo tem, então o
+// player faz fallback para hqdefault via onError.
 export function youtubeThumb(id: string) {
+  return `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`;
+}
+
+export function youtubeThumbFallback(id: string) {
   return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 }
 

@@ -14,6 +14,7 @@ import Testemunho from "./components/Testemunho";
 import Patrocinadores from "./components/Patrocinadores";
 import Footer from "./components/Footer";
 import WhatsappFloat from "./components/WhatsappFloat";
+import FacebookPixel from "./components/FacebookPixel";
 import {
   getArtistas,
   getComidas,
@@ -50,22 +51,25 @@ export default async function Home() {
       getPatrocinadores(),
     ]);
 
+  const textos = config.textos;
+
   return (
     <>
+      {config.facebook_pixel_id && <FacebookPixel pixelId={config.facebook_pixel_id} />}
       <Header config={config} />
       <Hero config={config} />
       <Marquee paises={comidas.map((c) => c.pais)} />
-      <Sobre texto={config.texto_sobre} />
-      <Lineup artistas={artistas} />
-      <Programacao itens={programacao} />
-      <Comidas comidas={comidas} />
-      <Destaques />
-      <Local endereco={config.endereco} />
-      <Galeria itens={galeria} />
+      <Sobre texto={config.texto_sobre} textos={textos} />
+      <Lineup artistas={artistas} textos={textos} />
+      <Programacao itens={programacao} textos={textos} />
+      <Comidas comidas={comidas} textos={textos} />
+      <Destaques textos={textos} />
+      <Local endereco={config.endereco} textos={textos} />
+      <Galeria itens={galeria} textos={textos} />
       <Ingresso config={config} />
-      <FaqSection items={faq} />
-      <Testemunho />
-      <Patrocinadores patrocinadores={patrocinadores} />
+      <FaqSection items={faq} textos={textos} />
+      <Testemunho textos={textos} />
+      <Patrocinadores patrocinadores={patrocinadores} textos={textos} />
       <Footer config={config} />
       <WhatsappFloat numero={config.whatsapp_numero} />
     </>
