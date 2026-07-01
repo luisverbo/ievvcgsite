@@ -1,4 +1,19 @@
+import type { ProgramacaoItem } from "@/lib/types";
+
 const TZ = "America/Sao_Paulo";
+
+export function groupProgramacaoByDia(itens: ProgramacaoItem[]) {
+  const dias: { dia: string; itens: ProgramacaoItem[] }[] = [];
+  for (const item of itens) {
+    let grupo = dias.find((d) => d.dia === item.dia);
+    if (!grupo) {
+      grupo = { dia: item.dia, itens: [] };
+      dias.push(grupo);
+    }
+    grupo.itens.push(item);
+  }
+  return dias;
+}
 
 export function formatHeroDates(dataEvento: string) {
   const start = new Date(dataEvento);
