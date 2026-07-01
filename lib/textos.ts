@@ -106,6 +106,7 @@ export const TEXTOS_GRUPOS: GrupoTexto[] = [
       { key: "sobre_eyebrow", label: "Rótulo" },
       { key: "sobre_titulo", label: "Título", multiline: true },
       { key: "sobre_lead", label: "Frase de destaque", multiline: true },
+      { key: "_texto_sobre", label: "Parágrafo principal", multiline: true },
     ],
   },
   {
@@ -161,6 +162,7 @@ export const TEXTOS_GRUPOS: GrupoTexto[] = [
       { key: "local_eyebrow", label: "Rótulo" },
       { key: "local_titulo", label: "Título", multiline: true },
       { key: "local_nome", label: "Nome do local (antes do endereço)" },
+      { key: "_endereco", label: "Endereço completo" },
       { key: "local_itens", label: "Itens de segurança (um por linha)", multiline: true },
     ],
   },

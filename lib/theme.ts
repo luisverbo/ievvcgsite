@@ -17,6 +17,75 @@ export const CORES_PADRAO = {
 
 export type CorKey = keyof typeof CORES_PADRAO;
 
+// Paletas prontas para o usuário escolher com um clique. Ainda pode ajustar
+// cor a cor depois nos seletores.
+export const PRESETS_TEMA: Record<string, { label: string; cores: Record<CorKey, string> }> = {
+  padrao: {
+    label: "Roxo & Dourado (padrão)",
+    cores: { ...CORES_PADRAO },
+  },
+  azul: {
+    label: "Azul Noturno",
+    cores: {
+      night: "#0b1b2e",
+      night2: "#12263f",
+      night3: "#1b3350",
+      cream: "#f2f6fb",
+      creamDim: "#c3d0e0",
+      gold: "#f6c453",
+      coral: "#ff6b5e",
+      green: "#3fb9a6",
+      pink: "#e878a6",
+      violet: "#7aa2e3",
+    },
+  },
+  verde: {
+    label: "Verde Floresta",
+    cores: {
+      night: "#0e2018",
+      night2: "#143026",
+      night3: "#1d4234",
+      cream: "#f3f7ee",
+      creamDim: "#c8d6c2",
+      gold: "#e7b64b",
+      coral: "#ef6a4b",
+      green: "#4cc38a",
+      pink: "#e58fb0",
+      violet: "#9a86d8",
+    },
+  },
+  vermelho: {
+    label: "Vermelho Festa",
+    cores: {
+      night: "#2a0d12",
+      night2: "#3a141b",
+      night3: "#4a1c24",
+      cream: "#fdf0ea",
+      creamDim: "#e2c3bd",
+      gold: "#f5b13a",
+      coral: "#ff5c47",
+      green: "#43b78c",
+      pink: "#f06a9b",
+      violet: "#b57ae0",
+    },
+  },
+  preto: {
+    label: "Preto & Dourado",
+    cores: {
+      night: "#0f0f10",
+      night2: "#191919",
+      night3: "#242424",
+      cream: "#f5efe2",
+      creamDim: "#c9c2b3",
+      gold: "#e8b84b",
+      coral: "#e8863a",
+      green: "#4cae8a",
+      pink: "#dd6f9c",
+      violet: "#9a7fd0",
+    },
+  },
+};
+
 export const COR_LABELS: Record<CorKey, string> = {
   night: "Fundo principal",
   night2: "Painéis e cards",

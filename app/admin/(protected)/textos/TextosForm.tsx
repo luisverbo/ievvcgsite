@@ -10,7 +10,12 @@ export default function TextosForm({ config }: { config: ConfigEvento }) {
   const [state, formAction, pending] = useActionState(saveTextos, undefined);
   const isFallback = config.id === "fallback";
 
-  const valor = (key: string) => config.textos?.[key] ?? TEXTOS_PADRAO[key] ?? "";
+  const valor = (key: string) => {
+    // Campos com prefixo "_" são colunas reais do config_evento, não jsonb.
+    if (key === "_texto_sobre") return config.texto_sobre;
+    if (key === "_endereco") return config.endereco;
+    return config.textos?.[key] ?? TEXTOS_PADRAO[key] ?? "";
+  };
 
   return (
     <form action={formAction} className="flex flex-col gap-6">

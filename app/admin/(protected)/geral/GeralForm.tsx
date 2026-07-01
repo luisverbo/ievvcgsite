@@ -4,7 +4,14 @@ import { useActionState } from "react";
 import { saveConfigEvento } from "./actions";
 import type { ConfigEvento } from "@/lib/types";
 import { toDatetimeLocalValue } from "@/lib/format";
-import { CORES_PADRAO, COR_LABELS, FONTES_TITULO, FONTES_TEXTO, type CorKey } from "@/lib/theme";
+import {
+  CORES_PADRAO,
+  COR_LABELS,
+  FONTES_TITULO,
+  FONTES_TEXTO,
+  PRESETS_TEMA,
+  type CorKey,
+} from "@/lib/theme";
 
 const inputClass =
   "rounded-lg border border-white/15 bg-night-2 px-4 py-2.5 text-cream outline-none focus-visible:border-gold";
@@ -14,6 +21,19 @@ const fieldClass = "flex flex-col gap-1.5";
 export default function GeralForm({ config }: { config: ConfigEvento }) {
   const [state, formAction, pending] = useActionState(saveConfigEvento, undefined);
   const isFallback = config.id === "fallback";
+
+  // Preenche os seletores de cor com a paleta escolhida (o usuário ainda pode
+  // ajustar cor a cor depois).
+  function aplicarPreset(nome: string) {
+    const preset = PRESETS_TEMA[nome];
+    if (!preset) return;
+    for (const [key, cor] of Object.entries(preset.cores)) {
+      const input = document.getElementById(`cor_${key}`) as HTMLInputElement | null;
+      if (input) input.value = cor;
+    }
+    const reset = document.getElementById("resetar_cores") as HTMLInputElement | null;
+    if (reset) reset.checked = false;
+  }
 
   return (
     <form action={formAction} className="flex max-w-2xl flex-col gap-5">
@@ -51,6 +71,25 @@ export default function GeralForm({ config }: { config: ConfigEvento }) {
           </div>
         )}
 
+        <div className={fieldClass}>
+          <label className={labelClass} htmlFor="tema_preset">
+            Paletas prontas (clique para preencher as cores abaixo)
+          </label>
+          <select
+            id="tema_preset"
+            defaultValue=""
+            onChange={(e) => aplicarPreset(e.target.value)}
+            className={inputClass}
+          >
+            <option value="">Escolher uma paleta…</option>
+            {Object.entries(PRESETS_TEMA).map(([nome, preset]) => (
+              <option key={nome} value={nome}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {(Object.keys(CORES_PADRAO) as CorKey[]).map((key) => (
             <div className={fieldClass} key={key}>
@@ -68,7 +107,7 @@ export default function GeralForm({ config }: { config: ConfigEvento }) {
           ))}
         </div>
         <label className="flex items-center gap-2 text-sm font-medium text-cream-dim">
-          <input type="checkbox" name="resetar_cores" />
+          <input id="resetar_cores" type="checkbox" name="resetar_cores" />
           Restaurar cores padrão (ignora as cores acima)
         </label>
 
@@ -173,22 +212,6 @@ export default function GeralForm({ config }: { config: ConfigEvento }) {
       </fieldset>
 
       <fieldset className="flex flex-col gap-4">
-        <legend className="mb-1 font-display text-lg font-extrabold">Sobre a festa</legend>
-        <div className={fieldClass}>
-          <label className={labelClass} htmlFor="texto_sobre">
-            Texto
-          </label>
-          <textarea
-            id="texto_sobre"
-            name="texto_sobre"
-            defaultValue={config.texto_sobre}
-            rows={4}
-            className={inputClass}
-          />
-        </div>
-      </fieldset>
-
-      <fieldset className="flex flex-col gap-4">
         <legend className="mb-1 font-display text-lg font-extrabold">Ingresso</legend>
         <div className={fieldClass}>
           <label className={labelClass} htmlFor="data_evento">
@@ -232,18 +255,11 @@ export default function GeralForm({ config }: { config: ConfigEvento }) {
       </fieldset>
 
       <fieldset className="flex flex-col gap-4">
-        <legend className="mb-1 font-display text-lg font-extrabold">Contato & local</legend>
-        <div className={fieldClass}>
-          <label className={labelClass} htmlFor="endereco">
-            Endereço
-          </label>
-          <input
-            id="endereco"
-            name="endereco"
-            defaultValue={config.endereco}
-            className={inputClass}
-          />
-        </div>
+        <legend className="mb-1 font-display text-lg font-extrabold">Contato</legend>
+        <p className="text-xs text-cream-dim">
+          O endereço e o parágrafo &ldquo;Sobre a festa&rdquo; agora ficam na aba{" "}
+          <b>Textos</b>.
+        </p>
         <div className={fieldClass}>
           <label className={labelClass} htmlFor="telefone">
             Telefone / Secretaria

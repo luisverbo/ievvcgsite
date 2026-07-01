@@ -56,12 +56,12 @@ export async function saveConfigEvento(
     titulo_hero: str(formData, "titulo_hero") ?? "FESTA DAS NAÇÕES",
     subtitulo_hero: str(formData, "subtitulo_hero") ?? "",
     video_hero_url: str(formData, "video_hero_url"),
-    texto_sobre: str(formData, "texto_sobre") ?? "",
+    // texto_sobre e endereco são editados na aba "Textos" (não mexemos aqui
+    // para não sobrescrever com valores antigos).
     // datetime-local has no timezone; treat it as America/Sao_Paulo (fixed UTC-3).
     data_evento: dataEvento ? new Date(`${dataEvento}:00-03:00`).toISOString() : undefined,
     preco_ingresso: precoIngresso ? Number(precoIngresso) : undefined,
     link_compra: str(formData, "link_compra"),
-    endereco: str(formData, "endereco") ?? "",
     telefone: str(formData, "telefone"),
     email: str(formData, "email"),
     instagram_url: str(formData, "instagram_url"),
