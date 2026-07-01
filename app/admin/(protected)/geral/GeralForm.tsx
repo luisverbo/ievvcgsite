@@ -56,6 +56,26 @@ export default function GeralForm({ config }: { config: ConfigEvento }) {
             className={inputClass}
           />
         </div>
+        <div className={fieldClass}>
+          <label className={labelClass} htmlFor="botao_lineup_texto">
+            Texto do botão &ldquo;Ver line-up&rdquo; (fica ao lado de &ldquo;Garantir
+            ingresso&rdquo;)
+          </label>
+          <input
+            id="botao_lineup_texto"
+            name="botao_lineup_texto"
+            defaultValue={config.botao_lineup_texto}
+            className={inputClass}
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm font-medium text-cream-dim">
+          <input
+            type="checkbox"
+            name="botao_lineup_visivel"
+            defaultChecked={config.botao_lineup_visivel}
+          />
+          Mostrar esse botão no topo (a seção de line-up continua na página de qualquer forma)
+        </label>
       </fieldset>
 
       <fieldset className="flex flex-col gap-4">

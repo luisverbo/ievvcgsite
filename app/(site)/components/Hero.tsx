@@ -52,9 +52,11 @@ export default function Hero({ config }: { config: ConfigEvento }) {
           <a className="btn btn-primary" href="#ingresso">
             Garantir ingresso
           </a>
-          <a className="btn btn-ghost" href="#lineup">
-            Ver line-up
-          </a>
+          {config.botao_lineup_visivel && (
+            <a className="btn btn-ghost" href="#lineup">
+              {config.botao_lineup_texto}
+            </a>
+          )}
         </div>
       </div>
     </section>

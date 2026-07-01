@@ -23,6 +23,8 @@ create table if not exists config_evento (
   facebook_url text,
   site_url text,
   whatsapp_numero text,
+  botao_lineup_texto text not null default 'Ver line-up',
+  botao_lineup_visivel boolean not null default true,
   created_at timestamptz not null default now()
 );
 

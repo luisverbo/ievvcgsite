@@ -36,6 +36,8 @@ export async function saveConfigEvento(
     facebook_url: str(formData, "facebook_url"),
     site_url: str(formData, "site_url"),
     whatsapp_numero: str(formData, "whatsapp_numero"),
+    botao_lineup_texto: str(formData, "botao_lineup_texto") ?? "Ver line-up",
+    botao_lineup_visivel: formData.get("botao_lineup_visivel") === "on",
   };
 
   const { error } = id

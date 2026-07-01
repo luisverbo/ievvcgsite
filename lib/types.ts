@@ -14,6 +14,8 @@ export type ConfigEvento = {
   facebook_url: string | null;
   site_url: string | null;
   whatsapp_numero: string | null;
+  botao_lineup_texto: string;
+  botao_lineup_visivel: boolean;
 };
 
 export type Artista = {
