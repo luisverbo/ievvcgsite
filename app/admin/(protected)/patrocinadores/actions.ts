@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { resolveMediaUrl } from "@/lib/admin/upload";
 import { moveOrdem, nextOrdem } from "@/lib/admin/reorder";
 
 export type SaveState = { ok?: boolean; error?: string } | undefined;
@@ -21,9 +20,12 @@ export async function savePatrocinador(
 
   const supabase = await createClient();
   const id = str(formData, "id");
-  const logo_url = await resolveMediaUrl(formData, "logo_arquivo", "logo_url", "patrocinadores");
 
-  const payload = { nome, logo_url, link_url: str(formData, "link_url") };
+  const payload = {
+    nome,
+    logo_url: str(formData, "logo_url"),
+    link_url: str(formData, "link_url"),
+  };
 
   const { error } = id
     ? await supabase.from("patrocinadores").update(payload).eq("id", id)

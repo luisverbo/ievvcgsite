@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { savePatrocinador } from "./actions";
 import type { Patrocinador } from "@/lib/types";
 import { inputClass, labelClass, fieldClass } from "../ui";
+import UploadInput from "../UploadInput";
 
 export default function PatrocinadorForm({ patrocinador }: { patrocinador?: Patrocinador }) {
   const [state, formAction, pending] = useActionState(savePatrocinador, undefined);
@@ -38,22 +39,14 @@ export default function PatrocinadorForm({ patrocinador }: { patrocinador?: Patr
           className={inputClass}
         />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className={fieldClass}>
-          <label className={labelClass}>Logo — upload</label>
-          <input type="file" name="logo_arquivo" accept="image/*" className={inputClass} />
-        </div>
-        <div className={fieldClass}>
-          <label className={labelClass}>ou link do logo</label>
-          <input
-            name="logo_url"
-            type="url"
-            placeholder="https://..."
-            defaultValue={patrocinador?.logo_url ?? ""}
-            className={inputClass}
-          />
-        </div>
-      </div>
+      <UploadInput
+        name="logo_url"
+        label="Logo — enviar do computador/celular"
+        linkLabel="ou link do logo"
+        accept="image/*"
+        folder="patrocinadores"
+        defaultUrl={patrocinador?.logo_url}
+      />
 
       {state?.error && <p className="text-sm text-coral">{state.error}</p>}
 

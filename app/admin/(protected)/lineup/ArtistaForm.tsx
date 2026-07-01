@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { saveArtista } from "./actions";
 import type { Artista } from "@/lib/types";
 import { inputClass, labelClass, fieldClass } from "../ui";
+import UploadInput from "../UploadInput";
 
 export default function ArtistaForm({ artista }: { artista?: Artista }) {
   const [state, formAction, pending] = useActionState(saveArtista, undefined);
@@ -67,32 +68,23 @@ export default function ArtistaForm({ artista }: { artista?: Artista }) {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className={fieldClass}>
-          <label className={labelClass}>Foto — upload</label>
-          <input type="file" name="foto_arquivo" accept="image/*" className={inputClass} />
-          <label className={labelClass}>ou link da foto</label>
-          <input
-            name="foto_url"
-            type="url"
-            placeholder="https://..."
-            defaultValue={artista?.foto_url ?? ""}
-            className={inputClass}
-          />
-        </div>
-        <div className={fieldClass}>
-          <label className={labelClass}>Vídeo — upload</label>
-          <input type="file" name="video_arquivo" accept="video/*" className={inputClass} />
-          <label className={labelClass}>
-            ou link (YouTube, Shorts, Instagram — Shorts aparecem em formato vertical)
-          </label>
-          <input
-            name="video_url"
-            type="url"
-            placeholder="https://..."
-            defaultValue={artista?.video_url ?? ""}
-            className={inputClass}
-          />
-        </div>
+        <UploadInput
+          name="foto_url"
+          label="Foto — enviar do computador/celular"
+          linkLabel="ou link da foto"
+          accept="image/*"
+          folder="artistas"
+          defaultUrl={artista?.foto_url}
+        />
+        <UploadInput
+          name="video_url"
+          label="Vídeo — enviar arquivo"
+          linkLabel="ou link (YouTube, Shorts, Instagram — Shorts aparecem em formato vertical)"
+          accept="video/*"
+          folder="artistas"
+          defaultUrl={artista?.video_url}
+          preview={false}
+        />
       </div>
 
       {state?.error && <p className="text-sm text-coral">{state.error}</p>}

@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { resolveMediaUrl } from "@/lib/admin/upload";
 import { moveOrdem, nextOrdem } from "@/lib/admin/reorder";
 
 export type SaveState = { ok?: boolean; error?: string } | undefined;
@@ -18,16 +17,15 @@ export async function saveArtista(_prevState: SaveState, formData: FormData): Pr
 
   const supabase = await createClient();
   const id = str(formData, "id");
-  const foto_url = await resolveMediaUrl(formData, "foto_arquivo", "foto_url", "artistas");
-  const video_url = await resolveMediaUrl(formData, "video_arquivo", "video_url", "artistas");
 
   const payload = {
     nome,
     estilo: str(formData, "estilo") ?? "",
     pais: str(formData, "pais") ?? "",
     descricao: str(formData, "descricao") ?? "",
-    foto_url,
-    video_url,
+    // URLs já vêm prontas (upload direto do navegador para o Storage).
+    foto_url: str(formData, "foto_url"),
+    video_url: str(formData, "video_url"),
     ativo: formData.get("ativo") === "on",
   };
 

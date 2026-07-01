@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { resolveMediaUrl } from "@/lib/admin/upload";
 import { CORES_PADRAO, FONTES_TITULO, FONTES_TEXTO, type CorKey } from "@/lib/theme";
 import type { Tema, TemaCores } from "@/lib/types";
 
@@ -47,10 +46,7 @@ export async function saveConfigEvento(
   const id = str(formData, "id");
   const dataEvento = str(formData, "data_evento");
   const precoIngresso = str(formData, "preco_ingresso");
-  const logoUrl =
-    formData.get("remover_logo") === "on"
-      ? null
-      : await resolveMediaUrl(formData, "logo_arquivo", "logo_url", "logo");
+  const logoUrl = formData.get("remover_logo") === "on" ? null : str(formData, "logo_url");
 
   const payload = {
     titulo_hero: str(formData, "titulo_hero") ?? "FESTA DAS NAÇÕES",

@@ -12,6 +12,7 @@ import {
   PRESETS_TEMA,
   type CorKey,
 } from "@/lib/theme";
+import UploadInput from "../UploadInput";
 
 const inputClass =
   "rounded-lg border border-white/15 bg-night-2 px-4 py-2.5 text-cream outline-none focus-visible:border-gold";
@@ -41,34 +42,19 @@ export default function GeralForm({ config }: { config: ConfigEvento }) {
 
       <fieldset className="flex flex-col gap-4">
         <legend className="mb-1 font-display text-lg font-extrabold">Aparência</legend>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className={fieldClass}>
-            <label className={labelClass}>Logo — upload (PNG com fundo transparente)</label>
-            <input type="file" name="logo_arquivo" accept="image/*" className={inputClass} />
-          </div>
-          <div className={fieldClass}>
-            <label className={labelClass} htmlFor="logo_url">
-              ou link do logo
-            </label>
-            <input
-              id="logo_url"
-              name="logo_url"
-              type="url"
-              placeholder="https://..."
-              defaultValue={config.logo_url ?? ""}
-              className={inputClass}
-            />
-          </div>
-        </div>
+        <UploadInput
+          name="logo_url"
+          label="Logo — enviar (PNG com fundo transparente fica melhor)"
+          linkLabel="ou link do logo"
+          accept="image/*"
+          folder="logo"
+          defaultUrl={config.logo_url}
+        />
         {config.logo_url && (
-          <div className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={config.logo_url} alt="Logo atual" className="h-10 w-auto" />
-            <label className="flex items-center gap-2 text-sm font-medium text-cream-dim">
-              <input type="checkbox" name="remover_logo" />
-              Remover logo (volta ao texto &ldquo;Festa das Nações&rdquo;)
-            </label>
-          </div>
+          <label className="flex items-center gap-2 text-sm font-medium text-cream-dim">
+            <input type="checkbox" name="remover_logo" />
+            Remover logo (volta ao texto &ldquo;Festa das Nações&rdquo;)
+          </label>
         )}
 
         <div className={fieldClass}>

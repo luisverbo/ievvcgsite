@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { resolveMediaUrl } from "@/lib/admin/upload";
 import { moveOrdem, nextOrdem } from "@/lib/admin/reorder";
 
 export type SaveState = { ok?: boolean; error?: string } | undefined;
@@ -11,7 +10,8 @@ export async function addGaleriaFoto(
   _prevState: SaveState,
   formData: FormData,
 ): Promise<SaveState> {
-  const imagem_url = await resolveMediaUrl(formData, "imagem_arquivo", "imagem_url", "galeria");
+  const raw = formData.get("imagem_url");
+  const imagem_url = typeof raw === "string" && raw.trim() !== "" ? raw.trim() : null;
   if (!imagem_url) return { error: "Envie uma foto ou cole um link de imagem." };
 
   const supabase = await createClient();
