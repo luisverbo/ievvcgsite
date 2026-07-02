@@ -17,7 +17,7 @@ export default function Header({ config }: { config: ConfigEvento }) {
             Festa das <span>Nações</span>
           </div>
         )}
-        <a className="cta-mini" href="#ingresso">
+        <a className="cta-mini" href="#ingresso" data-fbq="ClicouIngressoTopo">
           Ingresso · {formatPrice(config.preco_ingresso)}
         </a>
       </div>

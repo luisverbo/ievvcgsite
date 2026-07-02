@@ -106,6 +106,20 @@ create table if not exists patrocinadores (
 );
 
 -- ---------------------------------------------------------------------------
+-- analytics_eventos (métricas: visitas e cliques)
+-- ---------------------------------------------------------------------------
+create table if not exists analytics_eventos (
+  id uuid primary key default gen_random_uuid(),
+  tipo text not null check (tipo in ('pageview', 'click')),
+  rotulo text,
+  path text,
+  referrer text,
+  created_at timestamptz not null default now()
+);
+create index if not exists analytics_eventos_created_idx on analytics_eventos (created_at);
+create index if not exists analytics_eventos_tipo_idx on analytics_eventos (tipo);
+
+-- ---------------------------------------------------------------------------
 -- RLS: leitura pública em todas, escrita só para usuários autenticados
 -- ---------------------------------------------------------------------------
 alter table config_evento enable row level security;
@@ -178,6 +192,12 @@ create policy "patrocinadores_select_public" on patrocinadores for select using 
 create policy "patrocinadores_insert_auth" on patrocinadores for insert to authenticated with check (true);
 create policy "patrocinadores_update_auth" on patrocinadores for update to authenticated using (true) with check (true);
 create policy "patrocinadores_delete_auth" on patrocinadores for delete to authenticated using (true);
+
+alter table analytics_eventos enable row level security;
+drop policy if exists "analytics_insert_public" on analytics_eventos;
+drop policy if exists "analytics_select_auth" on analytics_eventos;
+create policy "analytics_insert_public" on analytics_eventos for insert to anon, authenticated with check (true);
+create policy "analytics_select_auth" on analytics_eventos for select to authenticated using (true);
 
 -- ---------------------------------------------------------------------------
 -- Storage: bucket público "midias" para fotos e vídeos, upload só autenticado

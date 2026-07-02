@@ -15,6 +15,7 @@ import Patrocinadores from "./components/Patrocinadores";
 import Footer from "./components/Footer";
 import WhatsappFloat from "./components/WhatsappFloat";
 import FacebookPixel from "./components/FacebookPixel";
+import Analytics from "./components/Analytics";
 import {
   getArtistas,
   getComidas,
@@ -56,6 +57,7 @@ export default async function Home() {
   return (
     <>
       {config.facebook_pixel_id && <FacebookPixel pixelId={config.facebook_pixel_id} />}
+      <Analytics />
       <Header config={config} />
       <Hero config={config} />
       <Marquee paises={comidas.map((c) => c.pais)} />

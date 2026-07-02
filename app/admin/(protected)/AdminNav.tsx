@@ -6,6 +6,7 @@ import { logout } from "../actions";
 
 const LINKS = [
   { href: "/admin/geral", label: "Geral" },
+  { href: "/admin/metricas", label: "Métricas" },
   { href: "/admin/textos", label: "Textos" },
   { href: "/admin/lineup", label: "Line-up" },
   { href: "/admin/programacao", label: "Programação" },

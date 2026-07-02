@@ -55,7 +55,7 @@ export default function Hero({ config }: { config: ConfigEvento }) {
             {txt(t, "hero_cta_garantir")}
           </a>
           {config.botao_lineup_visivel && (
-            <a className="btn btn-ghost" href="#lineup">
+            <a className="btn btn-ghost" href="#lineup" data-fbq="ClicouVerLineup">
               {config.botao_lineup_texto}
             </a>
           )}
