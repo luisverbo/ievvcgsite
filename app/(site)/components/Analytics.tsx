@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { detectarOrigem } from "@/lib/origem";
 
 // Registra uma visita ao carregar e um clique sempre que alguém clica num
 // elemento com data-fbq="Rotulo" (os mesmos botões medidos pelo Pixel).
@@ -16,6 +17,7 @@ export default function Analytics() {
         tipo: "pageview",
         path: window.location.pathname,
         referrer: document.referrer || null,
+        origem: detectarOrigem(),
       })
       .then(() => {});
 

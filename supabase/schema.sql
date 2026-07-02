@@ -114,6 +114,7 @@ create table if not exists analytics_eventos (
   rotulo text,
   path text,
   referrer text,
+  origem text,
   created_at timestamptz not null default now()
 );
 create index if not exists analytics_eventos_created_idx on analytics_eventos (created_at);

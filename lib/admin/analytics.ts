@@ -7,20 +7,25 @@ const TZ = "America/Sao_Paulo";
 export type EventoRow = {
   tipo: "pageview" | "click";
   rotulo: string | null;
+  origem: string | null;
   created_at: string;
 };
+
+export type Barra = { label: string; valor: number };
 
 export type Metricas = {
   totalVisitas: number;
   totalCliques: number;
   visitasHoje: number;
-  porDia: { label: string; valor: number }[];
-  porHora: { label: string; valor: number }[];
-  porBotao: { label: string; valor: number }[];
+  porDia: Barra[];
+  porHora: Barra[];
+  porBotao: Barra[];
+  porOrigem: Barra[];
   semDados: boolean;
 };
 
-// Rótulos amigáveis para os botões medidos via data-fbq.
+export type Periodo = { desde: Date; ate: Date };
+
 const BOTAO_LABELS: Record<string, string> = {
   ClicouIngressoTopo: "Ingresso (cabeçalho)",
   ClicouGarantirIngresso: "Garantir ingresso (topo)",
@@ -39,23 +44,39 @@ function dayLabelSP(date: Date) {
 }
 function hourSP(date: Date) {
   return Number(
-    new Intl.DateTimeFormat("en-GB", {
-      hour: "2-digit",
-      hourCycle: "h23",
-      timeZone: TZ,
-    }).format(date),
+    new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hourCycle: "h23", timeZone: TZ }).format(
+      date,
+    ),
   );
 }
 
-export async function getMetricas(): Promise<Metricas> {
+// Início do dia (00:00 em Brasília) do dia em que `date` cai.
+export function inicioDoDiaSP(date: Date) {
+  return new Date(`${dayKeySP(date)}T00:00:00-03:00`);
+}
+
+// Lista de dias (chave + rótulo) entre desde e ate, no fuso de Brasília.
+function diasNoIntervalo(desde: Date, ate: Date) {
+  const dias: { key: string; label: string }[] = [];
+  let cursor = inicioDoDiaSP(desde);
+  const fim = dayKeySP(ate);
+  for (let i = 0; i < 186; i++) {
+    const key = dayKeySP(cursor);
+    dias.push({ key, label: dayLabelSP(cursor) });
+    if (key >= fim) break;
+    cursor = new Date(cursor.getTime() + 86400000);
+  }
+  return dias;
+}
+
+export async function getMetricas({ desde, ate }: Periodo): Promise<Metricas> {
   const supabase = await createClient();
 
-  // Últimos 30 dias (volume baixo num site de evento; agregamos em JS).
-  const desde = new Date(Date.now() - 30 * 86400000).toISOString();
   const { data } = await supabase
     .from("analytics_eventos")
-    .select("tipo, rotulo, created_at")
-    .gte("created_at", desde)
+    .select("tipo, rotulo, origem, created_at")
+    .gte("created_at", desde.toISOString())
+    .lte("created_at", ate.toISOString())
     .order("created_at", { ascending: false })
     .limit(50000);
 
@@ -64,6 +85,7 @@ export async function getMetricas(): Promise<Metricas> {
   const diaMap = new Map<string, number>();
   const horaMap = new Map<number, number>();
   const botaoMap = new Map<string, number>();
+  const origemMap = new Map<string, number>();
   const hojeKey = dayKeySP(new Date());
   let totalVisitas = 0;
   let totalCliques = 0;
@@ -75,8 +97,9 @@ export async function getMetricas(): Promise<Metricas> {
       totalVisitas++;
       const key = dayKeySP(date);
       diaMap.set(key, (diaMap.get(key) ?? 0) + 1);
-      const h = hourSP(date);
-      horaMap.set(h, (horaMap.get(h) ?? 0) + 1);
+      horaMap.set(hourSP(date), (horaMap.get(hourSP(date)) ?? 0) + 1);
+      const org = row.origem ?? "Direto";
+      origemMap.set(org, (origemMap.get(org) ?? 0) + 1);
       if (key === hojeKey) visitasHoje++;
     } else {
       totalCliques++;
@@ -85,12 +108,10 @@ export async function getMetricas(): Promise<Metricas> {
     }
   }
 
-  // Últimos 14 dias, do mais antigo ao mais recente.
-  const porDia: { label: string; valor: number }[] = [];
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86400000);
-    porDia.push({ label: dayLabelSP(d), valor: diaMap.get(dayKeySP(d)) ?? 0 });
-  }
+  const porDia = diasNoIntervalo(desde, ate).map((d) => ({
+    label: d.label,
+    valor: diaMap.get(d.key) ?? 0,
+  }));
 
   const porHora = Array.from({ length: 24 }, (_, h) => ({
     label: `${String(h).padStart(2, "0")}h`,
@@ -101,6 +122,10 @@ export async function getMetricas(): Promise<Metricas> {
     .map(([rot, valor]) => ({ label: BOTAO_LABELS[rot] ?? rot, valor }))
     .sort((a, b) => b.valor - a.valor);
 
+  const porOrigem = Array.from(origemMap.entries())
+    .map(([label, valor]) => ({ label, valor }))
+    .sort((a, b) => b.valor - a.valor);
+
   return {
     totalVisitas,
     totalCliques,
@@ -108,6 +133,7 @@ export async function getMetricas(): Promise<Metricas> {
     porDia,
     porHora,
     porBotao,
+    porOrigem,
     semDados: rows.length === 0,
   };
 }
