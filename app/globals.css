@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+@theme {
+  /* Tokens do tema das PÁGINAS PUBLICADAS (personalizáveis por site via
+     lib/theme.ts). Os blocos de página usam essas variáveis. */
+  --color-night: #1e0f26;
+  --color-night-2: #2a1732;
+  --color-night-3: #37203f;
+  --color-cream: #fbf1df;
+  --color-cream-dim: #d9c7c0;
+  --color-gold: #f4a62a;
+  --color-coral: #ef5b43;
+  --color-green: #37b08a;
+  --color-pink: #ea5c93;
+  --color-violet: #9d6be0;
+
+  /* Identidade do PRODUTO (painel) */
+  --color-ink: #0e1016;
+  --color-ink-2: #161a23;
+  --color-ink-3: #1f2430;
+  --color-paper: #f4f6fb;
+  --color-paper-dim: #a6adbd;
+  --color-brand: #6c5ce7;
+  --color-brand-2: #8e7bff;
+  --color-ok: #2fbf8f;
+  --color-warn: #f4a62a;
+  --color-danger: #ef5b43;
+
+  --font-display: var(--font-bricolage), sans-serif;
+  --font-sans: var(--font-figtree), sans-serif;
+}
+
+:root {
+  --line: rgba(244, 246, 251, 0.1);
+  --line-2: rgba(244, 246, 251, 0.2);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-brand-2);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
