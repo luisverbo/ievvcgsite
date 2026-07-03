@@ -35,6 +35,8 @@ export type ConfigEvento = {
   whatsapp_numero: string | null;
   botao_lineup_texto: string;
   botao_lineup_visivel: boolean;
+  ocultar_testemunho: boolean;
+  ocultar_patrocinadores: boolean;
   logo_url: string | null;
   tema: Tema;
   textos: Record<string, string>;

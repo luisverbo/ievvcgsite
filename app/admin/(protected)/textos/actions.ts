@@ -33,6 +33,8 @@ export async function saveTextos(_prevState: SaveState, formData: FormData): Pro
     textos,
     texto_sobre: colStr(formData, "_texto_sobre", FALLBACK_CONFIG.texto_sobre),
     endereco: colStr(formData, "_endereco", FALLBACK_CONFIG.endereco),
+    ocultar_testemunho: formData.get("ocultar_testemunho") === "on",
+    ocultar_patrocinadores: formData.get("ocultar_patrocinadores") === "on",
   };
 
   const { error } =

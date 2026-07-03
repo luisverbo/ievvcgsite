@@ -70,8 +70,8 @@ export default async function Home() {
       <Galeria itens={galeria} textos={textos} />
       <Ingresso config={config} />
       <FaqSection items={faq} textos={textos} />
-      <Testemunho textos={textos} />
-      <Patrocinadores patrocinadores={patrocinadores} textos={textos} />
+      {!config.ocultar_testemunho && <Testemunho textos={textos} />}
+      {!config.ocultar_patrocinadores && <Patrocinadores patrocinadores={patrocinadores} textos={textos} />}
       <Footer config={config} />
       <WhatsappFloat numero={config.whatsapp_numero} />
     </>

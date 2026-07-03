@@ -24,6 +24,26 @@ export default function TextosForm({ config }: { config: ConfigEvento }) {
       {TEXTOS_GRUPOS.map((grupo) => (
         <div key={grupo.grupo} className={cardClass}>
           <h2 className="mb-4 font-display text-lg font-extrabold">{grupo.grupo}</h2>
+          {grupo.grupo === "Depoimento" && (
+            <label className="mb-4 flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="ocultar_testemunho"
+                defaultChecked={config.ocultar_testemunho}
+              />
+              Ocultar esta seção no site
+            </label>
+          )}
+          {grupo.grupo === "Patrocinadores" && (
+            <label className="mb-4 flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="ocultar_patrocinadores"
+                defaultChecked={config.ocultar_patrocinadores}
+              />
+              Ocultar esta seção no site
+            </label>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             {grupo.campos.map((campo) => (
               <div
