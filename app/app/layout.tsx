@@ -15,6 +15,11 @@ export default async function PainelLayout({ children }: { children: React.React
           <Link href="/app" className="font-display text-lg font-extrabold">
             Página<span className="text-brand-2">Pro</span>
           </Link>
+          <nav className="flex items-center gap-4 text-sm">
+            <Link href="/app/templates" className="text-paper-dim hover:text-paper">
+              Templates
+            </Link>
+          </nav>
           <div className="flex items-center gap-4 text-sm">
             {user?.email && <span className="hidden text-paper-dim sm:inline">{user.email}</span>}
             <form action={sair}>
