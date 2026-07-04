@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import VideoPlayer from "@/components/site/VideoPlayer";
 import Faq from "@/components/site/Faq";
 import Countdown from "@/components/site/Countdown";
@@ -21,6 +22,12 @@ import type {
   FormularioConfig,
   LogosConfig,
   RodapeConfig,
+  AvisoConfig,
+  EstatisticasConfig,
+  PassosConfig,
+  PlanosConfig,
+  GarantiaConfig,
+  MidiaTextoConfig,
 } from "@/lib/blocks/types";
 
 export type RenderCtx = {
@@ -353,6 +360,165 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
         </section>
       );
     }
+    case "aviso": {
+      const cfg = c as AvisoConfig;
+      if (!cfg.texto) return null;
+      return (
+        <div className="pp-aviso-bar" data-cor={cfg.cor ?? "gold"}>
+          <div className="pp-wrap pp-aviso-inner">
+            <span>{cfg.texto}</span>
+            {cfg.link_texto && (
+              <a href={cfg.href || "#"} data-track="BarraAviso">
+                {cfg.link_texto} →
+              </a>
+            )}
+          </div>
+        </div>
+      );
+    }
+    case "estatisticas": {
+      const cfg = c as EstatisticasConfig;
+      const itens = cfg.itens ?? [];
+      if (itens.length === 0) return null;
+      return (
+        <section className="pp-section pp-center">
+          <div className="pp-wrap">
+            <Head eyebrow={cfg.eyebrow} titulo={cfg.titulo} />
+            <div className="pp-stats" data-n={String(Math.min(4, itens.length))}>
+              {itens.map((s, i) => (
+                <div key={i} className="pp-stat">
+                  <b>{s.numero}</b>
+                  <span>{s.rotulo}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      );
+    }
+    case "passos": {
+      const cfg = c as PassosConfig;
+      const itens = cfg.itens ?? [];
+      return (
+        <section className="pp-section pp-center">
+          <div className="pp-wrap">
+            <Head eyebrow={cfg.eyebrow} titulo={cfg.titulo} />
+            {cfg.subtitulo && <p className="pp-sub-solto">{cfg.subtitulo}</p>}
+            <div className="pp-passos" data-n={String(Math.min(4, itens.length))}>
+              {itens.map((p, i) => (
+                <div key={i} className="pp-passo">
+                  <span className="pp-passo-num">{i + 1}</span>
+                  <h3>{p.titulo}</h3>
+                  {p.texto && <p>{p.texto}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      );
+    }
+    case "planos": {
+      const cfg = c as PlanosConfig;
+      const itens = cfg.itens ?? [];
+      if (itens.length === 0) return null;
+      return (
+        <section className="pp-section pp-center" id="planos">
+          <div className="pp-wrap">
+            <Head eyebrow={cfg.eyebrow} titulo={cfg.titulo} />
+            {cfg.subtitulo && <p className="pp-sub-solto">{cfg.subtitulo}</p>}
+            <div className="pp-planos" data-n={String(Math.min(3, itens.length))}>
+              {itens.map((p, i) => (
+                <div key={i} className={`pp-plano ${p.destaque ? "pp-plano-destaque" : ""}`}>
+                  {p.selo && <span className="pp-plano-selo">{p.selo}</span>}
+                  <h3>{p.nome}</h3>
+                  {p.descricao && <p className="pp-plano-desc">{p.descricao}</p>}
+                  {typeof p.preco === "number" && (
+                    <div className="pp-plano-preco">
+                      {formatPrice(p.preco)}
+                      {p.preco_sufixo && <small>{p.preco_sufixo}</small>}
+                    </div>
+                  )}
+                  {(p.itens?.length ?? 0) > 0 && (
+                    <ul className="pp-plano-lista">
+                      {p.itens!.map((item, j) => (
+                        <li key={j}>
+                          <b aria-hidden="true">✓</b> {item}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {p.botao?.texto && (
+                    <div style={{ marginTop: "auto", paddingTop: 20 }}>
+                      <Botao b={p.botao} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      );
+    }
+    case "garantia": {
+      const cfg = c as GarantiaConfig;
+      return (
+        <section className="pp-section">
+          <div className="pp-wrap">
+            <div className="pp-garantia">
+              <span className="pp-garantia-emoji">{cfg.emoji || "🛡️"}</span>
+              <div>
+                {cfg.selo && <span className="pp-garantia-selo">{cfg.selo}</span>}
+                {cfg.titulo && <h3>{cfg.titulo}</h3>}
+                {cfg.texto && <p>{cfg.texto}</p>}
+              </div>
+            </div>
+          </div>
+        </section>
+      );
+    }
+    case "midiatexto": {
+      const cfg = c as MidiaTextoConfig;
+      const midiaDireita = cfg.posicao === "direita";
+      const vertical = cfg.video_url ? isVerticalVideo(cfg.video_url) : false;
+      const temMidia = Boolean(cfg.video_url || cfg.imagem_url);
+      return (
+        <section className="pp-section">
+          <div className={`pp-wrap pp-mt ${midiaDireita ? "pp-mt-invertido" : ""} ${temMidia ? "" : "pp-mt-so-texto"}`}>
+            {temMidia && (
+              <div
+                className="pp-mt-midia"
+                style={vertical ? { maxWidth: 320, aspectRatio: "9/16" } : undefined}
+              >
+                {cfg.video_url ? (
+                  <VideoPlayer url={cfg.video_url} poster={cfg.imagem_url} title={cfg.titulo || "Vídeo"} />
+                ) : (
+                  <img src={cfg.imagem_url!} alt={cfg.titulo || ""} />
+                )}
+              </div>
+            )}
+            <div className="pp-mt-texto">
+              {cfg.eyebrow && <div className="pp-eyebrow">{cfg.eyebrow}</div>}
+              {cfg.titulo && <h2>{cfg.titulo}</h2>}
+              {cfg.corpo && <p className="pp-mt-corpo">{cfg.corpo}</p>}
+              {(cfg.itens?.length ?? 0) > 0 && (
+                <ul className="pp-lista" style={{ marginTop: 18 }}>
+                  {cfg.itens!.map((item, i) => (
+                    <li key={i}>
+                      <b aria-hidden="true">✓</b> {item}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {cfg.botao?.texto && (
+                <div className="pp-btn-row">
+                  <Botao b={cfg.botao} />
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      );
+    }
     case "rodape": {
       const cfg = c as RodapeConfig;
       return (
@@ -375,10 +541,12 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
 }
 
 export default function BlockRenderer({ blocos, ctx }: { blocos: Bloco[]; ctx: RenderCtx }) {
+  // Sem wrapper por bloco: um <div> em volta quebraria o position:sticky do
+  // cabeçalho (sticky só "gruda" dentro do elemento pai).
   return (
     <>
       {blocos.map((bloco) => (
-        <div key={bloco.id}>{renderBloco(bloco, ctx)}</div>
+        <Fragment key={bloco.id}>{renderBloco(bloco, ctx)}</Fragment>
       ))}
     </>
   );

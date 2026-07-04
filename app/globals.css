@@ -62,6 +62,13 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
+/* Container padrão das páginas do painel (o editor não usa). */
+.painel-wrap {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;

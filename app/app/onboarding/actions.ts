@@ -56,6 +56,10 @@ export async function criarOrganizacao(
     const template = nicho ? TEMPLATES.find((t) => t.nicho === nicho) : undefined;
     if (template) {
       await semearBlocosComConfig(h.id, h.org_id, template.blocos);
+      // O template carrega uma identidade visual própria (cores + fontes).
+      if (template.tema) {
+        await supabase.from("sites").update({ tema: template.tema }).eq("id", siteId);
+      }
     } else {
       await semearBlocos(h.id, h.org_id, HOME_INICIAL);
     }

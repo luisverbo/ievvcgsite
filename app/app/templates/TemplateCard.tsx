@@ -13,28 +13,45 @@ export default function TemplateCard({ template, sites }: { template: Template; 
 
   return (
     <>
-      <div className="flex flex-col rounded-xl border border-white/10 bg-ink-2 p-5 transition hover:border-brand-2">
-        <div className="mb-3 flex items-center gap-3">
-          <span className="text-3xl">{template.icone}</span>
-          <div>
-            <h3 className="font-bold">{template.nome}</h3>
-            <span className="text-xs text-paper-dim">{template.categoria}</span>
-          </div>
-        </div>
-        <p className="mb-4 flex-1 text-sm text-paper-dim">{template.descricao}</p>
-        <div className="mb-3 flex flex-wrap gap-1">
-          {template.blocos.map((b) => (
-            <span key={b.tipo} className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-paper-dim">
-              {b.tipo}
-            </span>
-          ))}
-        </div>
-        <button
-          onClick={() => setAberto(true)}
-          className={`${btnPrimary} w-full py-2 text-sm`}
+      <div className="group flex flex-col overflow-hidden rounded-xl border border-white/10 bg-ink-2 transition hover:-translate-y-0.5 hover:border-brand-2/60 hover:shadow-xl">
+        {/* mini-prévia com a paleta do template */}
+        <div
+          className="flex h-20 items-center justify-center text-4xl"
+          style={{
+            background: template.tema?.cores
+              ? `linear-gradient(135deg, ${template.tema.cores.night2 ?? "#222"}, ${template.tema.cores.night ?? "#111"})`
+              : "linear-gradient(135deg, #2a1732, #1e0f26)",
+          }}
         >
-          Usar este template
-        </button>
+          {template.icone}
+        </div>
+        <div className="flex flex-1 flex-col p-5">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <h3 className="font-bold">{template.nome}</h3>
+            {template.tema?.cores && (
+              <span className="flex flex-none gap-1">
+                {[template.tema.cores.coral, template.tema.cores.gold, template.tema.cores.green]
+                  .filter(Boolean)
+                  .map((cor, i) => (
+                    <i
+                      key={i}
+                      className="h-3 w-3 rounded-full border border-white/20"
+                      style={{ background: cor }}
+                    />
+                  ))}
+              </span>
+            )}
+          </div>
+          <span className="text-xs text-paper-dim">{template.categoria}</span>
+          <p className="mb-4 mt-2 flex-1 text-sm text-paper-dim">{template.descricao}</p>
+          <div className="mb-4 text-xs font-semibold text-paper-dim">
+            {template.blocos.length} blocos prontos
+            {template.tema?.fonte_titulo ? ` · fonte ${template.tema.fonte_titulo}` : ""}
+          </div>
+          <button onClick={() => setAberto(true)} className={`${btnPrimary} w-full py-2 text-sm`}>
+            Usar este template
+          </button>
+        </div>
       </div>
 
       {aberto && (

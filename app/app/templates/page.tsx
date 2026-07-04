@@ -10,11 +10,11 @@ export default async function TemplatesPage() {
   const sites = await getSites(org.id);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="painel-wrap flex flex-col gap-8">
       <div>
         <h1 className="text-2xl font-extrabold">Templates</h1>
         <p className="mt-1 text-sm text-paper-dim">
-          Escolha um template pronto para montar sua página em minutos.
+          Páginas completas, pensadas para converter. Escolha, troque os textos e publique.
         </p>
       </div>
 

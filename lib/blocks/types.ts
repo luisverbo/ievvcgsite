@@ -119,6 +119,63 @@ export type RodapeConfig = {
   contato?: string;
 };
 
+export type AvisoConfig = {
+  texto: string;
+  link_texto?: string;
+  href?: string;
+  cor?: "gold" | "coral" | "green" | "violet";
+};
+
+export type EstatisticaItem = { numero: string; rotulo: string };
+export type EstatisticasConfig = {
+  eyebrow?: string;
+  titulo?: string;
+  itens: EstatisticaItem[];
+};
+
+export type PassoItem = { titulo: string; texto?: string };
+export type PassosConfig = {
+  eyebrow?: string;
+  titulo?: string;
+  subtitulo?: string;
+  itens: PassoItem[];
+};
+
+export type PlanoItem = {
+  nome: string;
+  preco?: number;
+  preco_sufixo?: string;
+  descricao?: string;
+  itens?: string[];
+  destaque?: boolean;
+  selo?: string;
+  botao?: BotaoConfig;
+};
+export type PlanosConfig = {
+  eyebrow?: string;
+  titulo?: string;
+  subtitulo?: string;
+  itens: PlanoItem[];
+};
+
+export type GarantiaConfig = {
+  emoji?: string;
+  titulo?: string;
+  texto?: string;
+  selo?: string;
+};
+
+export type MidiaTextoConfig = {
+  eyebrow?: string;
+  titulo?: string;
+  corpo?: string;
+  imagem_url?: string | null;
+  video_url?: string | null;
+  posicao?: "esquerda" | "direita"; // lado da mídia
+  itens?: string[]; // checks opcionais
+  botao?: BotaoConfig | null;
+};
+
 export type BlocoConfig =
   | CabecalhoConfig
   | HeroConfig
@@ -134,7 +191,13 @@ export type BlocoConfig =
   | OfertaConfig
   | FormularioConfig
   | LogosConfig
-  | RodapeConfig;
+  | RodapeConfig
+  | AvisoConfig
+  | EstatisticasConfig
+  | PassosConfig
+  | PlanosConfig
+  | GarantiaConfig
+  | MidiaTextoConfig;
 
 // Contexto que os blocos recebem para render (dados do site).
 export type BlocoCtx = {

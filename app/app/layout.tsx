@@ -10,27 +10,47 @@ export default async function PainelLayout({ children }: { children: React.React
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-white/10 bg-ink-2">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+      <header className="sticky top-0 z-40 h-14 border-b border-white/10 bg-ink/85 backdrop-blur">
+        <div className="mx-auto flex h-full max-w-[1400px] items-center gap-6 px-4 sm:px-6">
           <Link href="/app" className="font-display text-lg font-extrabold">
             Página<span className="text-brand-2">Pro</span>
           </Link>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link href="/app/templates" className="text-paper-dim hover:text-paper">
+          <nav className="flex items-center gap-1 text-sm">
+            <Link
+              href="/app"
+              className="rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-white/8 hover:text-paper"
+            >
+              Meus sites
+            </Link>
+            <Link
+              href="/app/templates"
+              className="rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-white/8 hover:text-paper"
+            >
               Templates
             </Link>
           </nav>
-          <div className="flex items-center gap-4 text-sm">
-            {user?.email && <span className="hidden text-paper-dim sm:inline">{user.email}</span>}
+          <div className="ml-auto flex items-center gap-3 text-sm">
+            {user?.email && (
+              <span className="hidden items-center gap-2 text-paper-dim md:flex">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand/25 text-xs font-bold text-brand-2">
+                  {user.email[0]?.toUpperCase()}
+                </span>
+                {user.email}
+              </span>
+            )}
             <form action={sair}>
-              <button type="submit" className="font-semibold text-danger hover:underline">
+              <button
+                type="submit"
+                className="rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-danger/10 hover:text-danger"
+              >
                 Sair
               </button>
             </form>
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
+      {/* Sem container aqui: páginas comuns usam .painel-wrap; o editor ocupa a tela toda. */}
+      <main>{children}</main>
     </div>
   );
 }

@@ -207,6 +207,108 @@ export const BLOCOS: BlocoDef[] = [
       contato: "contato@suamarca.com.br",
     },
   },
+  {
+    tipo: "aviso",
+    nome: "Barra de aviso",
+    categoria: "Conversão",
+    icone: "📢",
+    descricao: "Faixa fina de urgência ou promoção no topo.",
+    defaultConfig: {
+      texto: "🔥 Últimas vagas com desconto",
+      link_texto: "Aproveitar agora",
+      href: "#oferta",
+      cor: "gold",
+    },
+  },
+  {
+    tipo: "estatisticas",
+    nome: "Números / Estatísticas",
+    categoria: "Prova social",
+    icone: "📊",
+    descricao: "Resultados em números grandes (alunos, anos, clientes).",
+    defaultConfig: {
+      itens: [
+        { numero: "+2.000", rotulo: "clientes atendidos" },
+        { numero: "10 anos", rotulo: "de experiência" },
+        { numero: "4,9★", rotulo: "de avaliação média" },
+      ],
+    },
+  },
+  {
+    tipo: "passos",
+    nome: "Como funciona (passos)",
+    categoria: "Conteúdo",
+    icone: "➊",
+    descricao: "Processo em 3 ou 4 passos numerados.",
+    defaultConfig: {
+      eyebrow: "Como funciona",
+      titulo: "Simples assim",
+      itens: [
+        { titulo: "Você entra em contato", texto: "Preencha o formulário ou chame no WhatsApp." },
+        { titulo: "Montamos seu plano", texto: "Uma proposta pensada para o seu caso." },
+        { titulo: "Resultado entregue", texto: "Você acompanha tudo de perto, sem surpresa." },
+      ],
+    },
+  },
+  {
+    tipo: "planos",
+    nome: "Planos / Preços",
+    categoria: "Conversão",
+    icone: "💳",
+    descricao: "Tabela de 2 ou 3 planos com destaque no mais vendido.",
+    defaultConfig: {
+      eyebrow: "Planos",
+      titulo: "Escolha o seu",
+      itens: [
+        {
+          nome: "Básico",
+          preco: 97,
+          preco_sufixo: "/mês",
+          descricao: "Para começar",
+          itens: ["Recurso essencial", "Suporte por email"],
+          botao: { texto: "Começar", href: "#", estilo: "secundario", rastreio: "PlanoBasico" },
+        },
+        {
+          nome: "Completo",
+          preco: 197,
+          preco_sufixo: "/mês",
+          descricao: "O mais escolhido",
+          destaque: true,
+          selo: "Mais popular",
+          itens: ["Tudo do Básico", "Recursos avançados", "Suporte prioritário"],
+          botao: { texto: "Quero este", href: "#", estilo: "primario", rastreio: "PlanoCompleto" },
+        },
+      ],
+    },
+  },
+  {
+    tipo: "garantia",
+    nome: "Garantia",
+    categoria: "Conversão",
+    icone: "🛡️",
+    descricao: "Selo de garantia que reduz o medo de comprar.",
+    defaultConfig: {
+      emoji: "🛡️",
+      selo: "Garantia de 7 dias",
+      titulo: "Risco zero para você",
+      texto: "Se em até 7 dias você achar que não é para você, devolvemos 100% do valor. Sem perguntas, sem burocracia.",
+    },
+  },
+  {
+    tipo: "midiatexto",
+    nome: "Imagem + Texto",
+    categoria: "Conteúdo",
+    icone: "◧",
+    descricao: "Foto ou vídeo de um lado, texto e checks do outro.",
+    defaultConfig: {
+      eyebrow: "Sobre",
+      titulo: "Mostre e conte ao mesmo tempo",
+      corpo: "Combine uma boa imagem com um texto direto. Este é um dos formatos que mais geram confiança.",
+      posicao: "esquerda",
+      itens: ["Primeiro diferencial", "Segundo diferencial"],
+      botao: { texto: "Saiba mais", href: "#", estilo: "secundario", rastreio: "MidiaTexto" },
+    },
+  },
 ];
 
 export const BLOCOS_POR_TIPO = new Map(BLOCOS.map((b) => [b.tipo, b]));

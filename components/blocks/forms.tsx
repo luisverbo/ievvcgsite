@@ -21,6 +21,13 @@ import type {
   LogosConfig,
   LogoItem,
   RodapeConfig,
+  AvisoConfig,
+  EstatisticasConfig,
+  PassosConfig,
+  PlanosConfig,
+  PlanoItem,
+  GarantiaConfig,
+  MidiaTextoConfig,
 } from "@/lib/blocks/types";
 
 type Cfg = Record<string, unknown>;
@@ -480,6 +487,182 @@ function RodapeForm({ value, onChange }: FormProps) {
   );
 }
 
+function AvisoForm({ value, onChange }: FormProps) {
+  const c = value as AvisoConfig;
+  const up = (p: Partial<AvisoConfig>) => onChange({ ...c, ...p });
+  return (
+    <div className="flex flex-col gap-3">
+      <Campo label="Texto do aviso" value={c.texto} onChange={(v) => up({ texto: v })} />
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Campo label="Texto do link (opcional)" value={c.link_texto} onChange={(v) => up({ link_texto: v })} />
+        <Campo label="Link" value={c.href} onChange={(v) => up({ href: v })} placeholder="#oferta" />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className={labelClass}>Cor de destaque</label>
+        <select className={inputClass} value={c.cor ?? "gold"} onChange={(e) => up({ cor: e.target.value as AvisoConfig["cor"] })}>
+          <option value="gold">Dourado</option>
+          <option value="coral">Coral</option>
+          <option value="green">Verde</option>
+          <option value="violet">Violeta</option>
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function EstatisticasForm({ value, onChange }: FormProps) {
+  const c = value as EstatisticasConfig;
+  const up = (p: Partial<EstatisticasConfig>) => onChange({ ...c, ...p });
+  return (
+    <div className="flex flex-col gap-3">
+      <Campo label="Rótulo (opcional)" value={c.eyebrow} onChange={(v) => up({ eyebrow: v })} />
+      <Campo label="Título (opcional)" value={c.titulo} onChange={(v) => up({ titulo: v })} />
+      <ArrayEditor
+        label="Números"
+        itens={c.itens ?? []}
+        onChange={(v) => up({ itens: v })}
+        novo={() => ({ numero: "+100", rotulo: "clientes" })}
+        render={(item, patch) => (
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Campo label="Número (ex: +2.000)" value={item.numero} onChange={(v) => patch({ numero: v })} />
+            <Campo label="Rótulo" value={item.rotulo} onChange={(v) => patch({ rotulo: v })} />
+          </div>
+        )}
+      />
+    </div>
+  );
+}
+
+function PassosForm({ value, onChange }: FormProps) {
+  const c = value as PassosConfig;
+  const up = (p: Partial<PassosConfig>) => onChange({ ...c, ...p });
+  return (
+    <div className="flex flex-col gap-3">
+      <Campo label="Rótulo" value={c.eyebrow} onChange={(v) => up({ eyebrow: v })} />
+      <Campo label="Título" value={c.titulo} onChange={(v) => up({ titulo: v })} />
+      <Area label="Subtítulo (opcional)" value={c.subtitulo} onChange={(v) => up({ subtitulo: v })} />
+      <ArrayEditor
+        label="Passos"
+        itens={c.itens ?? []}
+        onChange={(v) => up({ itens: v })}
+        novo={() => ({ titulo: "Novo passo", texto: "" })}
+        render={(item, patch) => (
+          <div className="grid gap-2">
+            <Campo label="Título" value={item.titulo} onChange={(v) => patch({ titulo: v })} />
+            <Area label="Texto" value={item.texto} onChange={(v) => patch({ texto: v })} />
+          </div>
+        )}
+      />
+    </div>
+  );
+}
+
+function PlanosForm({ value, onChange }: FormProps) {
+  const c = value as PlanosConfig;
+  const up = (p: Partial<PlanosConfig>) => onChange({ ...c, ...p });
+  return (
+    <div className="flex flex-col gap-3">
+      <Campo label="Rótulo" value={c.eyebrow} onChange={(v) => up({ eyebrow: v })} />
+      <Campo label="Título" value={c.titulo} onChange={(v) => up({ titulo: v })} />
+      <ArrayEditor
+        label="Planos"
+        itens={c.itens ?? []}
+        onChange={(v) => up({ itens: v })}
+        novo={() =>
+          ({
+            nome: "Novo plano",
+            preco: 97,
+            preco_sufixo: "/mês",
+            itens: ["Benefício"],
+            botao: { texto: "Assinar", href: "#", estilo: "secundario" },
+          }) as PlanoItem
+        }
+        render={(item, patch) => (
+          <div className="grid gap-2">
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Campo label="Nome do plano" value={item.nome} onChange={(v) => patch({ nome: v })} />
+              <Campo label="Descrição curta" value={item.descricao} onChange={(v) => patch({ descricao: v })} />
+              <div className="flex flex-col gap-1.5">
+                <label className={labelClass}>Preço (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className={inputClass}
+                  value={item.preco ?? ""}
+                  onChange={(e) => patch({ preco: e.target.value === "" ? undefined : Number(e.target.value) })}
+                />
+              </div>
+              <Campo label="Sufixo (ex: /mês)" value={item.preco_sufixo} onChange={(v) => patch({ preco_sufixo: v })} />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-paper-dim">
+              <input
+                type="checkbox"
+                checked={item.destaque ?? false}
+                onChange={(e) => patch({ destaque: e.target.checked })}
+              />
+              Plano em destaque
+            </label>
+            {item.destaque && (
+              <Campo label="Selo (ex: Mais popular)" value={item.selo} onChange={(v) => patch({ selo: v })} />
+            )}
+            <Area
+              label="Benefícios (um por linha)"
+              value={(item.itens ?? []).join("\n")}
+              onChange={(v) => patch({ itens: v.split("\n").filter((s) => s.trim() !== "") })}
+            />
+            <BotaoEditor
+              value={item.botao ?? { texto: "Assinar", href: "#" }}
+              onChange={(b) => patch({ botao: b })}
+            />
+          </div>
+        )}
+      />
+    </div>
+  );
+}
+
+function GarantiaForm({ value, onChange }: FormProps) {
+  const c = value as GarantiaConfig;
+  const up = (p: Partial<GarantiaConfig>) => onChange({ ...c, ...p });
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Campo label="Emoji" value={c.emoji} onChange={(v) => up({ emoji: v })} placeholder="🛡️" />
+        <Campo label="Selo (ex: Garantia de 7 dias)" value={c.selo} onChange={(v) => up({ selo: v })} />
+      </div>
+      <Campo label="Título" value={c.titulo} onChange={(v) => up({ titulo: v })} />
+      <Area label="Texto" value={c.texto} onChange={(v) => up({ texto: v })} />
+    </div>
+  );
+}
+
+function MidiaTextoForm({ value, onChange, orgId }: FormProps) {
+  const c = value as MidiaTextoConfig;
+  const up = (p: Partial<MidiaTextoConfig>) => onChange({ ...c, ...p });
+  return (
+    <div className="flex flex-col gap-3">
+      <Campo label="Rótulo" value={c.eyebrow} onChange={(v) => up({ eyebrow: v })} />
+      <Campo label="Título" value={c.titulo} onChange={(v) => up({ titulo: v })} />
+      <Area label="Texto" value={c.corpo} onChange={(v) => up({ corpo: v })} />
+      <UploadInput orgId={orgId} pasta="midiatexto" label="Imagem" value={c.imagem_url ?? ""} onChange={(v) => up({ imagem_url: v })} />
+      <Campo label="Ou vídeo — link YouTube/Shorts (opcional)" value={c.video_url ?? ""} onChange={(v) => up({ video_url: v })} />
+      <div className="flex flex-col gap-1.5">
+        <label className={labelClass}>Posição da mídia</label>
+        <select className={inputClass} value={c.posicao ?? "esquerda"} onChange={(e) => up({ posicao: e.target.value as MidiaTextoConfig["posicao"] })}>
+          <option value="esquerda">Mídia à esquerda</option>
+          <option value="direita">Mídia à direita</option>
+        </select>
+      </div>
+      <Area
+        label="Checks (um por linha, opcional)"
+        value={(c.itens ?? []).join("\n")}
+        onChange={(v) => up({ itens: v.split("\n").filter((s) => s.trim() !== "") })}
+      />
+      <BotaoEditor value={c.botao ?? { texto: "", href: "#" }} onChange={(b) => up({ botao: b })} />
+    </div>
+  );
+}
+
 const FORMS: Record<string, (p: FormProps) => React.ReactNode> = {
   cabecalho: CabecalhoForm,
   hero: HeroForm,
@@ -496,6 +679,12 @@ const FORMS: Record<string, (p: FormProps) => React.ReactNode> = {
   formulario: FormularioForm,
   logos: LogosForm,
   rodape: RodapeForm,
+  aviso: AvisoForm,
+  estatisticas: EstatisticasForm,
+  passos: PassosForm,
+  planos: PlanosForm,
+  garantia: GarantiaForm,
+  midiatexto: MidiaTextoForm,
 };
 
 export default function BlockForm({ tipo, ...props }: FormProps & { tipo: string }) {

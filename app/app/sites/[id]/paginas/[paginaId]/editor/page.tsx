@@ -46,22 +46,19 @@ export default async function EditorPage({
     : urlPublicaPreview;
 
   return (
-    <div>
-      <h1 className="mb-4 text-xl font-extrabold">
-        {site.nome} <span className="text-paper-dim">· {pagina.titulo}</span>
-      </h1>
-      <Editor
-        siteAdminId={site.id}
-        siteSlug={site.slug}
-        orgId={site.org_id}
-        paginaId={pagina.id}
-        paginaSlug={pagina.slug}
-        siteId={site.id}
-        publicado={pagina.publicado}
-        urlPublica={urlPublicaPreview}
-        urlVer={urlVer}
-        blocosIniciais={blocos}
-      />
-    </div>
+    <Editor
+      siteAdminId={site.id}
+      siteNome={site.nome}
+      siteSlug={site.slug}
+      orgId={site.org_id}
+      paginaId={pagina.id}
+      paginaSlug={pagina.slug}
+      paginaTitulo={pagina.titulo}
+      siteId={site.id}
+      publicado={pagina.publicado}
+      urlPublica={urlPublicaPreview}
+      urlVer={urlVer}
+      blocosIniciais={blocos}
+    />
   );
 }

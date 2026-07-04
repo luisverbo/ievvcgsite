@@ -17,7 +17,7 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
   const urlPublica = ROOT ? `https://${site.slug}.${ROOT}` : `/s/${site.slug}`;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="painel-wrap flex flex-col gap-6">
       <div>
         <Link href="/app" className="text-sm text-paper-dim hover:text-paper">
           ← Meus sites
