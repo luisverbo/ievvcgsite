@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/format";
 import { PRESETS_TEMA } from "@/lib/theme";
@@ -47,4 +48,15 @@ export async function salvarSite(_prev: SaveState, formData: FormData): Promise<
   revalidatePath(`/app/sites/${id}`);
   revalidatePath(`/s/${slug}`);
   return { ok: true };
+}
+
+// Exclui o site inteiro (páginas, blocos, leads e métricas caem em cascata
+// pelas foreign keys "on delete cascade"). Confirmação é feita no cliente.
+export async function excluirSite(id: string) {
+  const supabase = await createClient();
+  const { data: site } = await supabase.from("sites").select("slug").eq("id", id).maybeSingle();
+  await supabase.from("sites").delete().eq("id", id);
+  revalidatePath("/app");
+  if (site) revalidatePath(`/s/${(site as { slug: string }).slug}`);
+  redirect("/app");
 }

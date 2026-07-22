@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getPaginas, getSite } from "@/lib/painel/queries";
 import SiteForm from "./SiteForm";
 import NovaPaginaForm from "./NovaPaginaForm";
+import ExcluirSite from "./ExcluirSite";
 import { excluirPagina } from "./paginas/actions";
 import { cardClass } from "@/components/painel/ui";
 
@@ -81,6 +82,14 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
       <div className={cardClass}>
         <h2 className="mb-4 text-lg font-bold">Configurações</h2>
         <SiteForm site={site} />
+      </div>
+
+      <div className="rounded-xl border border-danger/25 bg-danger/5 p-5">
+        <h2 className="mb-1 text-lg font-bold text-danger">Zona de perigo</h2>
+        <p className="mb-4 text-sm text-paper-dim">
+          Excluir o site remove todas as páginas, blocos e leads. Não dá para desfazer.
+        </p>
+        <ExcluirSite siteId={site.id} siteNome={site.nome} />
       </div>
     </div>
   );
