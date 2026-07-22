@@ -4,17 +4,40 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { TEMPLATES_POR_ID } from "@/lib/templates/catalog";
+import { getMinhaOrg } from "@/lib/painel/queries";
+import { criarSiteComHome } from "@/lib/painel/sites";
 import { slugify } from "@/lib/format";
 
-export async function usarTemplate(formData: FormData) {
+export type UsarTemplateState = { error?: string } | undefined;
+
+export async function usarTemplate(
+  _prev: UsarTemplateState,
+  formData: FormData,
+): Promise<UsarTemplateState> {
   const templateId = String(formData.get("template_id") ?? "");
   const siteId = String(formData.get("site_id") ?? "");
+  const template = TEMPLATES_POR_ID.get(templateId);
+  if (!template) return { error: "Template não encontrado." };
+
+  // Caminho A — sem site selecionado: cria um site novo com o template já
+  // aplicado na página inicial (usado quando o usuário ainda não tem sites).
+  if (!siteId) {
+    const org = await getMinhaOrg();
+    if (!org) return { error: "Sessão expirada. Faça login novamente." };
+    const nomeSite = String(formData.get("novo_site_nome") ?? "").trim();
+    const slugSite = String(formData.get("novo_site_slug") ?? "").trim();
+    const res = await criarSiteComHome(org.id, nomeSite, slugSite, {
+      blocos: template.blocos,
+      tema: template.tema,
+    });
+    if (res.error) return { error: res.error };
+    revalidatePath("/app");
+    redirect(`/app/sites/${res.siteId}/paginas/${res.paginaId}/editor`);
+  }
+
+  // Caminho B — site existente: cria uma página nova com o template.
   const titulo = String(formData.get("titulo") ?? "").trim() || "Página sem título";
   const slugBruto = String(formData.get("slug") ?? "").trim();
-
-  const template = TEMPLATES_POR_ID.get(templateId);
-  if (!template || !siteId) return;
-
   const slug = slugify(slugBruto || titulo);
 
   const supabase = await createClient();
@@ -23,7 +46,7 @@ export async function usarTemplate(formData: FormData) {
     .select("org_id, tema")
     .eq("id", siteId)
     .maybeSingle();
-  if (!site) return;
+  if (!site) return { error: "Site não encontrado." };
   const orgId = (site as { org_id: string }).org_id;
   const temaAtual = (site as { tema: Record<string, unknown> | null }).tema;
 
@@ -42,7 +65,10 @@ export async function usarTemplate(formData: FormData) {
     .select("id")
     .single();
 
-  if (error || !nova) return;
+  if (error) {
+    if (error.code === "23505") return { error: "Já existe uma página com esse endereço." };
+    return { error: error.message };
+  }
   const paginaId = (nova as { id: string }).id;
 
   const rows = template.blocos.map((b, i) => ({

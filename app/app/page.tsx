@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg, getSites } from "@/lib/painel/queries";
+import NovoSite from "./NovoSite";
 
 const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
 
@@ -36,12 +37,15 @@ export default async function PainelHome() {
             </span>
           </p>
         </div>
-        <Link
-          href="/app/templates"
-          className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition hover:bg-brand-2"
-        >
-          + Nova página com template
-        </Link>
+        <div className="flex items-center gap-2">
+          <NovoSite />
+          <Link
+            href="/app/templates"
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition hover:bg-brand-2"
+          >
+            + Página com template
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -59,6 +63,11 @@ export default async function PainelHome() {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-paper-dim">
           Meus sites
         </h2>
+        {sites.length === 0 && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <NovoSite variante="vazio" />
+          </div>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           {sites.map((site) => (
             <Link

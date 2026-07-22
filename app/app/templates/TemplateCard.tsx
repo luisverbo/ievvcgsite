@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { usarTemplate } from "./actions";
+import { useActionState, useState } from "react";
+import { usarTemplate, type UsarTemplateState } from "./actions";
 import type { Template } from "@/lib/templates/catalog";
 import type { Site } from "@/lib/types";
 import { inputClass, labelClass, fieldClass, btnPrimary } from "@/components/painel/ui";
@@ -10,6 +10,13 @@ import { slugify } from "@/lib/format";
 export default function TemplateCard({ template, sites }: { template: Template; sites: Site[] }) {
   const [aberto, setAberto] = useState(false);
   const [slug, setSlug] = useState(slugify(template.nome));
+  const [novoSiteSlug, setNovoSiteSlug] = useState(slugify(template.nome));
+  const [state, formAction, pending] = useActionState<UsarTemplateState, FormData>(
+    usarTemplate,
+    undefined,
+  );
+
+  const semSites = sites.length === 0;
 
   return (
     <>
@@ -71,40 +78,80 @@ export default function TemplateCard({ template, sites }: { template: Template; 
                 ✕
               </button>
             </div>
-            <form action={usarTemplate} className="flex flex-col gap-4">
+
+            <form action={formAction} className="flex flex-col gap-4">
               <input type="hidden" name="template_id" value={template.id} />
-              <div className={fieldClass}>
-                <label className={labelClass}>Site</label>
-                <select name="site_id" required className={inputClass}>
-                  {sites.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className={fieldClass}>
-                <label className={labelClass}>Nome da página</label>
-                <input
-                  name="titulo"
-                  defaultValue={template.nome}
-                  required
-                  className={inputClass}
-                  onChange={(e) => setSlug(slugify(e.target.value))}
-                />
-              </div>
-              <div className={fieldClass}>
-                <label className={labelClass}>Endereço (/…)</label>
-                <input
-                  name="slug"
-                  value={slug}
-                  onChange={(e) => setSlug(slugify(e.target.value))}
-                  required
-                  className={inputClass}
-                />
-              </div>
-              <button type="submit" className={`${btnPrimary} py-2.5`}>
-                Criar página com este template
+
+              {semSites ? (
+                <>
+                  <p className="text-sm text-paper-dim">
+                    Este template vai criar um site novo já pronto para editar.
+                  </p>
+                  <div className={fieldClass}>
+                    <label className={labelClass}>Nome do site</label>
+                    <input
+                      name="novo_site_nome"
+                      defaultValue={template.nome}
+                      required
+                      className={inputClass}
+                      onChange={(e) => setNovoSiteSlug(slugify(e.target.value))}
+                    />
+                  </div>
+                  <div className={fieldClass}>
+                    <label className={labelClass}>Endereço do site</label>
+                    <input
+                      name="novo_site_slug"
+                      value={novoSiteSlug}
+                      onChange={(e) => setNovoSiteSlug(slugify(e.target.value))}
+                      required
+                      minLength={3}
+                      className={inputClass}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className={fieldClass}>
+                    <label className={labelClass}>Site</label>
+                    <select name="site_id" required className={inputClass}>
+                      {sites.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className={fieldClass}>
+                    <label className={labelClass}>Nome da página</label>
+                    <input
+                      name="titulo"
+                      defaultValue={template.nome}
+                      required
+                      className={inputClass}
+                      onChange={(e) => setSlug(slugify(e.target.value))}
+                    />
+                  </div>
+                  <div className={fieldClass}>
+                    <label className={labelClass}>Endereço (/…)</label>
+                    <input
+                      name="slug"
+                      value={slug}
+                      onChange={(e) => setSlug(slugify(e.target.value))}
+                      required
+                      className={inputClass}
+                    />
+                  </div>
+                </>
+              )}
+
+              {state?.error && <p className="text-sm text-danger">{state.error}</p>}
+
+              <button type="submit" disabled={pending} className={`${btnPrimary} py-2.5`}>
+                {pending
+                  ? "Criando…"
+                  : semSites
+                    ? "Criar site com este template"
+                    : "Criar página com este template"}
               </button>
             </form>
           </div>

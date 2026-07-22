@@ -16,6 +16,11 @@ export default async function TemplatesPage() {
         <p className="mt-1 text-sm text-paper-dim">
           Páginas completas, pensadas para converter. Escolha, troque os textos e publique.
         </p>
+        {sites.length === 0 && (
+          <p className="mt-3 rounded-lg border border-brand-2/30 bg-brand/10 px-4 py-2.5 text-sm text-paper">
+            Você ainda não tem sites. Escolha um template abaixo — ele cria seu primeiro site já pronto. ✨
+          </p>
+        )}
       </div>
 
       {CATEGORIAS_TEMPLATE.map((cat) => {
