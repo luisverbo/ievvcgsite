@@ -1284,6 +1284,728 @@ export const TEMPLATES: Template[] = [
       },
     ],
   },
+
+  /* ------------------------------------------------------------------ */
+  /* INFOPRODUTO LOW-TICKET (R$27–97, compra por impulso)                */
+  /* Copy: PAS + urgência + ancoragem de preço + garantia                */
+  /* ------------------------------------------------------------------ */
+  {
+    id: "infoproduto-lowticket",
+    nome: "Infoproduto Low-Ticket",
+    categoria: "Infoprodutos",
+    nicho: "lowticket",
+    descricao: "Ebook, planilha, mini-curso de R$27 a R$97. Página curta e direta para compra por impulso.",
+    icone: "⚡",
+    tema: {
+      fonte_titulo: "Archivo Black",
+      cores: {
+        night: "#1a0e08",
+        night2: "#28160d",
+        night3: "#372013",
+        cream: "#fdf3e7",
+        creamDim: "#d9bfa8",
+        gold: "#ffb347",
+        coral: "#ff6b35",
+        green: "#4cc38a",
+        pink: "#ff8c5a",
+        violet: "#d98a63",
+      },
+    },
+    blocos: [
+      {
+        tipo: "aviso",
+        config: {
+          texto: "⚡ OFERTA RELÂMPAGO: de R$97 por R$27 — só hoje",
+          link_texto: "Aproveitar",
+          href: "#oferta",
+          cor: "coral",
+        },
+      },
+      {
+        tipo: "cabecalho",
+        config: {
+          nome: "Planner Vende Mais",
+          botao: { texto: "Quero por R$27", href: "#oferta", estilo: "primario", rastreio: "Cabecalho" },
+        },
+      },
+      {
+        tipo: "hero",
+        config: {
+          selo: "+3.700 vendidos • Acesso imediato",
+          titulo: "Organize Suas Vendas da Semana em 15 Minutos por Dia",
+          subtitulo: "O planner digital que faz você parar de perder venda por desorganização — pelo preço de uma pizza.",
+          alinhamento: "centro",
+          botoes: [
+            { texto: "Quero meu acesso por R$27", href: "#oferta", estilo: "primario", rastreio: "HeroPrincipal" },
+          ],
+        },
+      },
+      {
+        tipo: "midiatexto",
+        config: {
+          eyebrow: "Você se identifica?",
+          titulo: "Cliente esquecido = venda perdida",
+          corpo: "Você responde no WhatsApp, anota no caderno, esquece de dar retorno… e quando lembra, o cliente já comprou de outro. Não é falta de esforço — é falta de sistema. E cada semana desorganizada custa dinheiro real.",
+          posicao: "direita",
+          itens: ["Follow-ups esquecidos", "Clientes espalhados em mil lugares", "Nenhuma previsão do mês"],
+        },
+      },
+      {
+        tipo: "lista",
+        config: {
+          eyebrow: "O que você recebe hoje",
+          titulo: "Tudo isso por menos de R$1 por dia no mês",
+          itens: [
+            "Planner digital completo (Notion + PDF imprimível)",
+            "Sistema de follow-up que lembra você de cada cliente",
+            "Painel de metas com previsão de faturamento do mês",
+            "BÔNUS 1: 30 mensagens prontas de follow-up (vale R$47)",
+            "BÔNUS 2: Aula de 20 min — como fechar no WhatsApp (vale R$67)",
+            "Atualizações gratuitas para sempre",
+          ],
+        },
+      },
+      {
+        tipo: "estatisticas",
+        config: {
+          itens: [
+            { numero: "+3.700", rotulo: "clientes usando" },
+            { numero: "4,9★", rotulo: "avaliação média" },
+            { numero: "15 min", rotulo: "por dia é o suficiente" },
+          ],
+        },
+      },
+      {
+        tipo: "depoimentos",
+        config: {
+          eyebrow: "Prova real",
+          titulo: "Quem comprou por impulso e não se arrependeu",
+          itens: [
+            { texto: "Paguei R$27 achando que era mais um PDF qualquer. Recuperei o valor na primeira venda que teria esquecido de fazer o follow-up.", autor: "Vanessa R. • consultora de vendas" },
+            { texto: "Simples do jeito certo. Em uma semana minha rotina virou outra.", autor: "Thiago M. • autônomo" },
+          ],
+        },
+      },
+      {
+        tipo: "oferta",
+        config: {
+          eyebrow: "Oferta relâmpago",
+          titulo: "De R$97 por apenas:",
+          preco: 27,
+          preco_sufixo: "pagamento único • acesso imediato",
+          aviso: "🔒 Compra segura • Acesso enviado por email em 1 minuto",
+          botao: { texto: "QUERO MEU ACESSO AGORA", href: "#", estilo: "primario", rastreio: "Comprar" },
+        },
+      },
+      {
+        tipo: "garantia",
+        config: {
+          emoji: "🛡️",
+          selo: "Garantia de 7 dias",
+          titulo: "Risco zero, de verdade",
+          texto: "Baixe, use e teste por 7 dias. Se não valer 10x o que pagou, é só mandar um email e devolvemos os R$27. Sem perguntas.",
+        },
+      },
+      {
+        tipo: "faq",
+        config: {
+          eyebrow: "Últimas dúvidas",
+          titulo: "Perguntas rápidas",
+          itens: [
+            { pergunta: "Como recebo o acesso?", resposta: "Imediatamente após o pagamento, direto no seu email. Pix ou cartão." },
+            { pergunta: "Funciona no celular?", resposta: "Sim! Notion e PDF funcionam em qualquer aparelho." },
+            { pergunta: "É pagamento único mesmo?", resposta: "Sim. R$27 uma única vez, sem mensalidade, com atualizações grátis." },
+          ],
+        },
+      },
+      {
+        tipo: "cta",
+        config: {
+          titulo: "R$27. Uma decisão de 10 segundos.",
+          subtitulo: "Amanhã volta para R$97 — e a desorganização continua custando caro.",
+          botao: { texto: "Garantir por R$27 agora", href: "#oferta", estilo: "primario", rastreio: "CTAFinal" },
+        },
+      },
+      {
+        tipo: "rodape",
+        config: { texto: "Planner Vende Mais", contato: "suporte@vendemais.com.br" },
+      },
+    ],
+  },
+
+  /* ------------------------------------------------------------------ */
+  /* PÁGINA DE VENDAS HIGH-TICKET (curso completo / método R$997+)       */
+  /* Copy: AIDA longa + mecanismo único + stack de bônus + ancoragem     */
+  /* ------------------------------------------------------------------ */
+  {
+    id: "pagina-vendas",
+    nome: "Página de Vendas (High-Ticket)",
+    categoria: "Infoprodutos",
+    nicho: "vendas",
+    descricao: "Página longa de venda para curso ou método premium (R$497+), com mecanismo, bônus e ancoragem.",
+    icone: "💰",
+    tema: {
+      fonte_titulo: "Montserrat",
+      cores: {
+        night: "#0a0f1c",
+        night2: "#101828",
+        night3: "#182338",
+        cream: "#f2f5fa",
+        creamDim: "#aebbd0",
+        gold: "#e8b84b",
+        coral: "#e8b84b",
+        green: "#4cc38a",
+        pink: "#dd6f9c",
+        violet: "#7aa2e3",
+      },
+    },
+    blocos: [
+      {
+        tipo: "aviso",
+        config: {
+          texto: "🎓 Turma com bônus de mentoria fecha domingo às 23h59",
+          link_texto: "Ver oferta",
+          href: "#oferta",
+          cor: "gold",
+        },
+      },
+      {
+        tipo: "cabecalho",
+        config: {
+          nome: "Máquina de Clientes",
+          botao: { texto: "Entrar para a turma", href: "#oferta", estilo: "primario", rastreio: "Cabecalho" },
+        },
+      },
+      {
+        tipo: "hero",
+        config: {
+          selo: "Para prestadores de serviço que já faturam e querem escalar",
+          titulo: "Tenha uma Agenda Cheia de Clientes Certos — Sem Depender de Indicação",
+          subtitulo: "O método completo para construir um sistema previsível de captação que gera de 10 a 30 oportunidades qualificadas por mês.",
+          alinhamento: "centro",
+          botoes: [
+            { texto: "Quero minha agenda cheia", href: "#oferta", estilo: "primario", rastreio: "HeroPrincipal" },
+            { texto: "Ver o método completo", href: "#metodo", estilo: "secundario", rastreio: "HeroSecundario" },
+          ],
+        },
+      },
+      {
+        tipo: "estatisticas",
+        config: {
+          itens: [
+            { numero: "+840", rotulo: "alunos no método" },
+            { numero: "R$31 mi", rotulo: "gerados pelos alunos" },
+            { numero: "93%", rotulo: "renovariam a compra" },
+          ],
+        },
+      },
+      {
+        tipo: "midiatexto",
+        config: {
+          eyebrow: "A verdade incômoda",
+          titulo: "Indicação não é estratégia. É sorte com outro nome.",
+          corpo: "Todo mês a mesma roleta: será que vem cliente? Você é excelente no que faz, mas quem depende de indicação vive refém do acaso — sem previsibilidade, sem como planejar crescimento, aceitando qualquer cliente para pagar as contas.",
+          posicao: "direita",
+          itens: ["Meses bons e meses de pânico", "Clientes que pechincham seu preço", "Zero controle sobre o próprio crescimento"],
+        },
+      },
+      {
+        tipo: "passos",
+        config: {
+          eyebrow: "O mecanismo",
+          titulo: "O Sistema A.C.E. — as 3 alavancas da captação previsível",
+          subtitulo: "Não é mais conteúdo, nem mais rede social. São 3 alavancas na ordem certa.",
+          itens: [
+            { titulo: "Atração", texto: "Posicionamento magnético + oferta de entrada que faz o cliente certo levantar a mão." },
+            { titulo: "Conversão", texto: "Processo de diagnóstico que transforma conversas em contratos sem parecer vendedor." },
+            { titulo: "Escala", texto: "Rotina de 5h/semana + tráfego básico para multiplicar o que funciona." },
+          ],
+        },
+      },
+      {
+        tipo: "cards",
+        config: {
+          eyebrow: "O programa",
+          titulo: "8 módulos, do posicionamento à escala",
+          colunas: 4,
+          itens: [
+            { emoji: "🎯", titulo: "1. Posicionamento", texto: "Defina o nicho e a promessa que fazem o mercado te notar." },
+            { emoji: "🧲", titulo: "2. Oferta magnética", texto: "Monte uma oferta de entrada impossível de ignorar." },
+            { emoji: "📣", titulo: "3. Canais de atração", texto: "Os 3 canais que trazem cliente sem depender de viral." },
+            { emoji: "💬", titulo: "4. Diagnóstico", texto: "O script de conversa que fecha sem pressão." },
+            { emoji: "💵", titulo: "5. Precificação", texto: "Cobre caro com segurança e pare de negociar centavos." },
+            { emoji: "📈", titulo: "6. Tráfego essencial", texto: "Anúncios simples com R$20/dia que alimentam o sistema." },
+            { emoji: "🔁", titulo: "7. Recorrência", texto: "Transforme projetos avulsos em contratos mensais." },
+            { emoji: "🚀", titulo: "8. Escala", texto: "Rotina, métricas e time enxuto para crescer sem caos." },
+          ],
+        },
+      },
+      {
+        tipo: "lista",
+        config: {
+          eyebrow: "Stack de bônus da turma",
+          titulo: "Entrando hoje, você leva junto:",
+          itens: [
+            "BÔNUS 1 — 4 encontros de mentoria em grupo ao vivo (vale R$1.997)",
+            "BÔNUS 2 — Pack de 50 templates de proposta e contrato (vale R$497)",
+            "BÔNUS 3 — Auditoria gravada de 10 perfis de alunos (vale R$297)",
+            "BÔNUS 4 — Comunidade privada com networking e vagas de parceria",
+            "Acesso vitalício + todas as atualizações do método",
+          ],
+        },
+      },
+      {
+        tipo: "depoimentos",
+        config: {
+          eyebrow: "Prova",
+          titulo: "Resultados de quem aplicou o A.C.E.",
+          itens: [
+            { texto: "Saí de 2 clientes por indicação para 14 contratos ativos em 5 meses. Tripliquei o faturamento e dobrei meu preço.", autor: "Camila T. • social media → agência" },
+            { texto: "O módulo de diagnóstico pagou o curso na primeira semana. Fechei R$9.400 em contratos usando o script.", autor: "André L. • consultor financeiro" },
+            { texto: "Achava que era caro. Hoje vejo que caro era continuar como eu estava.", autor: "Paula V. • arquiteta" },
+          ],
+        },
+      },
+      {
+        tipo: "planos",
+        config: {
+          eyebrow: "Investimento",
+          titulo: "Escolha como quer entrar",
+          subtitulo: "Os dois planos dão acesso completo ao método. A diferença é o acompanhamento.",
+          itens: [
+            {
+              nome: "Método completo",
+              preco: 1497,
+              preco_sufixo: "ou 12x de R$149,70",
+              descricao: "Para executar no seu ritmo",
+              itens: ["8 módulos completos", "Todos os 4 bônus da turma", "Acesso vitalício", "Comunidade privada"],
+              botao: { texto: "Entrar agora", href: "#", estilo: "secundario", rastreio: "PlanoMetodo" },
+            },
+            {
+              nome: "Método + Acompanhamento",
+              preco: 2497,
+              preco_sufixo: "ou 12x de R$249,70",
+              descricao: "Para quem quer ir mais rápido",
+              destaque: true,
+              selo: "Mais resultado",
+              itens: ["Tudo do Método completo", "6 meses de encontros quinzenais", "Correção individual da sua oferta", "Grupo restrito no WhatsApp"],
+              botao: { texto: "Quero acompanhamento", href: "#", estilo: "primario", rastreio: "PlanoAcompanhamento" },
+            },
+          ],
+        },
+      },
+      {
+        tipo: "garantia",
+        config: {
+          emoji: "🛡️",
+          selo: "Garantia blindada de 15 dias",
+          titulo: "Teste o método inteiro por 15 dias",
+          texto: "Assista aos módulos, participe da mentoria, use os templates. Se decidir que não é para você, devolvemos 100% — e você fica com os templates de presente.",
+        },
+      },
+      {
+        tipo: "faq",
+        config: {
+          eyebrow: "Objeções sinceras",
+          titulo: "Perguntas que todo mundo faz antes de entrar",
+          itens: [
+            { pergunta: "Funciona para o meu mercado?", resposta: "O método já foi aplicado por +840 alunos em 60+ nichos de serviço: saúde, design, advocacia, consultoria, beleza, engenharia. As alavancas são as mesmas — o que muda é o exemplo, e há aulas por segmento." },
+            { pergunta: "Não tenho tempo. Vou conseguir aplicar?", resposta: "O método foi desenhado para 5h por semana. Aliás, se você não tem tempo, é exatamente porque ainda não tem um sistema — é isso que vamos construir." },
+            { pergunta: "Já comprei curso e não apliquei. Por que seria diferente?", resposta: "Por isso existe o plano com acompanhamento: encontros quinzenais com correção do seu material. Não é conteúdo para assistir, é sistema para implementar com cobrança." },
+            { pergunta: "E se eu não gostar?", resposta: "15 dias de garantia incondicional. Um email e devolvemos tudo." },
+            { pergunta: "Posso parcelar?", resposta: "Sim, em até 12x no cartão. O acesso é liberado na hora." },
+          ],
+        },
+      },
+      {
+        tipo: "cta",
+        config: {
+          titulo: "Daqui a 6 meses, você vai estar com a agenda cheia — ou esperando indicação",
+          subtitulo: "A turma fecha domingo. A decisão leva 1 minuto; o resultado, uma carreira.",
+          botao: { texto: "Entrar para a turma agora", href: "#oferta", estilo: "primario", rastreio: "CTAFinal" },
+        },
+      },
+      {
+        tipo: "rodape",
+        config: { texto: "Máquina de Clientes", contato: "suporte@maquinadeclientes.com.br" },
+      },
+    ],
+  },
+
+  /* ------------------------------------------------------------------ */
+  /* MENTORIA / HIGH-TICKET POR APLICAÇÃO                                */
+  /* Copy: qualificação + autoridade + escassez real                     */
+  /* ------------------------------------------------------------------ */
+  {
+    id: "mentoria",
+    nome: "Mentoria (por aplicação)",
+    categoria: "Infoprodutos",
+    nicho: "mentoria",
+    descricao: "Mentoria ou consultoria premium com vagas limitadas e formulário de aplicação.",
+    icone: "👑",
+    tema: {
+      fonte_titulo: "Oswald",
+      cores: {
+        night: "#0f0d09",
+        night2: "#181510",
+        night3: "#231e16",
+        cream: "#f5f0e6",
+        creamDim: "#bab2a0",
+        gold: "#d4af37",
+        coral: "#d4af37",
+        green: "#4cae8a",
+        pink: "#c9a15e",
+        violet: "#a08a5c",
+      },
+    },
+    blocos: [
+      {
+        tipo: "cabecalho",
+        config: {
+          nome: "Mentoria Ápice",
+          botao: { texto: "Aplicar para uma vaga", href: "#aplicacao", estilo: "primario", rastreio: "Cabecalho" },
+        },
+      },
+      {
+        tipo: "hero",
+        config: {
+          selo: "Apenas 10 vagas por trimestre • Seleção por aplicação",
+          titulo: "6 Meses ao Meu Lado para Construir seu Próximo Patamar",
+          subtitulo: "Mentoria individual para empresários que já faturam acima de R$30 mil/mês e querem estrutura para dobrar sem se afogar na operação.",
+          alinhamento: "centro",
+          botoes: [
+            { texto: "Quero aplicar para uma vaga", href: "#aplicacao", estilo: "primario", rastreio: "HeroPrincipal" },
+          ],
+        },
+      },
+      {
+        tipo: "midiatexto",
+        config: {
+          eyebrow: "Quem conduz",
+          titulo: "Eu já estive exatamente onde você está",
+          corpo: "Construí e vendi duas empresas, faturei múltiplos 7 dígitos e cometi os erros caros que você não precisa cometer. Hoje dedico minha agenda a poucos mentorados por vez — porque profundidade não escala, e é ela que gera resultado.",
+          posicao: "esquerda",
+          itens: ["2 empresas construídas e vendidas", "+R$40 milhões faturados", "+120 empresários mentorados"],
+        },
+      },
+      {
+        tipo: "lista",
+        config: {
+          eyebrow: "Para quem é",
+          titulo: "Esta mentoria é para você que…",
+          itens: [
+            "Já fatura acima de R$30 mil/mês e sente que virou refém do próprio negócio",
+            "Quer dobrar o faturamento com estrutura, não com mais horas trabalhadas",
+            "Está disposto a ser confrontado e executar o que for combinado",
+            "Busca um conselheiro com cicatrizes, não um vendedor de promessas",
+          ],
+        },
+      },
+      {
+        tipo: "passos",
+        config: {
+          eyebrow: "Como funciona",
+          titulo: "A jornada de 6 meses",
+          itens: [
+            { titulo: "Diagnóstico profundo", texto: "Imersão inicial de 4h mapeando números, gargalos e o plano do semestre." },
+            { titulo: "Encontros quinzenais", texto: "Sessões individuais de 1h30 com plano de ação e cobrança de execução." },
+            { titulo: "Acesso direto", texto: "Canal privado comigo para decisões que não podem esperar a próxima sessão." },
+            { titulo: "Revisão trimestral", texto: "Balanço de resultados e recalibragem de metas a cada 90 dias." },
+          ],
+        },
+      },
+      {
+        tipo: "depoimentos",
+        config: {
+          eyebrow: "Mentorados",
+          titulo: "O que dizem os que chegaram lá",
+          itens: [
+            { texto: "Em 6 meses saí de R$45 mil para R$110 mil/mês — e pela primeira vez tirei férias sem o negócio parar.", autor: "Ricardo M. • e-commerce" },
+            { texto: "Não foi só faturamento. Foi clareza. Cada sessão economizou meses de tentativa e erro.", autor: "Fernanda C. • clínica odontológica" },
+          ],
+        },
+      },
+      {
+        tipo: "estatisticas",
+        config: {
+          itens: [
+            { numero: "10", rotulo: "vagas por trimestre" },
+            { numero: "6 meses", rotulo: "de acompanhamento" },
+            { numero: "+120", rotulo: "empresários mentorados" },
+          ],
+        },
+      },
+      {
+        tipo: "formulario",
+        config: {
+          eyebrow: "Aplicação",
+          titulo: "Aplique para uma das 10 vagas",
+          subtitulo: "Análise em até 48h. Se houver encaixe, você recebe o convite para uma conversa.",
+          campos: [
+            { nome: "Nome completo", tipo: "texto", obrigatorio: true },
+            { nome: "WhatsApp", tipo: "telefone", obrigatorio: true },
+            { nome: "Seu negócio e faturamento mensal atual", tipo: "texto", obrigatorio: true },
+            { nome: "Principal desafio hoje", tipo: "texto", obrigatorio: true },
+          ],
+          botao_texto: "Enviar minha aplicação",
+          mensagem_sucesso: "Aplicação recebida. Analisamos em até 48h e retornamos pelo WhatsApp. 🤝",
+        },
+      },
+      {
+        tipo: "faq",
+        config: {
+          eyebrow: "Dúvidas",
+          titulo: "Antes de aplicar",
+          itens: [
+            { pergunta: "Qual o investimento?", resposta: "O valor é apresentado na conversa de seleção, após confirmarmos que há encaixe. Adianto: é um investimento sério, para quem trata o negócio com seriedade." },
+            { pergunta: "Por que existe seleção?", resposta: "Porque minha agenda comporta poucos mentorados e o resultado depende de encaixe mútuo. Eu só aceito quem eu tenho convicção de que consigo ajudar." },
+            { pergunta: "É online ou presencial?", resposta: "As sessões são online. A imersão inicial pode ser presencial, conforme sua cidade." },
+          ],
+        },
+      },
+      {
+        tipo: "rodape",
+        config: { texto: "Mentoria Ápice", contato: "contato@mentoriaapice.com.br" },
+      },
+    ],
+  },
+
+  /* ------------------------------------------------------------------ */
+  /* COMUNIDADE / ASSINATURA (recorrência)                               */
+  /* ------------------------------------------------------------------ */
+  {
+    id: "comunidade",
+    nome: "Comunidade / Assinatura",
+    categoria: "Infoprodutos",
+    nicho: "comunidade",
+    descricao: "Clube de assinatura, comunidade paga ou área de membros com plano mensal e anual.",
+    icone: "🤝",
+    tema: {
+      fonte_titulo: "Montserrat",
+      cores: {
+        night: "#120b26",
+        night2: "#1b1138",
+        night3: "#261849",
+        cream: "#f5f2ff",
+        creamDim: "#c2b8dd",
+        gold: "#ffb84d",
+        coral: "#8b5cf6",
+        green: "#3fd0a4",
+        pink: "#e878a6",
+        violet: "#9d6be0",
+      },
+    },
+    blocos: [
+      {
+        tipo: "aviso",
+        config: {
+          texto: "🎁 Assinatura anual com 2 meses grátis — por tempo limitado",
+          link_texto: "Ver planos",
+          href: "#planos",
+          cor: "violet",
+        },
+      },
+      {
+        tipo: "cabecalho",
+        config: {
+          nome: "Clube Criativo",
+          botao: { texto: "Entrar no clube", href: "#planos", estilo: "primario", rastreio: "Cabecalho" },
+        },
+      },
+      {
+        tipo: "hero",
+        config: {
+          selo: "+1.200 membros ativos",
+          titulo: "Pare de Aprender Sozinho. Cresça em Comunidade.",
+          subtitulo: "Aulas novas toda semana, encontros ao vivo, networking real e um lugar para tirar dúvidas todo dia — por menos de R$2 por dia.",
+          alinhamento: "centro",
+          botoes: [
+            { texto: "Quero fazer parte", href: "#planos", estilo: "primario", rastreio: "HeroPrincipal" },
+            { texto: "O que tem dentro", href: "#dentro", estilo: "secundario", rastreio: "HeroSecundario" },
+          ],
+        },
+      },
+      {
+        tipo: "cards",
+        config: {
+          eyebrow: "O que tem dentro",
+          titulo: "Seu plano de evolução contínua",
+          colunas: 3,
+          itens: [
+            { emoji: "🎓", titulo: "Aulas semanais", texto: "Conteúdo novo toda semana, direto ao ponto, com material de apoio." },
+            { emoji: "🔴", titulo: "Encontros ao vivo", texto: "2 lives mensais com convidados + sessões de perguntas abertas." },
+            { emoji: "💬", titulo: "Comunidade ativa", texto: "Tire dúvidas, receba feedback e feche parcerias todos os dias." },
+            { emoji: "📚", titulo: "Biblioteca completa", texto: "+150 aulas gravadas organizadas por trilha, do básico ao avançado." },
+            { emoji: "🏆", titulo: "Desafios mensais", texto: "Projetos práticos com premiação e destaque para os melhores." },
+            { emoji: "🎟️", titulo: "Vantagens de membro", texto: "Descontos em ferramentas parceiras e prioridade em eventos." },
+          ],
+        },
+      },
+      {
+        tipo: "estatisticas",
+        config: {
+          itens: [
+            { numero: "+1.200", rotulo: "membros ativos" },
+            { numero: "+150", rotulo: "aulas na biblioteca" },
+            { numero: "24", rotulo: "lives por ano" },
+          ],
+        },
+      },
+      {
+        tipo: "depoimentos",
+        config: {
+          eyebrow: "Membros",
+          titulo: "Quem entrou, ficou",
+          itens: [
+            { texto: "Já paguei cursos de R$2.000 que renderam menos que 3 meses de clube. A comunidade responde tudo em minutos.", autor: "Larissa M. • membro há 1 ano" },
+            { texto: "Fechei dois clientes dentro da própria comunidade. A assinatura se paga sozinha.", autor: "João P. • membro há 8 meses" },
+          ],
+        },
+      },
+      {
+        tipo: "planos",
+        config: {
+          eyebrow: "Planos",
+          titulo: "Escolha o seu ritmo",
+          subtitulo: "Cancele quando quiser, sem multa e sem burocracia.",
+          itens: [
+            {
+              nome: "Mensal",
+              preco: 57,
+              preco_sufixo: "/mês",
+              descricao: "Flexibilidade total",
+              itens: ["Acesso completo a tudo", "Cancele quando quiser"],
+              botao: { texto: "Assinar mensal", href: "#", estilo: "secundario", rastreio: "PlanoMensal" },
+            },
+            {
+              nome: "Anual",
+              preco: 570,
+              preco_sufixo: "/ano (2 meses grátis)",
+              descricao: "O preferido dos membros",
+              destaque: true,
+              selo: "Economize R$114",
+              itens: ["Tudo do plano mensal", "2 meses grátis no ano", "Badge de membro fundador", "1 sessão de mentoria em grupo/ano"],
+              botao: { texto: "Assinar anual", href: "#", estilo: "primario", rastreio: "PlanoAnual" },
+            },
+          ],
+        },
+      },
+      {
+        tipo: "garantia",
+        config: {
+          emoji: "🔓",
+          selo: "Sem fidelidade",
+          titulo: "Entre e saia quando quiser",
+          texto: "Sem contrato, sem multa, sem pegadinha. Se o clube não fizer sentido para você, cancela em 2 cliques direto na plataforma.",
+        },
+      },
+      {
+        tipo: "faq",
+        config: {
+          eyebrow: "Dúvidas",
+          titulo: "Perguntas frequentes",
+          itens: [
+            { pergunta: "Sou iniciante. Vou acompanhar?", resposta: "Sim! A biblioteca tem trilhas do zero absoluto ao avançado, e a comunidade adora ajudar quem está começando." },
+            { pergunta: "Quanto tempo preciso dedicar?", resposta: "2 a 3 horas por semana já geram evolução visível. Tudo fica gravado para o seu ritmo." },
+            { pergunta: "Como cancelo?", resposta: "Direto na plataforma, em 2 cliques, sem falar com ninguém." },
+          ],
+        },
+      },
+      {
+        tipo: "rodape",
+        config: { texto: "Clube Criativo", contato: "oi@clubecriativo.com.br", instagram_url: "https://instagram.com" },
+      },
+    ],
+  },
+
+  /* ------------------------------------------------------------------ */
+  /* PÁGINA DE OBRIGADO + UPSELL (pós-compra / pós-cadastro)             */
+  /* ------------------------------------------------------------------ */
+  {
+    id: "pagina-obrigado",
+    nome: "Obrigado + Upsell",
+    categoria: "Funil",
+    nicho: "obrigado",
+    descricao: "Página pós-compra ou pós-cadastro: confirma, orienta os próximos passos e faz uma oferta única.",
+    icone: "🎉",
+    tema: {
+      cores: {
+        night: "#0c1f16",
+        night2: "#123024",
+        night3: "#1a4231",
+        cream: "#f1f8f3",
+        creamDim: "#bdd4c5",
+        gold: "#f4c04b",
+        coral: "#37b08a",
+        green: "#37b08a",
+        pink: "#e58fb0",
+        violet: "#8fbf9f",
+      },
+    },
+    blocos: [
+      {
+        tipo: "hero",
+        config: {
+          selo: "✅ Tudo certo!",
+          titulo: "Pedido Confirmado. Bem-vindo(a)! 🎉",
+          subtitulo: "Seu acesso já está a caminho do seu email. Enquanto isso, siga os 3 passos abaixo para começar com o pé direito.",
+          alinhamento: "centro",
+        },
+      },
+      {
+        tipo: "passos",
+        config: {
+          eyebrow: "Próximos passos",
+          titulo: "Faça isso agora (leva 2 minutos)",
+          itens: [
+            { titulo: "Confira seu email", texto: "O acesso chega em até 5 minutos. Olhe também o spam e a aba Promoções." },
+            { titulo: "Salve nosso contato", texto: "Adicione nosso número para receber avisos importantes no WhatsApp." },
+            { titulo: "Entre na comunidade", texto: "Apresente-se no grupo de alunos — é lá que a mágica acontece." },
+          ],
+        },
+      },
+      {
+        tipo: "aviso",
+        config: {
+          texto: "⏳ Oferta exclusiva desta página — ela não aparece de novo",
+          cor: "gold",
+        },
+      },
+      {
+        tipo: "midiatexto",
+        config: {
+          eyebrow: "Só para novos alunos",
+          titulo: "Quer acelerar seu resultado em 10x?",
+          corpo: "Quem está entrando agora pode adicionar a Masterclass de Implementação — 4 horas de conteúdo prático onde eu monto tudo na sua frente, passo a passo — por uma fração do preço normal.",
+          posicao: "esquerda",
+          itens: ["4h de implementação gravada na prática", "Modelos prontos para copiar e colar", "Acesso vitalício junto do seu produto"],
+        },
+      },
+      {
+        tipo: "oferta",
+        config: {
+          eyebrow: "Oferta única de novo aluno",
+          titulo: "De R$297 por apenas:",
+          preco: 97,
+          preco_sufixo: "só nesta página",
+          aviso: "Ao sair desta página, a oferta expira e volta ao preço normal.",
+          botao: { texto: "SIM! Adicionar ao meu pedido", href: "#", estilo: "primario", rastreio: "Upsell" },
+        },
+      },
+      {
+        tipo: "cta",
+        config: {
+          titulo: "Prefere seguir sem o acelerador?",
+          subtitulo: "Sem problema — seu acesso principal já está garantido no seu email.",
+          botao: { texto: "Não, obrigado. Quero só meu acesso →", href: "#", estilo: "secundario", rastreio: "RecusarUpsell" },
+        },
+      },
+      {
+        tipo: "rodape",
+        config: { texto: "Suporte", contato: "suporte@seuproduto.com.br" },
+      },
+    ],
+  },
 ];
 
 export const TEMPLATES_POR_ID = new Map(TEMPLATES.map((t) => [t.id, t]));
