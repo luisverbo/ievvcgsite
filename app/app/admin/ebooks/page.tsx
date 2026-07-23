@@ -9,7 +9,7 @@ import ChaveForm from "./ChaveForm";
 import { excluirEbook, type EbookRow } from "./actions";
 import { cardClass } from "@/components/painel/ui";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const FORMATOS: Record<string, string> = { a4: "A4", mobile: "Mobile", quadrado: "Quadrado" };
 

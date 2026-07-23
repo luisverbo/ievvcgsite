@@ -21,7 +21,16 @@ export default function NovoEbook({ temChave }: { temChave: boolean }) {
     // Gera SÓ o texto (barato). As imagens (a parte cara) ficam para depois
     // que você revisar e aprovar o conteúdo no leitor.
     setFase({ etapa: "texto" });
-    const res = await criarEbook(formData);
+    let res;
+    try {
+      res = await criarEbook(formData);
+    } catch (e) {
+      setFase({
+        etapa: "erro",
+        mensagem: e instanceof Error ? e.message : "Falha de conexão. Tente de novo.",
+      });
+      return;
+    }
     if (res.error || !res.ebookId) {
       setFase({ etapa: "erro", mensagem: res.error ?? "Erro desconhecido." });
       return;

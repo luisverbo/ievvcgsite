@@ -125,15 +125,24 @@ export default function LeitorRevista({ ebook, admin }: { ebook: EbookRow; admin
   }
 
   /* --------------------- geração de imagens em lote -------------------- */
+  // Chamada blindada: erro de rede/timeout NUNCA pode travar o lote.
+  async function tentarGerar(indice: number, opcoes?: { prompt?: string; forcar?: boolean }) {
+    try {
+      return await gerarImagemPagina(ebook.id, indice, opcoes);
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : "Falha de conexão." };
+    }
+  }
+
   async function aprovarEGerarImagens() {
     const indices = paginas.map((p, i) => (p.imagem_url ? -1 : i)).filter((i) => i >= 0);
     let falhas = 0;
     for (let n = 0; n < indices.length; n++) {
       const i = indices[n];
       setLote({ atual: n + 1, total: indices.length, falhas });
-      let res = await gerarImagemPagina(ebook.id, i);
+      let res = await tentarGerar(i);
       if (res.error) {
-        res = await gerarImagemPagina(ebook.id, i);
+        res = await tentarGerar(i);
         if (res.error) falhas++;
       }
       if (res.url) {
@@ -142,8 +151,18 @@ export default function LeitorRevista({ ebook, admin }: { ebook: EbookRow; admin
       }
       setLote({ atual: n + 1, total: indices.length, falhas });
     }
-    await marcarPronto(ebook.id);
+    try {
+      await marcarPronto(ebook.id);
+    } catch {
+      /* status fica como está; não trava a interface */
+    }
     setLote(null);
+    if (falhas > 0) {
+      alert(
+        `${falhas} imagem(ns) falharam (a OpenAI às vezes recusa ou demora demais). ` +
+          `Passe o mouse na miniatura da página e clique em 🔄 para tentar de novo só aquela.`,
+      );
+    }
   }
 
   /* ------------------------- troca de imagem --------------------------- */
@@ -155,13 +174,15 @@ export default function LeitorRevista({ ebook, admin }: { ebook: EbookRow; admin
   async function confirmarTroca() {
     if (trocando === null) return;
     setGerandoTroca(true);
-    const res = await gerarImagemPagina(ebook.id, trocando, { prompt: promptTroca, forcar: true });
+    const res = await tentarGerar(trocando, { prompt: promptTroca, forcar: true });
     if (res.url) {
       const url = res.url;
       setPaginas((ps) =>
         ps.map((p, j) => (j === trocando ? { ...p, imagem_url: url, prompt_imagem: promptTroca } : p)),
       );
       setTrocando(null);
+    } else if (res.error) {
+      alert(`Não consegui gerar: ${res.error}`);
     }
     setGerandoTroca(false);
   }

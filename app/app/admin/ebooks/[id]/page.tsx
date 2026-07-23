@@ -5,7 +5,7 @@ import { ehAdmin } from "../../actions";
 import type { EbookRow } from "../actions";
 import LeitorRevista from "@/components/ebook/LeitorRevista";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export default async function EbookPage({ params }: { params: Promise<{ id: string }> }) {
   if (!(await ehAdmin())) notFound();

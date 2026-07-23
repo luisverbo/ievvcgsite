@@ -103,6 +103,8 @@ Responda SOMENTE com JSON válido:
       response_format: { type: "json_object" },
       temperature: 0.8,
     }),
+    // Sem timeout a requisição pode pendurar para sempre e travar o fluxo.
+    signal: AbortSignal.timeout(150_000),
   });
 
   if (!res.ok) {
@@ -157,6 +159,9 @@ export async function gerarImagemEbook(
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
       body: JSON.stringify(body),
+      // gpt-image-1 em qualidade alta pode passar de 1 minuto; aborta em 2min30
+      // para o fallback/erro acontecer antes do limite da função (300s).
+      signal: AbortSignal.timeout(150_000),
     });
     if (!res.ok) {
       const erro = await res.text();
