@@ -48,6 +48,7 @@ export default function Analytics({
           tipo: "click",
           rotulo: el.getAttribute("data-track"),
           path: window.location.pathname,
+          origem: detectarOrigem(),
         })
         .then(() => {});
     }

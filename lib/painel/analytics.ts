@@ -17,6 +17,19 @@ export type ZonaCalor = {
   tempo: number; // segundos somados com esta zona na tela
 };
 
+export type ConversaoOrigem = {
+  origem: string;
+  visitas: number;
+  cliques: number;
+  taxa: number; // % (cliques / visitas)
+};
+
+export type BotaoPorOrigem = {
+  botao: string;
+  total: number;
+  porOrigem: LinhaContagem[]; // segmentos do empilhado, maior primeiro
+};
+
 export type MetricasSite = {
   visitas: number;
   cliques: number;
@@ -25,7 +38,9 @@ export type MetricasSite = {
   tempoMedio: number | null; // segundos médios na página (null sem dados)
   scrollMedio: number | null; // % médio da página que os visitantes viram
   porOrigem: LinhaContagem[];
+  conversaoPorOrigem: ConversaoOrigem[];
   cliquesPorBotao: LinhaContagem[];
+  botoesPorOrigem: BotaoPorOrigem[];
   porPagina: LinhaContagem[];
   porDia: { dia: string; visitas: number }[];
   porHora: { hora: number; visitas: number }[];
@@ -99,7 +114,9 @@ export async function getMetricasSite(
   let visitas = 0;
   let cliques = 0;
   const origens = new Map<string, number>();
+  const cliquesOrigem = new Map<string, number>();
   const botoes = new Map<string, number>();
+  const botaoOrigem = new Map<string, Map<string, number>>();
   const paginas = new Map<string, number>();
   const porDiaMapa = new Map<string, number>();
   const porHoraMapa = new Map<number, number>();
@@ -130,6 +147,12 @@ export async function getMetricasSite(
       cliques++;
       const rotulo = e.rotulo || "Botão";
       botoes.set(rotulo, (botoes.get(rotulo) ?? 0) + 1);
+      // Cliques antigos (antes da atualização) não têm origem gravada.
+      const origem = e.origem || "Sem origem";
+      cliquesOrigem.set(origem, (cliquesOrigem.get(origem) ?? 0) + 1);
+      const mapaBotao = botaoOrigem.get(rotulo) ?? new Map<string, number>();
+      mapaBotao.set(origem, (mapaBotao.get(origem) ?? 0) + 1);
+      botaoOrigem.set(rotulo, mapaBotao);
     } else if (e.tipo === "saida") {
       const d = e.dados ?? {};
       const maxScroll = Math.min(100, Math.max(0, Number(d.max_scroll) || 0));
@@ -161,6 +184,26 @@ export async function getMetricasSite(
           };
         });
 
+  // Conversão por origem: cruza visitas e cliques de cada canal.
+  const todasOrigens = new Set([...origens.keys(), ...cliquesOrigem.keys()]);
+  const conversaoPorOrigem: ConversaoOrigem[] = [...todasOrigens]
+    .map((origem) => {
+      const v = origens.get(origem) ?? 0;
+      const c = cliquesOrigem.get(origem) ?? 0;
+      return { origem, visitas: v, cliques: c, taxa: v > 0 ? Math.round((c / v) * 100) : 0 };
+    })
+    .sort((a, b) => b.visitas - a.visitas)
+    .slice(0, 8);
+
+  const botoesPorOrigem: BotaoPorOrigem[] = [...botaoOrigem.entries()]
+    .map(([botao, mapa]) => ({
+      botao,
+      total: [...mapa.values()].reduce((acc, n) => acc + n, 0),
+      porOrigem: top(mapa, 6),
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 8);
+
   return {
     visitas,
     cliques,
@@ -169,7 +212,9 @@ export async function getMetricasSite(
     tempoMedio: saidas > 0 ? Math.round(somaTempo / saidas) : null,
     scrollMedio: saidas > 0 ? Math.round(somaScroll / saidas) : null,
     porOrigem: top(origens),
+    conversaoPorOrigem,
     cliquesPorBotao: top(botoes),
+    botoesPorOrigem,
     porPagina: top(paginas, 10),
     porDia: [...porDiaMapa.entries()].map(([dia, v]) => ({ dia, visitas: v })),
     porHora: Array.from({ length: 24 }, (_, h) => ({ hora: h, visitas: porHoraMapa.get(h) ?? 0 })),

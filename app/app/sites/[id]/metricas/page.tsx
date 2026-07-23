@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSite } from "@/lib/painel/queries";
-import { getMetricasSite, type LinhaContagem } from "@/lib/painel/analytics";
+import {
+  getMetricasSite,
+  type BotaoPorOrigem,
+  type ConversaoOrigem,
+  type LinhaContagem,
+} from "@/lib/painel/analytics";
 import { cardClass } from "@/components/painel/ui";
 
 const PERIODOS = [
@@ -19,7 +24,109 @@ const CORES_ORIGEM: Record<string, string> = {
   YouTube: "#ef5b43",
   "Twitter/X": "#a6adbd",
   Direto: "#6c5ce7",
+  "Sem origem": "#5a6070",
 };
+
+const CORES_EXTRA = ["#4cc38a", "#f06a9b", "#7aa2e3", "#e7b64b", "#b57ae0"];
+
+function corOrigem(origem: string, i: number) {
+  return CORES_ORIGEM[origem] ?? CORES_EXTRA[i % CORES_EXTRA.length];
+}
+
+// Origens com visitas × cliques × taxa de conversão do canal.
+function OrigensCard({ linhas }: { linhas: ConversaoOrigem[] }) {
+  const maxVisitas = Math.max(1, ...linhas.map((l) => l.visitas));
+  return (
+    <div className={cardClass}>
+      <h2 className="mb-1 text-lg font-bold">De onde vêm as visitas — e quem clica</h2>
+      <p className="mb-4 text-xs text-paper-dim">
+        Taxa = cliques ÷ visitas do canal. É o canal que traz gente que age, não só visita.
+      </p>
+      {linhas.length === 0 ? (
+        <p className="text-sm text-paper-dim">Sem dados no período ainda.</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {linhas.map((l, i) => (
+            <div key={l.origem}>
+              <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+                <span className="flex items-center gap-2 truncate font-semibold">
+                  <i
+                    className="h-2.5 w-2.5 flex-none rounded-full"
+                    style={{ background: corOrigem(l.origem, i) }}
+                  />
+                  {l.origem}
+                </span>
+                <span className="flex-none text-paper-dim">
+                  {l.visitas} visitas · {l.cliques} cliques ·{" "}
+                  <b className={l.taxa >= 10 ? "text-ok" : "text-paper"}>{l.taxa}%</b>
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-white/8">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${(l.visitas / maxVisitas) * 100}%`,
+                    background: corOrigem(l.origem, i),
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Cada botão com barra empilhada por origem do clique.
+function BotoesOrigemCard({ titulo, linhas }: { titulo: string; linhas: BotaoPorOrigem[] }) {
+  const max = Math.max(1, ...linhas.map((l) => l.total));
+  return (
+    <div className={cardClass}>
+      <h2 className="mb-1 text-lg font-bold">{titulo}</h2>
+      <p className="mb-4 text-xs text-paper-dim">
+        Cada cor mostra de onde veio quem clicou naquele botão.
+      </p>
+      {linhas.length === 0 ? (
+        <p className="text-sm text-paper-dim">Sem cliques no período ainda.</p>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {linhas.map((l) => (
+            <div key={l.botao}>
+              <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+                <span className="truncate font-semibold">{l.botao}</span>
+                <span className="flex-none text-paper-dim">{l.total}</span>
+              </div>
+              <div className="flex h-2.5 overflow-hidden rounded-full bg-white/8">
+                {l.porOrigem.map((seg, i) => (
+                  <div
+                    key={seg.rotulo}
+                    title={`${seg.rotulo}: ${seg.total}`}
+                    style={{
+                      width: `${(seg.total / max) * 100}%`,
+                      background: corOrigem(seg.rotulo, i),
+                    }}
+                  />
+                ))}
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+                {l.porOrigem.map((seg, i) => (
+                  <span key={seg.rotulo} className="flex items-center gap-1.5 text-[11px] text-paper-dim">
+                    <i
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: corOrigem(seg.rotulo, i) }}
+                    />
+                    {seg.rotulo} · {seg.total}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function formatarTempo(s: number) {
   if (s < 60) return `${s}s`;
@@ -260,10 +367,10 @@ export default async function MetricasPage({
         {!filtroPagina && (
           <BarraLista titulo="Métricas por página" linhas={m.porPagina} linkBase={`${urlBase}?p=${dias}&pg=`} />
         )}
-        <BarraLista titulo="De onde vêm as visitas" linhas={m.porOrigem} corPor />
-        <BarraLista
-          titulo={filtroPagina ? "Cliques por botão (só desta página)" : "Cliques por botão"}
-          linhas={m.cliquesPorBotao}
+        <OrigensCard linhas={m.conversaoPorOrigem} />
+        <BotoesOrigemCard
+          titulo={filtroPagina ? "Cliques por botão e origem (só desta página)" : "Cliques por botão e origem"}
+          linhas={m.botoesPorOrigem}
         />
 
         {/* horários */}
