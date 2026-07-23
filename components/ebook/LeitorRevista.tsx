@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { gerarImagemPagina, marcarPronto, type EbookRow } from "@/app/app/admin/ebooks/actions";
 import type { PaginaEbook } from "@/lib/ebooks/openai";
 
@@ -428,6 +428,56 @@ export default function LeitorRevista({ ebook, admin }: { ebook: EbookRow; admin
 /* Diagramação editorial das páginas                                     */
 /* ==================================================================== */
 
+/*
+ * Regra de ouro: NUNCA cortar texto. Todo bloco de texto vive dentro de
+ * <TextoAjustavel>, que mede o conteúdo depois de renderizar e, se não
+ * couber na área disponível, reduz a fonte proporcionalmente até caber.
+ * Margens em "em" (escalam com a página) e quebra de palavra garantida.
+ */
+function TextoAjustavel({
+  children,
+  depKey,
+  className = "",
+}: {
+  children: React.ReactNode;
+  depKey: string;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [escala, setEscala] = useState(1);
+
+  // Conteúdo mudou → volta ao tamanho natural (padrão de "reset durante o
+  // render" da doc do React, sem efeito extra).
+  const [chaveAnterior, setChaveAnterior] = useState(depKey);
+  if (chaveAnterior !== depKey) {
+    setChaveAnterior(depKey);
+    setEscala(1);
+  }
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // Só reduz a partir do estado natural (escala 1) para não oscilar:
+    // depKey muda → volta a 1 → mede → encolhe uma única vez até caber.
+    if (escala === 1 && el.scrollHeight > el.clientHeight + 1) {
+      const proporcao = el.clientHeight / el.scrollHeight;
+      setEscala(Math.max(0.5, proporcao * 0.96));
+    }
+  }, [depKey, escala]);
+
+  return (
+    <div
+      ref={ref}
+      className={`min-h-0 min-w-0 flex-1 overflow-hidden ${className}`}
+      style={{ fontSize: `${escala}em` }}
+    >
+      {children}
+    </div>
+  );
+}
+
+const QUEBRA = { overflowWrap: "break-word", hyphens: "auto" } as const;
+
 function PaginaFace({
   pag,
   lado,
@@ -445,32 +495,29 @@ function PaginaFace({
   vazia?: boolean;
   print?: boolean;
 }) {
-  const borda = print
-    ? ""
-    : lado === "esq"
-      ? "rounded-l-xl"
-      : "rounded-r-xl";
+  const borda = print ? "" : lado === "esq" ? "rounded-l-xl" : "rounded-r-xl";
 
   if (!pag || vazia) {
     return (
-      <div className={`h-full w-full bg-[#e9e4da] ${borda}`} style={{ boxShadow: "inset 0 0 60px rgba(0,0,0,0.08)" }} />
+      <div
+        className={`h-full w-full bg-[#e9e4da] ${borda}`}
+        style={{ boxShadow: "inset 0 0 60px rgba(0,0,0,0.08)" }}
+      />
     );
   }
 
   const ehCapa = pag.tipo === "capa";
   const layout = ehCapa ? "capa" : (pag.layout ?? "classico");
+  const depKey = `${pag.titulo}|${pag.texto?.length ?? 0}|${layout}`;
 
-  /* rodapé/cabeçalho editorial compartilhado */
-  const cabecalho = !ehCapa && (
-    <div className="ebk-head flex flex-none items-center justify-between px-[7%] pt-[4%] text-[max(7px,0.55em)] font-bold uppercase tracking-[0.22em] text-[#a3987f]">
+  const cabecalho = (claro: boolean) => (
+    <div
+      className={`flex min-w-0 flex-none items-center justify-between gap-[1em] px-[1.3em] pt-[1em] text-[0.5em] font-bold uppercase tracking-[0.22em] ${
+        claro ? "text-[#8f8672]" : "text-[#a3987f]"
+      }`}
+    >
       <span className="truncate">{titulo}</span>
-      {pag.kicker && <span className="ml-3 truncate text-right">{pag.kicker}</span>}
-    </div>
-  );
-  const rodape = !ehCapa && (
-    <div className="flex flex-none items-center justify-between px-[7%] pb-[3.5%] text-[max(7px,0.55em)] text-[#a3987f]">
-      <span className="h-px w-8 bg-[#c9c0a8]" />
-      <span className="font-bold">{numero}</span>
+      {pag.kicker && <span className="min-w-0 truncate text-right">{pag.kicker}</span>}
     </div>
   );
 
@@ -481,19 +528,23 @@ function PaginaFace({
           <img src={pag.imagem_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/40" />
-        <div className="absolute inset-x-0 top-0 flex items-center justify-between px-[8%] pt-[6%]">
-          <span className="text-[max(8px,0.6em)] font-bold uppercase tracking-[0.3em] text-white/90">
+        <div className="absolute inset-x-0 top-0 px-[1.4em] pt-[1.2em]">
+          <span className="block truncate text-[0.55em] font-bold uppercase tracking-[0.3em] text-white/90">
             {pag.kicker || "Edição especial"}
           </span>
         </div>
-        <div className="absolute inset-x-0 bottom-0 p-[8%] text-white">
-          <div className="mb-[3%] h-[3px] w-[18%] bg-[#d9b45a]" />
-          <h2 className="font-display text-[2.1em] font-extrabold leading-[1.02] tracking-tight">
-            {pag.titulo}
-          </h2>
-          {pag.texto && (
-            <p className="mt-[3%] max-w-[85%] text-[0.85em] leading-snug text-white/85">{pag.texto}</p>
-          )}
+        <div className="absolute inset-x-0 bottom-0 flex max-h-[62%] flex-col p-[1.4em] text-white">
+          <div className="mb-[0.6em] h-[3px] w-[3.2em] flex-none bg-[#d9b45a]" />
+          <TextoAjustavel depKey={depKey}>
+            <h2 className="font-display text-[1.9em] font-extrabold leading-[1.04] tracking-tight" style={QUEBRA}>
+              {pag.titulo}
+            </h2>
+            {pag.texto && (
+              <p className="mt-[0.8em] text-[0.8em] leading-snug text-white/85" style={QUEBRA}>
+                {pag.texto}
+              </p>
+            )}
+          </TextoAjustavel>
         </div>
       </div>
     );
@@ -509,22 +560,24 @@ function PaginaFace({
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/25" />
         {pag.kicker && (
-          <span className="absolute left-[7%] top-[5%] text-[max(7px,0.55em)] font-bold uppercase tracking-[0.25em] text-white/85">
+          <span className="absolute left-[1.3em] right-[1.3em] top-[1em] truncate text-[0.5em] font-bold uppercase tracking-[0.25em] text-white/85">
             {pag.kicker}
           </span>
         )}
-        <div className="absolute inset-x-0 bottom-0 p-[7%]">
-          <div className="rounded-lg bg-[#faf7f0]/95 p-[5%] shadow-2xl backdrop-blur">
-            <h3 className="font-display text-[1.15em] font-extrabold leading-tight text-[#191713]">
-              {pag.titulo}
-            </h3>
-            {pag.texto && (
-              <p className="mt-[2%] whitespace-pre-line text-[0.72em] leading-relaxed text-[#45403a]">
-                {pag.texto}
-              </p>
-            )}
+        <div className="absolute inset-x-0 bottom-0 flex max-h-[72%] flex-col p-[1.2em]">
+          <div className="flex min-h-0 flex-col rounded-lg bg-[#faf7f0]/95 p-[1em] shadow-2xl backdrop-blur">
+            <TextoAjustavel depKey={depKey}>
+              <h3 className="font-display text-[1.05em] font-extrabold leading-tight text-[#191713]" style={QUEBRA}>
+                {pag.titulo}
+              </h3>
+              {pag.texto && (
+                <p className="mt-[0.5em] whitespace-pre-line text-[0.68em] leading-relaxed text-[#45403a]" style={QUEBRA}>
+                  {pag.texto}
+                </p>
+              )}
+            </TextoAjustavel>
           </div>
-          <div className="mt-[3%] text-right text-[max(7px,0.55em)] font-bold text-white/80">{numero}</div>
+          <div className="mt-[0.6em] flex-none text-right text-[0.5em] font-bold text-white/80">{numero}</div>
         </div>
       </div>
     );
@@ -533,31 +586,28 @@ function PaginaFace({
   if (layout === "citacao") {
     return (
       <div className={`flex h-full w-full flex-col overflow-hidden bg-[#191713] text-[#f2ede1] ${borda}`}>
-        {cabecalho && (
-          <div className="flex flex-none items-center justify-between px-[7%] pt-[4%] text-[max(7px,0.55em)] font-bold uppercase tracking-[0.22em] text-[#8f8672]">
-            <span className="truncate">{titulo}</span>
-            {pag.kicker && <span className="ml-3 truncate">{pag.kicker}</span>}
-          </div>
-        )}
-        <div className="flex min-h-0 flex-1 flex-col justify-center px-[9%]">
-          <span className="font-display text-[3em] leading-none text-[#d9b45a]">“</span>
-          <p className="font-display text-[1.35em] font-extrabold leading-[1.15] tracking-tight">
-            {pag.destaque || pag.titulo}
-          </p>
-          <div className="mt-[4%] h-[2px] w-[16%] bg-[#d9b45a]" />
-          {pag.texto && (
-            <p className="mt-[4%] whitespace-pre-line text-[0.72em] leading-relaxed text-[#bdb4a0]">
-              {pag.texto}
+        {cabecalho(true)}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center px-[1.6em] py-[0.8em]">
+          <span className="flex-none font-display text-[2.6em] leading-none text-[#d9b45a]">“</span>
+          <TextoAjustavel depKey={depKey}>
+            <p className="font-display text-[1.25em] font-extrabold leading-[1.18] tracking-tight" style={QUEBRA}>
+              {pag.destaque || pag.titulo}
             </p>
-          )}
+            <div className="mt-[1em] h-[2px] w-[2.8em] bg-[#d9b45a]" />
+            {pag.texto && (
+              <p className="mt-[1em] whitespace-pre-line text-[0.68em] leading-relaxed text-[#bdb4a0]" style={QUEBRA}>
+                {pag.texto}
+              </p>
+            )}
+          </TextoAjustavel>
         </div>
         {pag.imagem_url && (
-          <div className="h-[22%] flex-none">
+          <div className="h-[20%] flex-none">
             <img src={pag.imagem_url} alt="" className="h-full w-full object-cover" />
           </div>
         )}
-        <div className="flex flex-none items-center justify-between px-[7%] py-[3%] text-[max(7px,0.55em)] text-[#8f8672]">
-          <span className="h-px w-8 bg-[#59523f]" />
+        <div className="flex flex-none items-center justify-between px-[1.3em] py-[0.8em] text-[0.5em] text-[#8f8672]">
+          <span className="h-px w-[4em] bg-[#59523f]" />
           <span className="font-bold">{numero}</span>
         </div>
       </div>
@@ -565,28 +615,37 @@ function PaginaFace({
   }
 
   if (layout === "lateral") {
-    const imgEsq = lado === "dir"; // imagem sempre "para fora" da lombada? não: alterna pelo lado
+    const imgJuntoLombada = lado === "dir"; // imagem encostada na lombada
     return (
-      <div className={`flex h-full w-full overflow-hidden bg-[#faf7f0] ${borda} ${imgEsq ? "" : "flex-row-reverse"}`}>
-        <div className="relative h-full w-[46%] flex-none bg-[#e5dfd2]">
+      <div
+        className={`flex h-full w-full overflow-hidden bg-[#faf7f0] ${borda} ${
+          imgJuntoLombada ? "" : "flex-row-reverse"
+        }`}
+      >
+        <div className="relative h-full w-[44%] flex-none bg-[#e5dfd2]">
           {pag.imagem_url ? (
             <img src={pag.imagem_url} alt="" className="h-full w-full object-cover" />
           ) : (
             <SemImagem />
           )}
         </div>
-        <div className="flex min-h-0 flex-1 flex-col">
-          {cabecalho}
-          <div className="flex min-h-0 flex-1 flex-col justify-center px-[9%] py-[4%]">
-            <h3 className="font-display text-[1.2em] font-extrabold leading-tight text-[#191713]">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {cabecalho(false)}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col px-[1.3em] py-[0.9em]">
+            <h3 className="flex-none font-display text-[1.1em] font-extrabold leading-tight text-[#191713]" style={QUEBRA}>
               {pag.titulo}
             </h3>
-            <div className="mt-[3%] h-[2px] w-[15%] bg-[#d9b45a]" />
-            <div className="ebk-dropcap mt-[4%] min-h-0 flex-1 overflow-hidden whitespace-pre-line text-[0.72em] leading-relaxed text-[#3d3a33]">
-              {pag.texto}
-            </div>
+            <div className="mb-[0.8em] mt-[0.6em] h-[2px] w-[2.6em] flex-none bg-[#d9b45a]" />
+            <TextoAjustavel depKey={depKey}>
+              <div className="ebk-dropcap whitespace-pre-line text-[0.68em] leading-relaxed text-[#3d3a33]" style={QUEBRA}>
+                {pag.texto}
+              </div>
+            </TextoAjustavel>
           </div>
-          {rodape}
+          <div className="flex flex-none items-center justify-between px-[1.3em] pb-[0.9em] text-[0.5em] text-[#a3987f]">
+            <span className="h-px w-[3em] bg-[#c9c0a8]" />
+            <span className="font-bold">{numero}</span>
+          </div>
         </div>
       </div>
     );
@@ -595,34 +654,36 @@ function PaginaFace({
   // classico
   return (
     <div className={`flex h-full w-full flex-col overflow-hidden bg-[#faf7f0] ${borda}`}>
-      <div className="relative h-[38%] flex-none bg-[#e5dfd2]">
+      <div className="relative h-[36%] flex-none bg-[#e5dfd2]">
         {pag.imagem_url ? (
           <img src={pag.imagem_url} alt="" className="h-full w-full object-cover" />
         ) : (
           <SemImagem />
         )}
         {pag.kicker && (
-          <span className="absolute bottom-[6%] left-[7%] rounded-sm bg-[#191713]/85 px-[2.5%] py-[1%] text-[max(7px,0.55em)] font-bold uppercase tracking-[0.2em] text-[#e9dbb8]">
+          <span className="absolute bottom-[0.9em] left-[1.2em] max-w-[85%] truncate rounded-sm bg-[#191713]/85 px-[0.7em] py-[0.3em] text-[0.5em] font-bold uppercase tracking-[0.2em] text-[#e9dbb8]">
             {pag.kicker}
           </span>
         )}
       </div>
-      <div className="flex min-h-0 flex-1 flex-col px-[8%] pt-[4%]">
-        <h3 className="font-display text-[1.2em] font-extrabold leading-tight text-[#191713]">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col px-[1.4em] pt-[0.9em]">
+        <h3 className="flex-none font-display text-[1.1em] font-extrabold leading-tight text-[#191713]" style={QUEBRA}>
           {pag.titulo}
         </h3>
         {pag.destaque && (
-          <p className="mt-[2.5%] border-l-[3px] border-[#d9b45a] pl-[3%] text-[0.78em] font-semibold italic leading-snug text-[#8a7440]">
+          <p className="mt-[0.6em] flex-none border-l-[3px] border-[#d9b45a] pl-[0.7em] text-[0.72em] font-semibold italic leading-snug text-[#8a7440]" style={QUEBRA}>
             {pag.destaque}
           </p>
         )}
-        <div className="ebk-dropcap mt-[3%] min-h-0 flex-1 overflow-hidden whitespace-pre-line text-[0.72em] leading-relaxed text-[#3d3a33]">
-          {pag.texto}
-        </div>
+        <TextoAjustavel depKey={depKey} className="mt-[0.7em]">
+          <div className="ebk-dropcap whitespace-pre-line text-[0.68em] leading-relaxed text-[#3d3a33]" style={QUEBRA}>
+            {pag.texto}
+          </div>
+        </TextoAjustavel>
       </div>
-      <div className="flex flex-none items-center justify-between px-[8%] py-[3.5%] text-[max(7px,0.55em)] text-[#a3987f]">
-        <span className="truncate uppercase tracking-[0.2em]">{titulo}</span>
-        <span className="font-bold">
+      <div className="flex flex-none items-center justify-between px-[1.4em] py-[0.9em] text-[0.5em] text-[#a3987f]">
+        <span className="min-w-0 truncate uppercase tracking-[0.2em]">{titulo}</span>
+        <span className="ml-[1em] flex-none font-bold">
           {numero} <span className="text-[#c9c0a8]">/ {total - 1}</span>
         </span>
       </div>
