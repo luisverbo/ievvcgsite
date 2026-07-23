@@ -10,8 +10,10 @@ import {
   getOpenAIKey,
   salvarOpenAIKey,
   subirImagemEbook,
+  MODELOS_TEXTO,
   type FormatoEbook,
   type PaginaEbook,
+  type QualidadeImagem,
 } from "@/lib/ebooks/openai";
 
 export type EbookRow = {
@@ -22,6 +24,8 @@ export type EbookRow = {
   tema: string;
   formato: FormatoEbook;
   estilo: string;
+  modelo_texto?: string;
+  qualidade_imagem?: QualidadeImagem;
   status: "gerando" | "pronto" | "erro";
   paginas: PaginaEbook[];
   created_at: string;
@@ -57,12 +61,16 @@ export async function criarEbook(formData: FormData): Promise<CriarEbookResult> 
   const tema = String(formData.get("tema") ?? "").trim();
   const formato = (String(formData.get("formato") ?? "a4") as FormatoEbook) || "a4";
   const estilo = String(formData.get("estilo") ?? "fotografico");
+  const modeloBruto = String(formData.get("modelo_texto") ?? "gpt-4o");
+  const modelo = MODELOS_TEXTO[modeloBruto] ? modeloBruto : "gpt-4o";
+  const qualidade: QualidadeImagem =
+    String(formData.get("qualidade_imagem")) === "alta" ? "alta" : "media";
   const numPaginas = Math.min(20, Math.max(3, Number(formData.get("paginas")) || 8));
   if (tema.length < 10) return { error: "Descreva melhor o tema do ebook (mínimo 10 caracteres)." };
 
   let conteudo;
   try {
-    conteudo = await gerarConteudoEbook(key, tema, numPaginas, formato, estilo);
+    conteudo = await gerarConteudoEbook(key, tema, numPaginas, formato, estilo, modelo);
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Falha ao gerar o conteúdo." };
   }
@@ -77,6 +85,8 @@ export async function criarEbook(formData: FormData): Promise<CriarEbookResult> 
       tema,
       formato,
       estilo,
+      modelo_texto: modelo,
+      qualidade_imagem: qualidade,
       status: "gerando",
       paginas: conteudo.paginas,
     })
@@ -90,7 +100,13 @@ export async function criarEbook(formData: FormData): Promise<CriarEbookResult> 
 /* --------------------------- imagens (uma a uma) -------------------------- */
 export type ImagemResult = { ok?: boolean; url?: string; error?: string };
 
-export async function gerarImagemPagina(ebookId: string, indice: number): Promise<ImagemResult> {
+// Gera (ou regenera) a imagem de uma página. `opcoes.prompt` troca a direção
+// de arte; `opcoes.forcar` regenera mesmo que já exista imagem.
+export async function gerarImagemPagina(
+  ebookId: string,
+  indice: number,
+  opcoes?: { prompt?: string; forcar?: boolean },
+): Promise<ImagemResult> {
   if (!(await ehAdmin())) return { error: "Sem permissão." };
   const key = await getOpenAIKey();
   if (!key) return { error: "Chave da OpenAI não configurada." };
@@ -102,14 +118,23 @@ export async function gerarImagemPagina(ebookId: string, indice: number): Promis
 
   const pagina = ebook.paginas[indice];
   if (!pagina) return { error: `Página ${indice} não existe.` };
-  if (pagina.imagem_url) return { ok: true, url: pagina.imagem_url }; // já gerada
+  if (pagina.imagem_url && !opcoes?.forcar) return { ok: true, url: pagina.imagem_url };
+
+  const promptImagem = opcoes?.prompt?.trim() || pagina.prompt_imagem;
 
   try {
-    const buf = await gerarImagemEbook(key, pagina.prompt_imagem, ebook.formato, ebook.estilo);
-    const url = await subirImagemEbook(ebook.org_id, ebook.id, `pag-${indice}.png`, buf);
+    const buf = await gerarImagemEbook(
+      key,
+      promptImagem,
+      ebook.formato,
+      ebook.estilo,
+      ebook.qualidade_imagem ?? "media",
+    );
+    // Nome com timestamp para trocar a imagem sem pegar cache antigo do CDN.
+    const url = await subirImagemEbook(ebook.org_id, ebook.id, `pag-${indice}-${Date.now()}.png`, buf);
 
     const paginas = [...ebook.paginas];
-    paginas[indice] = { ...pagina, imagem_url: url };
+    paginas[indice] = { ...pagina, prompt_imagem: promptImagem, imagem_url: url };
     const completas = paginas.every((p) => p.imagem_url);
     await supabase
       .from("ebooks")

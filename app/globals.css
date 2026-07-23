@@ -70,30 +70,18 @@ textarea:focus-visible {
 }
 
 /* ---- Leitor de ebook (revista digital) ---- */
-.ebook-pagina {
-  transform-style: preserve-3d;
-  transform-origin: left center;
+/* Capitular editorial: primeira letra grande no primeiro parágrafo. */
+.ebk-dropcap::first-letter {
+  float: left;
+  font-family: var(--font-display);
+  font-size: 3.1em;
+  line-height: 0.82;
+  font-weight: 800;
+  padding-right: 0.09em;
+  color: #191713;
 }
-.ebook-entrando {
-  animation: ebook-virar-entrada 0.45s ease both;
-}
-.ebook-saindo-frente {
-  animation: ebook-virar-frente 0.22s ease-in both;
-}
-.ebook-saindo-tras {
-  animation: ebook-virar-tras 0.22s ease-in both;
-}
-@keyframes ebook-virar-entrada {
-  from { transform: rotateY(-55deg); opacity: 0.3; }
-  to { transform: rotateY(0); opacity: 1; }
-}
-@keyframes ebook-virar-frente {
-  from { transform: rotateY(0); opacity: 1; }
-  to { transform: rotateY(55deg); opacity: 0.2; }
-}
-@keyframes ebook-virar-tras {
-  from { transform: rotateY(0); opacity: 1; }
-  to { transform: rotateY(-55deg); opacity: 0.2; }
+.ebk-sheet {
+  will-change: transform;
 }
 
 /* Impressão do ebook: só as páginas, uma por folha. */
@@ -114,6 +102,7 @@ textarea:focus-visible {
     width: 100%;
     break-after: page;
     page-break-after: always;
+    font-size: 4.2mm;
   }
   .ebook-print-page > div {
     border-radius: 0 !important;

@@ -7,11 +7,18 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // fallback para a env OPENAI_API_KEY. NUNCA vai para o navegador.
 
 export type FormatoEbook = "a4" | "mobile" | "quadrado";
+export type QualidadeImagem = "media" | "alta";
+
+// Layouts editoriais que a IA distribui entre as páginas (estilo revista).
+export type LayoutPagina = "capa" | "classico" | "lateral" | "full" | "citacao";
 
 export type PaginaEbook = {
   tipo: "capa" | "conteudo";
+  layout?: LayoutPagina;
+  kicker?: string; // chapéu curto acima do título (ex: "CAPÍTULO 01 · ESTRATÉGIA")
   titulo: string;
   texto?: string;
+  destaque?: string; // frase de efeito para pull-quote
   prompt_imagem: string;
   imagem_url?: string | null;
 };
@@ -20,6 +27,12 @@ export type ConteudoEbook = {
   titulo: string;
   subtitulo: string;
   paginas: PaginaEbook[];
+};
+
+export const MODELOS_TEXTO: Record<string, { rotulo: string; custo: string }> = {
+  "gpt-4o-mini": { rotulo: "GPT-4o mini", custo: "rápido e barato (~US$0,01)" },
+  "gpt-4o": { rotulo: "GPT-4o", custo: "equilíbrio ideal (~US$0,05)" },
+  "gpt-4.1": { rotulo: "GPT-4.1", custo: "máxima qualidade (~US$0,10)" },
 };
 
 export async function getOpenAIKey(): Promise<string | null> {
@@ -41,7 +54,8 @@ export async function salvarOpenAIKey(valor: string) {
 }
 
 const ESTILOS_IMAGEM: Record<string, string> = {
-  fotografico: "fotografia profissional realista, iluminação natural cinematográfica",
+  fotografico:
+    "fotografia editorial real de revista premium, câmera full-frame 50mm f/1.8, luz natural suave, texturas ricas e realistas, profundidade de campo, cores levemente dessaturadas e elegantes — deve parecer uma foto de verdade, jamais arte digital",
   ilustracao: "ilustração digital moderna estilo flat design, cores vibrantes",
   aquarela: "pintura em aquarela artística, traços suaves e orgânicos",
   minimalista: "arte minimalista elegante, poucos elementos, muito espaço negativo",
@@ -59,28 +73,32 @@ export async function gerarConteudoEbook(
   numPaginas: number,
   formato: FormatoEbook,
   estilo: string,
+  modelo: string,
 ): Promise<ConteudoEbook> {
-  const porPagina = formato === "mobile" ? "60 a 90" : "120 a 180";
-  const prompt = `Você é um redator profissional de ebooks em português do Brasil.
-Crie um ebook completo, no formato de revista digital, sobre o tema abaixo.
+  const porPagina = formato === "mobile" ? "50 a 80" : "110 a 160";
+  const prompt = `Você é o diretor editorial de uma revista premium (padrão de revista de gastronomia/lifestyle de banca, papel couché). Crie um ebook em português do Brasil no formato de revista digital de altíssimo nível sobre o tema abaixo.
 
 TEMA: ${tema}
 
-REGRAS:
-- Exatamente ${numPaginas} páginas de conteúdo, além da capa.
-- Cada página de conteúdo tem: um título curto e forte, um texto de ${porPagina} palavras (parágrafos separados por \\n\\n), e um "prompt_imagem".
-- O "prompt_imagem" descreve EM PORTUGUÊS uma imagem SEM NENHUM TEXTO/LETRAS, no estilo: ${descricaoEstilo(estilo)}. Seja específico sobre cena, objetos, cores e clima.
-- A capa tem título do ebook (máx. 6 palavras), subtítulo (1 frase) e prompt_imagem impactante.
-- Conteúdo prático, direto e valioso — nada de encher linguiça.
+ESTRUTURA (JSON):
+- 1 página "capa" + exatamente ${numPaginas} páginas "conteudo".
+- Cada página de conteúdo tem:
+  - "layout": escolha entre "classico" (imagem no topo), "lateral" (imagem ocupa metade da página), "full" (imagem de página inteira com painel de texto sobreposto — use texto de 40 a 60 palavras nesta) e "citacao" (página de frase de impacto). VARIE os layouts como uma revista de verdade: alterne, nunca repita o mesmo layout 3x seguidas, use "citacao" 1 ou 2 vezes no meio, e "full" nas páginas mais visuais.
+  - "kicker": chapéu editorial curto em CAIXA ALTA (ex: "CAPÍTULO 02 · ESTRATÉGIA").
+  - "titulo": título curto e magnético.
+  - "texto": ${porPagina} palavras (menos no layout "full"), parágrafos separados por \\n\\n, tom de editor experiente — prático, elegante, zero enrolação.
+  - "destaque": UMA frase de efeito curta tirada da essência da página (para pull-quote).
+  - "prompt_imagem": descrição EM PORTUGUÊS de uma imagem SEM NENHUM TEXTO/LETRAS, cena específica (objetos, ângulo, luz, atmosfera), no estilo: ${descricaoEstilo(estilo)}.
+- A capa: "titulo" (máx 5 palavras, impactante), "texto" = subtítulo de 1 linha, "kicker" = nome de seção (ex: "EDIÇÃO ESPECIAL"), "prompt_imagem" digno de capa de revista premiada.
 
-Responda SOMENTE com JSON válido neste formato:
-{"titulo":"...","subtitulo":"...","paginas":[{"tipo":"capa","titulo":"...","texto":"subtítulo da capa","prompt_imagem":"..."},{"tipo":"conteudo","titulo":"...","texto":"...","prompt_imagem":"..."}]}`;
+Responda SOMENTE com JSON válido:
+{"titulo":"...","subtitulo":"...","paginas":[{"tipo":"capa","layout":"capa","kicker":"...","titulo":"...","texto":"...","prompt_imagem":"..."},{"tipo":"conteudo","layout":"classico","kicker":"...","titulo":"...","texto":"...","destaque":"...","prompt_imagem":"..."}]}`;
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
     body: JSON.stringify({
-      model: "gpt-4o",
+      model: MODELOS_TEXTO[modelo] ? modelo : "gpt-4o",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
       temperature: 0.8,
@@ -95,10 +113,10 @@ Responda SOMENTE com JSON válido neste formato:
   const conteudo = JSON.parse(json.choices?.[0]?.message?.content ?? "{}") as ConteudoEbook;
   if (!conteudo.paginas?.length) throw new Error("A IA não devolveu páginas. Tente novamente.");
 
-  // Garante capa na posição 0.
   if (conteudo.paginas[0]?.tipo !== "capa") {
     conteudo.paginas.unshift({
       tipo: "capa",
+      layout: "capa",
       titulo: conteudo.titulo ?? tema,
       texto: conteudo.subtitulo ?? "",
       prompt_imagem: `${tema}, ${descricaoEstilo(estilo)}`,
@@ -118,8 +136,9 @@ export async function gerarImagemEbook(
   promptImagem: string,
   formato: FormatoEbook,
   estilo: string,
+  qualidade: QualidadeImagem = "media",
 ): Promise<Buffer> {
-  const prompt = `${promptImagem}. Estilo: ${descricaoEstilo(estilo)}. Sem texto, sem letras, sem palavras na imagem.`;
+  const prompt = `${promptImagem}. Estilo: ${descricaoEstilo(estilo)}. Sem texto, sem letras, sem palavras, sem marca d'água na imagem.`;
 
   async function chamar(modelo: "gpt-image-1" | "dall-e-3") {
     const body: Record<string, unknown> = {
@@ -128,8 +147,11 @@ export async function gerarImagemEbook(
       n: 1,
       size: tamanhoImagem(formato, modelo),
     };
-    if (modelo === "gpt-image-1") body.quality = "medium";
-    else body.response_format = "b64_json";
+    if (modelo === "gpt-image-1") body.quality = qualidade === "alta" ? "high" : "medium";
+    else {
+      body.response_format = "b64_json";
+      if (qualidade === "alta") body.quality = "hd";
+    }
 
     const res = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",

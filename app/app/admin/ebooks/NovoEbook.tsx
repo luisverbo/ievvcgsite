@@ -91,11 +91,26 @@ export default function NovoEbook({ temChave }: { temChave: boolean }) {
         <div className={fieldClass}>
           <label className={labelClass}>Estilo das imagens</label>
           <select name="estilo" className={inputClass} defaultValue="fotografico">
-            <option value="fotografico">Fotográfico</option>
+            <option value="fotografico">Fotográfico (real)</option>
             <option value="ilustracao">Ilustração flat</option>
             <option value="aquarela">Aquarela</option>
             <option value="minimalista">Minimalista</option>
             <option value="3d">3D (estilo Pixar)</option>
+          </select>
+        </div>
+        <div className={fieldClass}>
+          <label className={labelClass}>IA do texto</label>
+          <select name="modelo_texto" className={inputClass} defaultValue="gpt-4o">
+            <option value="gpt-4o-mini">GPT-4o mini — rápido e barato (~US$0,01)</option>
+            <option value="gpt-4o">GPT-4o — equilíbrio ideal (~US$0,05)</option>
+            <option value="gpt-4.1">GPT-4.1 — máxima inteligência (~US$0,10)</option>
+          </select>
+        </div>
+        <div className={fieldClass}>
+          <label className={labelClass}>Qualidade das imagens</label>
+          <select name="qualidade_imagem" className={inputClass} defaultValue="media">
+            <option value="media">Média — ~US$0,07 por imagem</option>
+            <option value="alta">Alta (mais real) — ~US$0,22 por imagem</option>
           </select>
         </div>
       </div>
