@@ -66,6 +66,13 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
                   {pagina.publicado ? "Publicada" : "Rascunho"}
                 </span>
                 <Link
+                  href={`/app/sites/${site.id}/metricas?pg=${encodeURIComponent(`/s/${site.slug}${pagina.slug ? `/${pagina.slug}` : ""}`)}`}
+                  title="Métricas desta página"
+                  className="text-sm text-paper-dim transition hover:text-paper"
+                >
+                  📊
+                </Link>
+                <Link
                   href={`/app/sites/${site.id}/paginas/${pagina.id}/editor`}
                   className="rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white hover:bg-brand-2"
                 >

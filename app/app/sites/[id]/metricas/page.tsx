@@ -21,39 +21,77 @@ const CORES_ORIGEM: Record<string, string> = {
   Direto: "#6c5ce7",
 };
 
-function BarraLista({ titulo, linhas, corPor }: { titulo: string; linhas: LinhaContagem[]; corPor?: boolean }) {
+function formatarTempo(s: number) {
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
+function BarraLista({
+  titulo,
+  linhas,
+  corPor,
+  linkBase,
+}: {
+  titulo: string;
+  linhas: LinhaContagem[];
+  corPor?: boolean;
+  linkBase?: string; // se presente, cada linha vira link (filtro por página)
+}) {
   const max = Math.max(1, ...linhas.map((l) => l.total));
   const soma = linhas.reduce((acc, l) => acc + l.total, 0);
   return (
     <div className={cardClass}>
-      <h2 className="mb-4 text-lg font-bold">{titulo}</h2>
+      <h2 className="mb-1 text-lg font-bold">{titulo}</h2>
+      {linkBase && (
+        <p className="mb-3 text-xs text-paper-dim">Clique numa página para ver só as métricas dela.</p>
+      )}
       {linhas.length === 0 ? (
-        <p className="text-sm text-paper-dim">Sem dados no período ainda.</p>
+        <p className="mt-3 text-sm text-paper-dim">Sem dados no período ainda.</p>
       ) : (
-        <div className="flex flex-col gap-3">
-          {linhas.map((l) => (
-            <div key={l.rotulo}>
-              <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
-                <span className="truncate font-semibold">{l.rotulo}</span>
-                <span className="flex-none text-paper-dim">
-                  {l.total} · {soma > 0 ? Math.round((l.total / soma) * 100) : 0}%
-                </span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-white/8">
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${(l.total / max) * 100}%`,
-                    background: corPor ? (CORES_ORIGEM[l.rotulo] ?? "var(--color-brand-2)") : "var(--color-brand-2)",
-                  }}
-                />
-              </div>
-            </div>
-          ))}
+        <div className="mt-3 flex flex-col gap-3">
+          {linhas.map((l) => {
+            const conteudo = (
+              <>
+                <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+                  <span className={`truncate font-semibold ${linkBase ? "text-brand-2" : ""}`}>
+                    {l.rotulo}
+                  </span>
+                  <span className="flex-none text-paper-dim">
+                    {l.total} · {soma > 0 ? Math.round((l.total / soma) * 100) : 0}%
+                  </span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-white/8">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${(l.total / max) * 100}%`,
+                      background: corPor
+                        ? (CORES_ORIGEM[l.rotulo] ?? "var(--color-brand-2)")
+                        : "var(--color-brand-2)",
+                    }}
+                  />
+                </div>
+              </>
+            );
+            return linkBase ? (
+              <Link key={l.rotulo} href={`${linkBase}${encodeURIComponent(l.rotulo)}`} className="block hover:opacity-80">
+                {conteudo}
+              </Link>
+            ) : (
+              <div key={l.rotulo}>{conteudo}</div>
+            );
+          })}
         </div>
       )}
     </div>
   );
+}
+
+// Cor "de calor" da zona: cinza (frio) → dourado → vermelho (quente).
+function corCalor(ratio: number) {
+  if (ratio <= 0.02) return "rgba(244,246,251,0.08)";
+  if (ratio < 0.35) return `color-mix(in srgb, #f4a62a ${Math.round(ratio * 160)}%, rgba(244,246,251,0.10))`;
+  return `color-mix(in srgb, #ef5b43 ${Math.round(ratio * 100)}%, #f4a62a)`;
 }
 
 export default async function MetricasPage({
@@ -61,26 +99,38 @@ export default async function MetricasPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ p?: string }>;
+  searchParams: Promise<{ p?: string; pg?: string }>;
 }) {
   const { id } = await params;
-  const { p } = await searchParams;
+  const { p, pg } = await searchParams;
   const dias = PERIODOS.some((x) => x.dias === Number(p)) ? Number(p) : 30;
+  const filtroPagina = pg || undefined;
 
   const site = await getSite(id);
   if (!site) notFound();
 
-  const m = await getMetricasSite(site.id, dias);
+  const m = await getMetricasSite(site.id, dias, filtroPagina);
+  const urlBase = `/app/sites/${site.id}/metricas`;
+  const qs = (novoP?: number, novoPg?: string | null) => {
+    const sp = new URLSearchParams();
+    sp.set("p", String(novoP ?? dias));
+    const pagina = novoPg === undefined ? filtroPagina : (novoPg ?? undefined);
+    if (pagina) sp.set("pg", pagina);
+    return `${urlBase}?${sp.toString()}`;
+  };
 
   const stats = [
     { rotulo: "Visitas", valor: m.visitas },
     { rotulo: "Cliques em botões", valor: m.cliques },
-    { rotulo: "Leads", valor: m.leads },
     { rotulo: "Taxa de clique", valor: `${m.taxaClique}%` },
+    filtroPagina
+      ? { rotulo: "Tempo médio na página", valor: m.tempoMedio != null ? formatarTempo(m.tempoMedio) : "—" }
+      : { rotulo: "Leads", valor: m.leads },
   ];
 
   const maxDia = Math.max(1, ...m.porDia.map((d) => d.visitas));
   const maxHora = Math.max(1, ...m.porHora.map((h) => h.visitas));
+  const maxTempoZona = Math.max(1, ...m.zonasCalor.map((z) => z.tempo));
 
   return (
     <div className="painel-wrap flex flex-col gap-6">
@@ -94,7 +144,7 @@ export default async function MetricasPage({
             {PERIODOS.map((per) => (
               <Link
                 key={per.dias}
-                href={`/app/sites/${site.id}/metricas?p=${per.dias}`}
+                href={qs(per.dias)}
                 className={`rounded-md px-3 py-1.5 text-sm font-semibold transition ${
                   per.dias === dias ? "bg-brand text-white" : "text-paper-dim hover:text-paper"
                 }`}
@@ -104,10 +154,23 @@ export default async function MetricasPage({
             ))}
           </div>
         </div>
-        <p className="mt-1 text-sm text-paper-dim">
-          Dica: divulgue seus links com <code className="rounded bg-white/10 px-1.5 py-0.5">?utm_source=instagram</code>{" "}
-          (ou facebook, google, tiktok…) para a origem ficar exata.
-        </p>
+
+        {filtroPagina ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-brand/20 px-3 py-1 text-sm font-bold text-brand-2">
+              📄 {filtroPagina}
+            </span>
+            <Link href={qs(dias, null)} className="text-sm text-paper-dim underline hover:text-paper">
+              ← voltar para o site inteiro
+            </Link>
+          </div>
+        ) : (
+          <p className="mt-1 text-sm text-paper-dim">
+            Dica: divulgue seus links com{" "}
+            <code className="rounded bg-white/10 px-1.5 py-0.5">?utm_source=instagram</code> (ou
+            facebook, google, tiktok…) para a origem ficar exata.
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -121,12 +184,58 @@ export default async function MetricasPage({
         ))}
       </div>
 
+      {/* mapa de calor de rolagem — só na visão de uma página */}
+      {filtroPagina && (
+        <div className={cardClass}>
+          <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-bold">🔥 Mapa de calor de rolagem</h2>
+            {m.scrollMedio != null && (
+              <span className="text-sm text-paper-dim">
+                Em média, os visitantes veem <b className="text-paper">{m.scrollMedio}%</b> da página
+              </span>
+            )}
+          </div>
+          <p className="mb-4 text-xs text-paper-dim">
+            Cada faixa é 10% da altura da página. Quanto mais quente a cor, mais tempo os visitantes
+            passaram ali. “Chegaram” = % que rolou até a faixa; “saíram aqui” = % que abandonou nela.
+          </p>
+          {m.zonasCalor.length === 0 ? (
+            <p className="text-sm text-paper-dim">
+              Ainda não há dados de rolagem. Eles começam a aparecer com as próximas visitas (é
+              preciso rodar o SQL <code className="rounded bg-white/10 px-1">2026-07-04_metricas_saida.sql</code>).
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {m.zonasCalor.map((z) => {
+                const ratio = z.tempo / maxTempoZona;
+                return (
+                  <div key={z.zona} className="flex items-center gap-3">
+                    <span className="w-16 flex-none text-right text-xs tabular-nums text-paper-dim">
+                      {z.zona - 10}–{z.zona}%
+                    </span>
+                    <div className="relative h-9 flex-1 overflow-hidden rounded-md" style={{ background: corCalor(ratio) }}>
+                      <div className="absolute inset-y-0 left-2 flex items-center text-xs font-semibold text-paper">
+                        {z.tempo > 0 ? formatarTempo(z.tempo) : ""}
+                      </div>
+                    </div>
+                    <span className="w-40 flex-none text-xs text-paper-dim">
+                      {z.alcance}% chegaram
+                      {z.saida > 0 && <b className="ml-1 text-danger">· {z.saida}% saíram aqui</b>}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* visitas por dia */}
       <div className={cardClass}>
         <h2 className="mb-4 text-lg font-bold">Visitas por dia</h2>
         {m.visitas === 0 ? (
           <p className="text-sm text-paper-dim">
-            Nenhuma visita registrada no período. Compartilhe o link do seu site para começar! 🚀
+            Nenhuma visita registrada no período. Compartilhe o link para começar! 🚀
           </p>
         ) : (
           <div className="flex h-36 items-end gap-[3px] overflow-x-auto">
@@ -148,9 +257,14 @@ export default async function MetricasPage({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
+        {!filtroPagina && (
+          <BarraLista titulo="Métricas por página" linhas={m.porPagina} linkBase={`${urlBase}?p=${dias}&pg=`} />
+        )}
         <BarraLista titulo="De onde vêm as visitas" linhas={m.porOrigem} corPor />
-        <BarraLista titulo="Cliques por botão" linhas={m.cliquesPorBotao} />
-        <BarraLista titulo="Páginas mais visitadas" linhas={m.porPagina} />
+        <BarraLista
+          titulo={filtroPagina ? "Cliques por botão (só desta página)" : "Cliques por botão"}
+          linhas={m.cliquesPorBotao}
+        />
 
         {/* horários */}
         <div className={cardClass}>
