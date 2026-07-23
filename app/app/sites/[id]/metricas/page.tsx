@@ -9,11 +9,73 @@ import {
 } from "@/lib/painel/analytics";
 import { cardClass } from "@/components/painel/ui";
 
-const PERIODOS = [
-  { dias: 7, rotulo: "7 dias" },
-  { dias: 30, rotulo: "30 dias" },
-  { dias: 90, rotulo: "90 dias" },
-];
+const PRESETS = [
+  { chave: "hoje", rotulo: "Hoje" },
+  { chave: "ontem", rotulo: "Ontem" },
+  { chave: "7", rotulo: "7 dias" },
+  { chave: "30", rotulo: "30 dias" },
+  { chave: "90", rotulo: "90 dias" },
+] as const;
+
+const TZ = "America/Sao_Paulo";
+
+// YYYY-MM-DD no fuso do Brasil.
+function ymdLocal(d: Date) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+}
+
+// Meia-noite local (Brasil = UTC-3, sem horário de verão) de uma data YYYY-MM-DD.
+function meiaNoiteLocal(ymd: string) {
+  return new Date(`${ymd}T00:00:00-03:00`);
+}
+
+// Resolve o intervalo a partir dos parâmetros da URL.
+function resolverIntervalo(
+  p: string | undefined,
+  de: string | undefined,
+  ate: string | undefined,
+): { desde: Date; ate: Date; rotulo: string; modo: string } {
+  const validData = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+  if (validData(de) && validData(ate)) {
+    const dDesde = meiaNoiteLocal(de!);
+    const dAte = new Date(meiaNoiteLocal(ate!).getTime() + 86_400_000); // fim do dia
+    if (dDesde <= dAte) {
+      return {
+        desde: dDesde,
+        ate: dAte,
+        rotulo: de === ate ? formatarDia(de!) : `${formatarDia(de!)} – ${formatarDia(ate!)}`,
+        modo: "custom",
+      };
+    }
+  }
+
+  const hojeYmd = ymdLocal(new Date());
+  const inicioHoje = meiaNoiteLocal(hojeYmd);
+  const agora = new Date();
+
+  if (p === "hoje") {
+    return { desde: inicioHoje, ate: agora, rotulo: "Hoje", modo: "hoje" };
+  }
+  if (p === "ontem") {
+    const ini = new Date(inicioHoje.getTime() - 86_400_000);
+    return { desde: ini, ate: inicioHoje, rotulo: "Ontem", modo: "ontem" };
+  }
+  const n = p === "7" || p === "90" ? Number(p) : 30;
+  // N dias corridos terminando agora, alinhados à meia-noite local.
+  const desde = new Date(inicioHoje.getTime() - (n - 1) * 86_400_000);
+  return { desde, ate: agora, rotulo: `${n} dias`, modo: String(n) };
+}
+
+function formatarDia(ymd: string) {
+  const [y, mo, d] = ymd.split("-");
+  return `${d}/${mo}/${y}`;
+}
 
 const CORES_ORIGEM: Record<string, string> = {
   Instagram: "#ea5c93",
@@ -206,25 +268,43 @@ export default async function MetricasPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ p?: string; pg?: string }>;
+  searchParams: Promise<{ p?: string; pg?: string; de?: string; ate?: string }>;
 }) {
   const { id } = await params;
-  const { p, pg } = await searchParams;
-  const dias = PERIODOS.some((x) => x.dias === Number(p)) ? Number(p) : 30;
+  const { p, pg, de, ate } = await searchParams;
   const filtroPagina = pg || undefined;
+  const intervalo = resolverIntervalo(p, de, ate);
+  const numDias = Math.max(1, Math.round((intervalo.ate.getTime() - intervalo.desde.getTime()) / 86_400_000));
 
   const site = await getSite(id);
   if (!site) notFound();
 
-  const m = await getMetricasSite(site.id, dias, filtroPagina);
+  const m = await getMetricasSite(site.id, { desde: intervalo.desde, ate: intervalo.ate }, filtroPagina);
   const urlBase = `/app/sites/${site.id}/metricas`;
-  const qs = (novoP?: number, novoPg?: string | null) => {
+
+  // Link de um preset, preservando o filtro de página atual.
+  const linkPreset = (chave: string) => {
     const sp = new URLSearchParams();
-    sp.set("p", String(novoP ?? dias));
-    const pagina = novoPg === undefined ? filtroPagina : (novoPg ?? undefined);
-    if (pagina) sp.set("pg", pagina);
+    sp.set("p", chave);
+    if (filtroPagina) sp.set("pg", filtroPagina);
     return `${urlBase}?${sp.toString()}`;
   };
+  const linkSemFiltro = () => {
+    const sp = new URLSearchParams();
+    if (intervalo.modo === "custom") {
+      sp.set("de", de!);
+      sp.set("ate", ate!);
+    } else {
+      sp.set("p", intervalo.modo);
+    }
+    return `${urlBase}?${sp.toString()}`;
+  };
+
+  // Parâmetros do período atual (sem o pg), para preservar ao filtrar página.
+  const paramsPeriodo =
+    intervalo.modo === "custom" ? `de=${de}&ate=${ate}` : `p=${intervalo.modo}`;
+
+  const hojeYmd = ymdLocal(new Date());
 
   const stats = [
     { rotulo: "Visitas", valor: m.visitas },
@@ -247,37 +327,71 @@ export default async function MetricasPage({
         </Link>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-extrabold">Métricas</h1>
-          <div className="flex gap-1 rounded-lg border border-white/10 bg-ink-2 p-1">
-            {PERIODOS.map((per) => (
-              <Link
-                key={per.dias}
-                href={qs(per.dias)}
-                className={`rounded-md px-3 py-1.5 text-sm font-semibold transition ${
-                  per.dias === dias ? "bg-brand text-white" : "text-paper-dim hover:text-paper"
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap gap-1 rounded-lg border border-white/10 bg-ink-2 p-1">
+              {PRESETS.map((per) => (
+                <Link
+                  key={per.chave}
+                  href={linkPreset(per.chave)}
+                  className={`rounded-md px-3 py-1.5 text-sm font-semibold transition ${
+                    per.chave === intervalo.modo ? "bg-brand text-white" : "text-paper-dim hover:text-paper"
+                  }`}
+                >
+                  {per.rotulo}
+                </Link>
+              ))}
+            </div>
+            {/* intervalo personalizado */}
+            <form method="get" className="flex flex-wrap items-center gap-1 rounded-lg border border-white/10 bg-ink-2 p-1">
+              {filtroPagina && <input type="hidden" name="pg" value={filtroPagina} />}
+              <input
+                type="date"
+                name="de"
+                max={hojeYmd}
+                defaultValue={intervalo.modo === "custom" ? de : undefined}
+                className="rounded-md bg-ink px-2 py-1.5 text-sm text-paper outline-none focus-visible:border-brand-2"
+              />
+              <span className="text-xs text-paper-dim">até</span>
+              <input
+                type="date"
+                name="ate"
+                max={hojeYmd}
+                defaultValue={intervalo.modo === "custom" ? ate : undefined}
+                className="rounded-md bg-ink px-2 py-1.5 text-sm text-paper outline-none focus-visible:border-brand-2"
+              />
+              <button
+                type="submit"
+                className={`rounded-md px-3 py-1.5 text-sm font-bold transition ${
+                  intervalo.modo === "custom" ? "bg-brand text-white" : "text-brand-2 hover:bg-brand/10"
                 }`}
               >
-                {per.rotulo}
-              </Link>
-            ))}
+                Aplicar
+              </button>
+            </form>
           </div>
         </div>
 
-        {filtroPagina ? (
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-brand/20 px-3 py-1 text-sm font-bold text-brand-2">
-              📄 {filtroPagina}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-white/8 px-3 py-1 text-sm font-semibold text-paper">
+            📅 {intervalo.rotulo}
+          </span>
+          {filtroPagina ? (
+            <>
+              <span className="rounded-full bg-brand/20 px-3 py-1 text-sm font-bold text-brand-2">
+                📄 {filtroPagina}
+              </span>
+              <Link href={linkSemFiltro()} className="text-sm text-paper-dim underline hover:text-paper">
+                ← voltar para o site inteiro
+              </Link>
+            </>
+          ) : (
+            <span className="text-sm text-paper-dim">
+              Dica: use links com{" "}
+              <code className="rounded bg-white/10 px-1.5 py-0.5">?utm_source=instagram</code> para a
+              origem ficar exata.
             </span>
-            <Link href={qs(dias, null)} className="text-sm text-paper-dim underline hover:text-paper">
-              ← voltar para o site inteiro
-            </Link>
-          </div>
-        ) : (
-          <p className="mt-1 text-sm text-paper-dim">
-            Dica: divulgue seus links com{" "}
-            <code className="rounded bg-white/10 px-1.5 py-0.5">?utm_source=instagram</code> (ou
-            facebook, google, tiktok…) para a origem ficar exata.
-          </p>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -356,7 +470,7 @@ export default async function MetricasPage({
                   style={{ height: `${Math.max(2, (d.visitas / maxDia) * 100)}%` }}
                   title={`${d.dia}: ${d.visitas} visitas`}
                 />
-                {dias === 7 && <span className="text-[10px] text-paper-dim">{d.dia.split(",")[0]}</span>}
+                {numDias <= 14 && <span className="text-[10px] text-paper-dim">{d.dia.split(",")[0]}</span>}
               </div>
             ))}
           </div>
@@ -365,7 +479,7 @@ export default async function MetricasPage({
 
       <div className="grid gap-6 lg:grid-cols-2">
         {!filtroPagina && (
-          <BarraLista titulo="Métricas por página" linhas={m.porPagina} linkBase={`${urlBase}?p=${dias}&pg=`} />
+          <BarraLista titulo="Métricas por página" linhas={m.porPagina} linkBase={`${urlBase}?${paramsPeriodo}&pg=`} />
         )}
         <OrigensCard linhas={m.conversaoPorOrigem} />
         <BotoesOrigemCard

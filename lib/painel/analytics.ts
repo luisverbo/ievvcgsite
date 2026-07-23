@@ -82,17 +82,19 @@ function top(mapa: Map<string, number>, limite = 8): LinhaContagem[] {
 
 export async function getMetricasSite(
   siteId: string,
-  dias: number,
+  intervalo: { desde: Date; ate: Date },
   filtroPath?: string,
 ): Promise<MetricasSite> {
   const supabase = await createClient();
-  const desde = new Date(Date.now() - dias * 86_400_000).toISOString();
+  const desdeISO = intervalo.desde.toISOString();
+  const ateISO = intervalo.ate.toISOString();
 
   let query = supabase
     .from("analytics_eventos")
     .select("tipo, rotulo, path, origem, created_at, dados")
     .eq("site_id", siteId)
-    .gte("created_at", desde)
+    .gte("created_at", desdeISO)
+    .lt("created_at", ateISO)
     .order("created_at", { ascending: true })
     .limit(20000);
   if (filtroPath) query = query.eq("path", filtroPath);
@@ -101,7 +103,8 @@ export async function getMetricasSite(
     .from("leads")
     .select("id", { count: "exact", head: true })
     .eq("site_id", siteId)
-    .gte("created_at", desde);
+    .gte("created_at", desdeISO)
+    .lt("created_at", ateISO);
   // Leads não guardam path; com filtro de página mostramos leads do site todo
   // apenas na visão geral (sem filtro) para não enganar.
   const [{ data: eventosRaw }, { count: leads }] = await Promise.all([
@@ -129,9 +132,11 @@ export async function getMetricasSite(
   const saidaPorZona = new Map<number, number>(); // zona -> nº que abandonaram ali
   const tempoPorZona = new Map<number, number>(); // zona -> segundos somados
 
-  for (let i = dias - 1; i >= 0; i--) {
-    porDiaMapa.set(chaveDia(new Date(Date.now() - i * 86_400_000).toISOString()), 0);
+  // Pré-cria cada dia do intervalo (na ordem) para o gráfico não ter buracos.
+  for (let cursor = intervalo.desde.getTime(), guard = 0; cursor < intervalo.ate.getTime() && guard < 400; cursor += 86_400_000, guard++) {
+    porDiaMapa.set(chaveDia(new Date(cursor).toISOString()), 0);
   }
+  if (porDiaMapa.size === 0) porDiaMapa.set(chaveDia(desdeISO), 0);
 
   for (const e of eventos) {
     if (e.tipo === "pageview") {
