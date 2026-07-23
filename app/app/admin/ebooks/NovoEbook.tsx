@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { criarEbook, gerarImagemPagina, marcarPronto } from "./actions";
+import { criarEbook } from "./actions";
 import { inputClass, labelClass, fieldClass } from "@/components/painel/ui";
 
 type Fase =
   | { etapa: "form" }
   | { etapa: "texto" }
-  | { etapa: "imagens"; atual: number; total: number; falhas: number }
   | { etapa: "erro"; mensagem: string };
 
 export default function NovoEbook({ temChave }: { temChave: boolean }) {
@@ -19,29 +18,14 @@ export default function NovoEbook({ temChave }: { temChave: boolean }) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
 
-    // 1) Texto do ebook (uma chamada)
+    // Gera SÓ o texto (barato). As imagens (a parte cara) ficam para depois
+    // que você revisar e aprovar o conteúdo no leitor.
     setFase({ etapa: "texto" });
     const res = await criarEbook(formData);
     if (res.error || !res.ebookId) {
       setFase({ etapa: "erro", mensagem: res.error ?? "Erro desconhecido." });
       return;
     }
-
-    // 2) Imagens, uma por vez (cada uma numa chamada própria — sem estourar
-    //    o tempo do servidor). Se alguma falhar, seguimos e avisamos.
-    const total = res.totalPaginas ?? 0;
-    let falhas = 0;
-    for (let i = 0; i < total; i++) {
-      setFase({ etapa: "imagens", atual: i + 1, total, falhas });
-      const img = await gerarImagemPagina(res.ebookId, i);
-      if (img.error) {
-        falhas++;
-        // segunda tentativa automática
-        const retry = await gerarImagemPagina(res.ebookId, i);
-        if (!retry.error) falhas--;
-      }
-    }
-    await marcarPronto(res.ebookId);
     router.push(`/app/admin/ebooks/${res.ebookId}`);
   }
 
@@ -58,30 +42,9 @@ export default function NovoEbook({ temChave }: { temChave: boolean }) {
       <div className="flex flex-col items-center gap-3 py-8 text-center">
         <span className="text-3xl">✍️</span>
         <p className="font-semibold">Escrevendo o conteúdo do seu ebook…</p>
-        <p className="text-sm text-paper-dim">Títulos, textos e direção de arte. Leva ~30 segundos.</p>
-      </div>
-    );
-  }
-
-  if (fase.etapa === "imagens") {
-    const pct = Math.round((fase.atual / fase.total) * 100);
-    return (
-      <div className="flex flex-col gap-3 py-6">
-        <div className="flex items-baseline justify-between">
-          <p className="font-semibold">🎨 Gerando as imagens…</p>
-          <span className="text-sm text-paper-dim">
-            {fase.atual} de {fase.total}
-            {fase.falhas > 0 && ` · ${fase.falhas} falhou`}
-          </span>
-        </div>
-        <div className="h-3 overflow-hidden rounded-full bg-white/8">
-          <div
-            className="h-full rounded-full bg-brand-2 transition-all duration-500"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <p className="text-xs text-paper-dim">
-          Cada imagem leva de 15 a 60 segundos. Pode deixar esta aba aberta e ir tomar um café. ☕
+        <p className="text-sm text-paper-dim">
+          Títulos, textos e direção de arte. Leva ~30 segundos. Depois você revisa e só então
+          aprova a geração das imagens (a parte que custa).
         </p>
       </div>
     );

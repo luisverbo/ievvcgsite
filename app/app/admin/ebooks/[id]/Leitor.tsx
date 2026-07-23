@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { gerarImagemPagina, type EbookRow } from "../actions";
+import { gerarImagemPagina, marcarPronto, type EbookRow } from "../actions";
 
 // Leitor estilo revista digital: uma página por vez com animação de virada
 // (perspective + rotateY), navegação por setas/teclado e modo impressão
@@ -20,7 +20,32 @@ export default function Leitor({ ebook }: { ebook: EbookRow }) {
   const [idx, setIdx] = useState(0);
   const [virando, setVirando] = useState<"frente" | "tras" | null>(null);
   const [gerandoImg, setGerandoImg] = useState<number | null>(null);
+  const [lote, setLote] = useState<{ atual: number; total: number; falhas: number } | null>(null);
   const total = paginas.length;
+
+  const semImagem = paginas.filter((p) => !p.imagem_url).length;
+
+  // Gera todas as imagens que faltam, uma a uma, após a aprovação do texto.
+  async function aprovarEGerarImagens() {
+    const indices = paginas.map((p, i) => (p.imagem_url ? -1 : i)).filter((i) => i >= 0);
+    let falhas = 0;
+    for (let n = 0; n < indices.length; n++) {
+      const i = indices[n];
+      setLote({ atual: n + 1, total: indices.length, falhas });
+      let res = await gerarImagemPagina(ebook.id, i);
+      if (res.error) {
+        res = await gerarImagemPagina(ebook.id, i); // segunda tentativa
+        if (res.error) falhas++;
+      }
+      if (res.url) {
+        const url = res.url;
+        setPaginas((ps) => ps.map((p, j) => (j === i ? { ...p, imagem_url: url } : p)));
+      }
+      setLote({ atual: n + 1, total: indices.length, falhas });
+    }
+    await marcarPronto(ebook.id);
+    setLote(null);
+  }
 
   const irPara = useCallback(
     (novo: number, direcao: "frente" | "tras") => {
@@ -58,6 +83,45 @@ export default function Leitor({ ebook }: { ebook: EbookRow }) {
 
   return (
     <div>
+      {/* ---------- aprovação do texto → geração das imagens ---------- */}
+      {lote ? (
+        <div className="ebook-no-print mb-4 flex flex-col gap-2 rounded-xl border border-brand-2/40 bg-brand/10 p-4">
+          <div className="flex items-baseline justify-between">
+            <p className="font-bold">🎨 Gerando as imagens…</p>
+            <span className="text-sm text-paper-dim">
+              {lote.atual} de {lote.total}
+              {lote.falhas > 0 && ` · ${lote.falhas} falhou`}
+            </span>
+          </div>
+          <div className="h-3 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-brand-2 transition-all duration-500"
+              style={{ width: `${Math.round((lote.atual / lote.total) * 100)}%` }}
+            />
+          </div>
+          <p className="text-xs text-paper-dim">
+            15–60s por imagem. Deixe esta aba aberta — as páginas vão ganhando imagem em tempo real.
+          </p>
+        </div>
+      ) : semImagem > 0 ? (
+        <div className="ebook-no-print mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warn/40 bg-warn/10 p-4">
+          <div>
+            <p className="font-bold">📝 Revise o texto antes de gastar com imagens</p>
+            <p className="text-sm text-paper-dim">
+              Navegue pelas {total} páginas abaixo. Gostou do conteúdo? Aprove para gerar as{" "}
+              {semImagem} imagens (~US${(semImagem * 0.07).toFixed(2)} na sua conta OpenAI). Não
+              gostou? Exclua o ebook e gere outro texto — isso custa centavos.
+            </p>
+          </div>
+          <button
+            onClick={aprovarEGerarImagens}
+            className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2"
+          >
+            ✅ Aprovar texto e gerar {semImagem} imagens
+          </button>
+        </div>
+      ) : null}
+
       {/* ---------- controles ---------- */}
       <div className="ebook-no-print mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
