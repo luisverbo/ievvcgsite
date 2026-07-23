@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { alterarPlano, ehAdmin } from "./actions";
+import CriarLanding from "./CriarLanding";
 import { cardClass } from "@/components/painel/ui";
 
 // Painel do dono do sistema: visão de todas as contas + troca de plano.
@@ -65,6 +66,18 @@ export default async function AdminPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className={cardClass}>
+        <h2 className="mb-1 text-lg font-bold">Landing page do produto</h2>
+        <p className="mb-4 text-sm text-paper-dim">
+          Cria o site <b className="text-paper">“PáginaPro”</b> na sua conta com 3 páginas prontas:{" "}
+          <b className="text-paper">/</b> (venda com os 3 planos),{" "}
+          <b className="text-paper">/teste-gratis</b> (entrada no trial de 7 dias) e{" "}
+          <b className="text-paper">/comecar</b> (oferta única do Básico). Depois é só editar
+          preços, depoimentos e textos no editor visual — como qualquer site seu.
+        </p>
+        <CriarLanding />
       </div>
 
       <div className={cardClass}>
