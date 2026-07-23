@@ -3,11 +3,16 @@ import { getMinhaOrg, getSites } from "@/lib/painel/queries";
 import { TEMPLATES, CATEGORIAS_TEMPLATE } from "@/lib/templates/catalog";
 import TemplateCard from "./TemplateCard";
 
-export default async function TemplatesPage() {
+export default async function TemplatesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ site?: string }>;
+}) {
   const org = await getMinhaOrg();
   if (!org) redirect("/app/onboarding");
 
   const sites = await getSites(org.id);
+  const { site: sitePreSelecionado } = await searchParams;
 
   return (
     <div className="painel-wrap flex flex-col gap-8">
@@ -32,7 +37,12 @@ export default async function TemplatesPage() {
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {daCat.map((template) => (
-                <TemplateCard key={template.id} template={template} sites={sites} />
+                <TemplateCard
+                  key={template.id}
+                  template={template}
+                  sites={sites}
+                  sitePreSelecionado={sitePreSelecionado}
+                />
               ))}
             </div>
           </div>

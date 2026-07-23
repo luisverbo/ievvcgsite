@@ -33,6 +33,12 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
           >
             Ver site ↗
           </a>
+          <Link
+            href={`/app/sites/${site.id}/metricas`}
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-sm font-bold text-paper transition hover:border-brand-2 hover:text-brand-2"
+          >
+            📊 Métricas
+          </Link>
         </div>
       </div>
 
@@ -76,7 +82,15 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
             </div>
           ))}
         </div>
-        <NovaPaginaForm siteId={site.id} />
+        <div className="flex flex-col flex-wrap gap-2 sm:flex-row">
+          <NovaPaginaForm siteId={site.id} />
+          <Link
+            href={`/app/templates?site=${site.id}`}
+            className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-brand-2/50 py-2.5 text-sm font-semibold text-brand-2 transition hover:border-brand-2 hover:bg-brand/5"
+          >
+            ✨ Página com template
+          </Link>
+        </div>
       </div>
 
       <div className={cardClass}>

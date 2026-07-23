@@ -28,6 +28,15 @@ export default async function PainelLayout({ children }: { children: React.React
             >
               Templates
             </Link>
+            {user?.email &&
+              user.email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase().trim() && (
+                <Link
+                  href="/app/admin"
+                  className="rounded-lg px-3 py-1.5 font-semibold text-warn transition hover:bg-warn/10"
+                >
+                  Admin 👑
+                </Link>
+              )}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
             {user?.email && (

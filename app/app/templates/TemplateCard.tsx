@@ -7,7 +7,15 @@ import type { Site } from "@/lib/types";
 import { inputClass, labelClass, fieldClass, btnPrimary } from "@/components/painel/ui";
 import { slugify } from "@/lib/format";
 
-export default function TemplateCard({ template, sites }: { template: Template; sites: Site[] }) {
+export default function TemplateCard({
+  template,
+  sites,
+  sitePreSelecionado,
+}: {
+  template: Template;
+  sites: Site[];
+  sitePreSelecionado?: string;
+}) {
   const [aberto, setAberto] = useState(false);
   const [slug, setSlug] = useState(slugify(template.nome));
   const [novoSiteSlug, setNovoSiteSlug] = useState(slugify(template.nome));
@@ -113,7 +121,12 @@ export default function TemplateCard({ template, sites }: { template: Template; 
                 <>
                   <div className={fieldClass}>
                     <label className={labelClass}>Site</label>
-                    <select name="site_id" required className={inputClass}>
+                    <select
+                      name="site_id"
+                      required
+                      defaultValue={sitePreSelecionado}
+                      className={inputClass}
+                    >
                       {sites.map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.nome}

@@ -37,15 +37,7 @@ export default async function PainelHome() {
             </span>
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <NovoSite />
-          <Link
-            href="/app/templates"
-            className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition hover:bg-brand-2"
-          >
-            + Página com template
-          </Link>
-        </div>
+        <NovoSite />
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
