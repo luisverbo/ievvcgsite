@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { alterarPlano, ehAdmin } from "./actions";
@@ -66,6 +67,24 @@ export default async function AdminPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className={cardClass}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="mb-1 text-lg font-bold">Ebooks IA 📖</h2>
+            <p className="text-sm text-paper-dim">
+              Crie ebooks em formato revista digital com um prompt — texto e imagens por IA
+              (OpenAI), com escolha de formato e número de páginas.
+            </p>
+          </div>
+          <Link
+            href="/app/admin/ebooks"
+            className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2"
+          >
+            Abrir gerador
+          </Link>
+        </div>
       </div>
 
       <div className={cardClass}>
