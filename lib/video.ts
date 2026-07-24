@@ -11,6 +11,7 @@ export type VideoOpcoes = {
   controles?: boolean; // mostrar botões de play/pause/barra
   mudo?: boolean; // autoplay em navegadores modernos exige mudo
   loop?: boolean;
+  nativo?: boolean; // "modo cinema": esconde marca/controles do YouTube
 };
 
 const YT_ID = "([A-Za-z0-9_-]{11})";
@@ -60,10 +61,20 @@ export function youtubeThumbFallback(id: string) {
 }
 
 export function youtubeEmbedUrl(id: string, opcoes?: VideoOpcoes) {
-  const p = new URLSearchParams({ playsinline: "1", rel: "0" });
+  const p = new URLSearchParams({ playsinline: "1", rel: "0", enablejsapi: "1" });
   p.set("autoplay", opcoes?.autoplay ? "1" : "0");
-  p.set("controls", opcoes?.controles === false ? "0" : "1");
-  if (opcoes?.mudo) p.set("mute", "1");
+  // Autoplay só arranca mudo; se o usuário quer som, o overlay reativa depois.
+  const iniciarMudo = opcoes?.mudo || Boolean(opcoes?.autoplay);
+  if (iniciarMudo) p.set("mute", "1");
+  // Modo nativo ("cinema"): sem controles, sem marca, sem sugestões, sem teclado.
+  const semControles = opcoes?.nativo || opcoes?.controles === false;
+  p.set("controls", semControles ? "0" : "1");
+  if (opcoes?.nativo) {
+    p.set("modestbranding", "1");
+    p.set("iv_load_policy", "3"); // sem anotações
+    p.set("disablekb", "1");
+    p.set("fs", "0"); // sem botão de tela cheia
+  }
   if (opcoes?.loop) {
     p.set("loop", "1");
     p.set("playlist", id); // o YouTube exige playlist=id para o loop funcionar
@@ -73,8 +84,19 @@ export function youtubeEmbedUrl(id: string, opcoes?: VideoOpcoes) {
 
 export function vimeoEmbedUrl(id: string, opcoes?: VideoOpcoes) {
   const p = new URLSearchParams();
-  if (opcoes?.autoplay) p.set("autoplay", "1");
-  if (opcoes?.mudo) p.set("muted", "1");
+  // Modo nativo no Vimeo = background: limpo, sem controles nem marca.
+  if (opcoes?.nativo) {
+    p.set("background", "1");
+    p.set("autoplay", "1");
+    p.set("loop", opcoes?.loop ? "1" : "0");
+    return `https://player.vimeo.com/video/${id}?${p.toString()}`;
+  }
+  if (opcoes?.autoplay) {
+    p.set("autoplay", "1");
+    p.set("muted", "1"); // autoplay exige mudo
+  } else if (opcoes?.mudo) {
+    p.set("muted", "1");
+  }
   if (opcoes?.loop) p.set("loop", "1");
   if (opcoes?.controles === false) p.set("controls", "0");
   return `https://player.vimeo.com/video/${id}?${p.toString()}`;

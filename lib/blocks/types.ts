@@ -20,6 +20,7 @@ export type VideoOpcoesConfig = {
   controles?: boolean;
   mudo?: boolean;
   loop?: boolean;
+  nativo?: boolean;
 };
 
 export type HeroConfig = {

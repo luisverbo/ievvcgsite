@@ -397,6 +397,50 @@
   object-fit: cover;
   background: #000;
 }
+/* camada transparente que bloqueia a interface do YouTube no modo nativo */
+.pp-video-capa {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+/* botão "ativar som" para autoplay que o usuário quer com áudio */
+.pp-som {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border-radius: 100px;
+  border: none;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 14px;
+  color: #fff;
+  background: color-mix(in srgb, var(--color-coral) 92%, #000);
+  box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.7);
+  animation: pp-som-pulse 1.8s ease-in-out infinite;
+}
+.pp-som-ico {
+  font-size: 17px;
+}
+@keyframes pp-som-pulse {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    transform: translateX(-50%) scale(1.06);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pp-som {
+    animation: none;
+  }
+}
 .video-thumb {
   position: absolute;
   inset: 0;

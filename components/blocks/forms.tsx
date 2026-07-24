@@ -177,9 +177,10 @@ function VideoOpcoesEditor({
       <span className="text-xs font-semibold uppercase tracking-wide text-paper-dim">
         Opções do vídeo
       </span>
-      {check("Tocar sozinho (autoplay)", "autoplay", "Inicia ao abrir a página. Precisa estar mudo para funcionar no celular.")}
-      {check("Começar mudo", "mudo", "Recomendado junto com o autoplay.")}
-      {check("Mostrar controles (play/pause/barra)", "controles", "Desmarque para um vídeo estilo banner, sem botões.")}
+      {check("Tocar sozinho (autoplay)", "autoplay", "Inicia ao abrir a página.")}
+      {check("Começar mudo", "mudo", "Se marcar autoplay SEM esta opção, o vídeo começa mudo e mostra um botão 'ativar som' (trava do navegador, sem volta).")}
+      {check("Modo nativo / cinema", "nativo", "Esconde a marca, os controles, o título e as sugestões do YouTube — fica com cara de player próprio.")}
+      {check("Mostrar controles (play/pause/barra)", "controles", "Desmarque para um vídeo estilo banner, sem botões. (O modo nativo já esconde os controles.)")}
       {check("Repetir em loop", "loop")}
     </div>
   );
