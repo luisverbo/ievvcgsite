@@ -8,16 +8,16 @@ import type { TemplateBloco } from "./catalog";
 export const LANDING_TEMA: Tema = {
   fonte_titulo: "Montserrat",
   cores: {
-    night: "#0d0f17",
-    night2: "#141826",
-    night3: "#1c2236",
-    cream: "#f4f6fb",
-    creamDim: "#a9b2c7",
-    gold: "#8e7bff",
-    coral: "#6c5ce7",
-    green: "#2fbf8f",
-    pink: "#e878a6",
-    violet: "#8e7bff",
+    night: "#0a0916",
+    night2: "#131126",
+    night3: "#1c1938",
+    cream: "#f5f4ff",
+    creamDim: "#a5a2cc",
+    gold: "#9d8bff",
+    coral: "#7c5cff",
+    green: "#2fdfa8",
+    pink: "#ff6b9d",
+    violet: "#9d6be0",
   },
 };
 
@@ -61,7 +61,7 @@ const PRINCIPAL: TemplateBloco[] = [
     tipo: "estatisticas",
     config: {
       itens: [
-        { numero: "15", rotulo: "templates prontos por nicho" },
+        { numero: "17", rotulo: "templates prontos por nicho" },
         { numero: "21", rotulo: "blocos de conversão" },
         { numero: "5 min", rotulo: "do template ao site no ar" },
       ],
@@ -89,7 +89,7 @@ const PRINCIPAL: TemplateBloco[] = [
       eyebrow: "Como funciona",
       titulo: "Do zero ao site no ar em 3 passos",
       itens: [
-        { titulo: "Escolha um template", texto: "15 modelos prontos por nicho: infoproduto, serviço local, evento, imobiliária, delivery e mais." },
+        { titulo: "Escolha um template", texto: "17 modelos prontos por nicho: infoproduto, confeitaria, serviço local, evento, imobiliária e mais." },
         { titulo: "Troque textos e cores", texto: "Editor visual com prévia ao vivo. Clicou, editou, viu na hora — no computador e no celular." },
         { titulo: "Publique e divulgue", texto: "Seu link fica no ar na hora, pronto para colocar na bio e nos anúncios." },
       ],
@@ -270,7 +270,7 @@ const TESTE_GRATIS: TemplateBloco[] = [
       eyebrow: "No seu teste você já tem",
       titulo: "Acesso completo desde o primeiro minuto",
       itens: [
-        "Todos os 15 templates prontos por nicho",
+        "Todos os 17 templates prontos por nicho",
         "Editor visual com 21 blocos de conversão",
         "Sua página publicada num link pronto para divulgar",
         "Captura de leads com nome, email e WhatsApp",
@@ -413,7 +413,7 @@ const COMECAR: TemplateBloco[] = [
       titulo: "Tudo que você precisa para vender",
       itens: [
         "1 site com até 3 páginas publicadas",
-        "15 templates prontos por nicho (infoproduto, serviço, delivery…)",
+        "17 templates prontos por nicho (infoproduto, confeitaria, serviço…)",
         "Editor visual com 21 blocos — impossível ficar feio",
         "Formulário de captura: leads com nome, email e WhatsApp",
         "Botão flutuante de WhatsApp em todas as páginas",

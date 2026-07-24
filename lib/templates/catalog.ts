@@ -2006,6 +2006,313 @@ export const TEMPLATES: Template[] = [
       },
     ],
   },
+
+  /* ------------------------------------------------------------------ */
+  /* CONFEITARIA ARTESANAL (tema claro rosé)                             */
+  /* ------------------------------------------------------------------ */
+  {
+    id: "confeitaria",
+    nome: "Confeitaria Artesanal",
+    categoria: "Gastronomia",
+    nicho: "confeitaria",
+    descricao: "Doces finos, brigadeiros gourmet e sobremesas por encomenda. Tema claro rosé.",
+    icone: "🧁",
+    tema: {
+      fonte_titulo: "Fraunces",
+      cores: {
+        night: "#fdf5f0",
+        night2: "#f8e9e2",
+        night3: "#f2dcd2",
+        cream: "#43222b",
+        creamDim: "#8a5f66",
+        gold: "#c2657f",
+        coral: "#d9678a",
+        green: "#5ba881",
+        pink: "#e88faa",
+        violet: "#b58ac9",
+      },
+    },
+    blocos: [
+      {
+        tipo: "aviso",
+        config: {
+          texto: "🧁 Encomendas desta semana abertas até quinta-feira",
+          link_texto: "Fazer pedido",
+          href: "#encomenda",
+          cor: "coral",
+        },
+      },
+      {
+        tipo: "cabecalho",
+        config: {
+          nome: "Doce Ateliê",
+          botao: { texto: "Fazer encomenda", href: "#encomenda", estilo: "primario", rastreio: "Cabecalho" },
+        },
+      },
+      {
+        tipo: "hero",
+        config: {
+          selo: "Feito à mão, um por um, desde 2019",
+          titulo: "Doces que Transformam Momentos em Memórias",
+          subtitulo: "Brigadeiros gourmet, tortas e sobremesas artesanais feitas com chocolate belga e muito carinho — para festas, presentes ou aquele mimo de terça-feira.",
+          alinhamento: "centro",
+          botoes: [
+            { texto: "Quero encomendar", href: "#encomenda", estilo: "primario", rastreio: "HeroPrincipal" },
+            { texto: "Ver o cardápio", href: "#cardapio", estilo: "secundario", rastreio: "HeroSecundario" },
+          ],
+        },
+      },
+      {
+        tipo: "estatisticas",
+        config: {
+          itens: [
+            { numero: "+1.500", rotulo: "festas adoçadas" },
+            { numero: "5 anos", rotulo: "de forno ligado" },
+            { numero: "5★", rotulo: "média de avaliação" },
+          ],
+        },
+      },
+      {
+        tipo: "cards",
+        config: {
+          eyebrow: "Cardápio",
+          titulo: "Os queridinhos do ateliê",
+          colunas: 3,
+          itens: [
+            { emoji: "🍫", titulo: "Brigadeiros Gourmet", texto: "Chocolate belga em 12 sabores: pistache, churros, limão siciliano, café e mais. Caixas de 9, 16 e 25." },
+            { emoji: "🍰", titulo: "Tortas & Sobremesas", texto: "Torta de limão, banoffee, cheesecake de frutas vermelhas — inteiras ou em fatias para eventos." },
+            { emoji: "🎁", titulo: "Presentes & Kits", texto: "Caixas personalizadas com laço e cartãozinho. Perfeitas para aniversários e datas especiais." },
+          ],
+        },
+      },
+      {
+        tipo: "midiatexto",
+        config: {
+          eyebrow: "Nossa história",
+          titulo: "Da cozinha de casa para as festas mais doces da cidade",
+          corpo: "O Doce Ateliê nasceu de receitas de família e virou profissão. Cada doce é feito no dia da entrega, com ingredientes selecionados — nada de mistura pronta, nada de congelado. É por isso que quem prova, encomenda de novo.",
+          posicao: "esquerda",
+          itens: ["Chocolate belga de verdade", "Produção no dia da entrega", "Embalagens lindas de presente"],
+          botao: { texto: "Fazer minha encomenda", href: "#encomenda", estilo: "primario", rastreio: "Historia" },
+        },
+      },
+      {
+        tipo: "galeria",
+        config: {
+          eyebrow: "Vitrine",
+          titulo: "Um gostinho do que sai do forno",
+          imagens: [],
+        },
+      },
+      {
+        tipo: "depoimentos",
+        config: {
+          eyebrow: "Clientes apaixonados",
+          titulo: "Quem provou, aprovou",
+          itens: [
+            { texto: "Os brigadeiros do casamento foram o assunto da festa. Vieram convidados me perguntar o contato ainda na pista de dança!", autor: "Marina & Felipe • casamento" },
+            { texto: "Peço a caixa de 16 todo mês. O de pistache é covardia de tão bom.", autor: "Renata C. • cliente fiel" },
+            { texto: "Encomendei para o aniversário da minha mãe e ela chorou com o cartãozinho. Capricho em cada detalhe.", autor: "Juliana M." },
+          ],
+        },
+      },
+      {
+        tipo: "passos",
+        config: {
+          eyebrow: "Como encomendar",
+          titulo: "Simples como deve ser",
+          itens: [
+            { titulo: "Escolha seus doces", texto: "Preencha o pedido contando o que deseja e para qual data." },
+            { titulo: "Confirmamos tudo", texto: "Retornamos no WhatsApp com valores, sabores e forma de pagamento." },
+            { titulo: "Receba fresquinho", texto: "Retirada no ateliê ou entrega — sempre feito no dia." },
+          ],
+        },
+      },
+      {
+        tipo: "formulario",
+        config: {
+          eyebrow: "Encomendas",
+          titulo: "Faça seu pedido",
+          subtitulo: "Respondemos em poucas horas no horário comercial. 💌",
+          campos: [
+            { nome: "Nome", tipo: "texto", obrigatorio: true },
+            { nome: "WhatsApp", tipo: "telefone", obrigatorio: true },
+            { nome: "O que deseja e para qual data?", tipo: "texto", obrigatorio: true },
+          ],
+          botao_texto: "Enviar pedido",
+          mensagem_sucesso: "Pedido recebido! Já já chamamos você no WhatsApp. 🧁",
+        },
+      },
+      {
+        tipo: "faq",
+        config: {
+          eyebrow: "Dúvidas",
+          titulo: "Perguntas frequentes",
+          itens: [
+            { pergunta: "Com quanta antecedência preciso encomendar?", resposta: "Para caixas de brigadeiro, 3 dias. Para tortas e eventos, 1 semana. Datas especiais (festas de fim de ano) lotam antes!" },
+            { pergunta: "Vocês entregam?", resposta: "Sim, entregamos na região com taxa conforme o bairro, ou você retira no ateliê com hora marcada." },
+            { pergunta: "Fazem doces sem lactose ou sem açúcar?", resposta: "Temos linha zero lactose sob encomenda. Consulte os sabores disponíveis no pedido." },
+            { pergunta: "Qual o pedido mínimo?", resposta: "Caixa de 9 brigadeiros. Para eventos, o mínimo é de 50 unidades." },
+          ],
+        },
+      },
+      {
+        tipo: "rodape",
+        config: {
+          texto: "Doce Ateliê",
+          contato: "Rua das Acácias, 45 • (11) 97777-8888",
+          instagram_url: "https://instagram.com",
+        },
+      },
+    ],
+  },
+
+  /* ------------------------------------------------------------------ */
+  /* BOLOS DE FESTA POR ENCOMENDA (tema terracota claro)                 */
+  /* ------------------------------------------------------------------ */
+  {
+    id: "bolos-festa",
+    nome: "Bolos & Tortas de Festa",
+    categoria: "Gastronomia",
+    nicho: "bolos",
+    descricao: "Bolos de casamento, aniversário e eventos por encomenda, com orçamento pelo site.",
+    icone: "🎂",
+    tema: {
+      fonte_titulo: "Fraunces",
+      cores: {
+        night: "#faf3ec",
+        night2: "#f2e5d8",
+        night3: "#e9d5c2",
+        cream: "#3a2417",
+        creamDim: "#8a6a54",
+        gold: "#b8622f",
+        coral: "#c05c33",
+        green: "#6d9460",
+        pink: "#cd7d62",
+        violet: "#a5766b",
+      },
+    },
+    blocos: [
+      {
+        tipo: "cabecalho",
+        config: {
+          nome: "Alma de Açúcar",
+          botao: { texto: "Pedir orçamento", href: "#orcamento", estilo: "primario", rastreio: "Cabecalho" },
+        },
+      },
+      {
+        tipo: "hero",
+        config: {
+          selo: "Bolos artesanais para ocasiões inesquecíveis",
+          titulo: "O Bolo dos Seus Sonhos, do Esboço à Última Fatia",
+          subtitulo: "Casamentos, aniversários e eventos: criamos o bolo sob medida para a sua festa — sabor de família com acabamento de vitrine.",
+          alinhamento: "centro",
+          botoes: [
+            { texto: "Quero um orçamento", href: "#orcamento", estilo: "primario", rastreio: "HeroPrincipal" },
+            { texto: "Ver criações", href: "#galeria", estilo: "secundario", rastreio: "HeroSecundario" },
+          ],
+        },
+      },
+      {
+        tipo: "cards",
+        config: {
+          eyebrow: "Para cada ocasião",
+          titulo: "O que criamos",
+          colunas: 3,
+          itens: [
+            { emoji: "💍", titulo: "Casamentos", texto: "Bolos de 2 a 5 andares, do clássico ao naked cake, com degustação para os noivos." },
+            { emoji: "🎉", titulo: "Aniversários", texto: "Temas personalizados para todas as idades — do smash the cake à festa de 80 anos." },
+            { emoji: "🏢", titulo: "Eventos & Corporativo", texto: "Bolos e mesas de doces para inaugurações, formaturas e confraternizações." },
+          ],
+        },
+      },
+      {
+        tipo: "midiatexto",
+        config: {
+          eyebrow: "O processo",
+          titulo: "Cada bolo nasce de uma conversa",
+          corpo: "Antes da batedeira ligar, a gente entende a sua festa: o tema, as cores, o número de convidados e os sabores favoritos. Você recebe uma proposta com desenho e degustação — e só então o forno entra em ação.",
+          posicao: "direita",
+          itens: ["Degustação de sabores inclusa", "Desenho do bolo antes de fechar", "Entrega e montagem no local"],
+        },
+      },
+      {
+        tipo: "galeria",
+        config: {
+          eyebrow: "Portfólio",
+          titulo: "Criações que já brilharam em festas",
+          imagens: [],
+        },
+      },
+      {
+        tipo: "estatisticas",
+        config: {
+          itens: [
+            { numero: "+800", rotulo: "bolos entregues" },
+            { numero: "+120", rotulo: "casamentos" },
+            { numero: "12", rotulo: "sabores de recheio" },
+          ],
+        },
+      },
+      {
+        tipo: "depoimentos",
+        config: {
+          eyebrow: "Palavra de quem festejou",
+          titulo: "Depoimentos que enchem o coração",
+          itens: [
+            { texto: "O bolo estava tão lindo que ninguém queria cortar — e tão gostoso que não sobrou nem uma fatia. Perfeito do começo ao fim.", autor: "Camila R. • casamento" },
+            { texto: "Entrega pontual, montagem impecável e um sabor de red velvet que os convidados comentam até hoje.", autor: "Fernanda L. • 15 anos da filha" },
+          ],
+        },
+      },
+      {
+        tipo: "garantia",
+        config: {
+          emoji: "🤝",
+          selo: "Compromisso de entrega",
+          titulo: "Seu bolo chega perfeito, no horário",
+          texto: "Trabalhamos com agenda limitada por fim de semana justamente para garantir: entrega no horário combinado, montagem no local e o bolo exatamente como aprovado no desenho.",
+        },
+      },
+      {
+        tipo: "formulario",
+        config: {
+          eyebrow: "Orçamento",
+          titulo: "Conte sobre a sua festa",
+          subtitulo: "Retornamos com proposta e agenda de degustação.",
+          campos: [
+            { nome: "Nome", tipo: "texto", obrigatorio: true },
+            { nome: "WhatsApp", tipo: "telefone", obrigatorio: true },
+            { nome: "Data da festa e nº de convidados", tipo: "texto", obrigatorio: true },
+            { nome: "Tipo de festa (casamento, aniversário...)", tipo: "texto", obrigatorio: false },
+          ],
+          botao_texto: "Pedir meu orçamento",
+          mensagem_sucesso: "Recebido! Vamos amar fazer parte da sua festa. 🎂",
+        },
+      },
+      {
+        tipo: "faq",
+        config: {
+          eyebrow: "Dúvidas",
+          titulo: "Perguntas frequentes",
+          itens: [
+            { pergunta: "Com quanta antecedência devo reservar?", resposta: "Aniversários: 2 semanas. Casamentos: 2 a 3 meses (a agenda de sábados fecha rápido)." },
+            { pergunta: "Como funciona a degustação?", resposta: "Para casamentos e eventos grandes, agendamos uma degustação com até 6 sabores no ateliê." },
+            { pergunta: "Vocês entregam e montam?", resposta: "Sim! Entregamos e montamos no local do evento, com suporte até o momento do parabéns." },
+            { pergunta: "Qual o valor médio?", resposta: "Depende do tamanho e acabamento. Bolos de aniversário partem de R$180; casamentos, de R$650. O orçamento é gratuito." },
+          ],
+        },
+      },
+      {
+        tipo: "rodape",
+        config: {
+          texto: "Alma de Açúcar",
+          contato: "encomendas@almadeacucar.com.br • (11) 96666-5555",
+          instagram_url: "https://instagram.com",
+        },
+      },
+    ],
+  },
 ];
 
 export const TEMPLATES_POR_ID = new Map(TEMPLATES.map((t) => [t.id, t]));
