@@ -400,6 +400,57 @@ export default function Editor(props: Props) {
                     </div>
                   );
                 })()}
+
+                {/* espaçamento vertical do bloco */}
+                {(() => {
+                  const cfg = editando.config as { _pad_topo?: number; _pad_baixo?: number };
+                  const setPad = (campo: "_pad_topo" | "_pad_baixo", v: number | undefined) =>
+                    setEditando({ ...editando, config: { ...editando.config, [campo]: v } });
+                  const OPCOES = [
+                    { v: 0, r: "Colado" },
+                    { v: 16, r: "Mínimo" },
+                    { v: 40, r: "Pequeno" },
+                    { v: 76, r: "Padrão" },
+                    { v: 120, r: "Grande" },
+                  ];
+                  const seletor = (campo: "_pad_topo" | "_pad_baixo", label: string) => {
+                    const atual = cfg[campo];
+                    return (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-paper-dim">{label}</span>
+                        <select
+                          className="rounded-lg border border-white/10 bg-ink-2 px-3 py-2 text-sm text-paper outline-none focus-visible:border-brand-2"
+                          value={atual === undefined ? "auto" : String(atual)}
+                          onChange={(e) =>
+                            setPad(campo, e.target.value === "auto" ? undefined : Number(e.target.value))
+                          }
+                        >
+                          <option value="auto">Padrão</option>
+                          {OPCOES.map((o) => (
+                            <option key={o.v} value={o.v}>
+                              {o.r} ({o.v}px)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  };
+                  return (
+                    <div className="mt-5 border-t border-white/10 pt-4">
+                      <label className="text-sm font-medium text-paper-dim">
+                        Espaçamento do bloco
+                      </label>
+                      <div className="mt-1.5 grid grid-cols-2 gap-2">
+                        {seletor("_pad_topo", "Espaço acima")}
+                        {seletor("_pad_baixo", "Espaço abaixo")}
+                      </div>
+                      <p className="mt-2 text-xs text-paper-dim">
+                        Reduza o “espaço acima” para colar este bloco no de cima — ex: o botão logo
+                        embaixo do vídeo.
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="flex flex-none gap-2 border-t border-white/10 p-3">
                 <button

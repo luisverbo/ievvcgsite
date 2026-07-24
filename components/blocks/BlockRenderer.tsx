@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, cloneElement, isValidElement, type CSSProperties, type ReactElement } from "react";
 import AtrasoReveal from "./AtrasoReveal";
 import HtmlEmbed from "./HtmlEmbed";
 import VideoPlayer from "@/components/site/VideoPlayer";
@@ -571,8 +571,26 @@ export default function BlockRenderer({ blocos, ctx }: { blocos: Bloco[]; ctx: R
   return (
     <>
       {blocos.map((bloco) => {
-        const atraso = Number((bloco.config as { _aparecer_apos?: number })._aparecer_apos) || 0;
-        const conteudo = renderBloco(bloco, ctx);
+        const meta = bloco.config as {
+          _aparecer_apos?: number;
+          _pad_topo?: number;
+          _pad_baixo?: number;
+        };
+        const atraso = Number(meta._aparecer_apos) || 0;
+        let conteudo = renderBloco(bloco, ctx);
+
+        // Espaçamento por bloco: sobrescreve o padding vertical da seção.
+        if (
+          (meta._pad_topo != null || meta._pad_baixo != null) &&
+          isValidElement(conteudo)
+        ) {
+          const el = conteudo as ReactElement<{ style?: CSSProperties }>;
+          const estilo: CSSProperties = { ...(el.props.style ?? {}) };
+          if (meta._pad_topo != null) estilo.paddingTop = meta._pad_topo;
+          if (meta._pad_baixo != null) estilo.paddingBottom = meta._pad_baixo;
+          conteudo = cloneElement(el, { style: estilo });
+        }
+
         return atraso > 0 ? (
           <AtrasoReveal key={bloco.id} segundos={atraso}>
             {conteudo}

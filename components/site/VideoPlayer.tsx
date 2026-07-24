@@ -17,11 +17,8 @@ import {
 
 /* eslint-disable @next/next/no-img-element */
 
-function ytPost(iframe: HTMLIFrameElement | null, func: string) {
-  iframe?.contentWindow?.postMessage(
-    JSON.stringify({ event: "command", func, args: [] }),
-    "*",
-  );
+function ytPost(iframe: HTMLIFrameElement | null, func: string, args: unknown[] = []) {
+  iframe?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args }), "*");
 }
 function vimeoPost(iframe: HTMLIFrameElement | null, method: string, value?: unknown) {
   iframe?.contentWindow?.postMessage(JSON.stringify({ method, value }), "*");
@@ -59,12 +56,16 @@ export default function VideoPlayer({
   const querSom = Boolean(opcoes?.autoplay && !opcoes?.mudo);
   const [precisaSom, setPrecisaSom] = useState(querSom);
 
+  // Efeito "VTurb": ao ativar o som, o vídeo VOLTA AO INÍCIO com áudio —
+  // a pessoa assiste tudo desde o começo, agora ouvindo.
   function ativarSomYoutube() {
+    ytPost(iframeRef.current, "seekTo", [0, true]);
     ytPost(iframeRef.current, "unMute");
     ytPost(iframeRef.current, "playVideo");
     setPrecisaSom(false);
   }
   function ativarSomVimeo() {
+    vimeoPost(iframeRef.current, "setCurrentTime", 0);
     vimeoPost(iframeRef.current, "setMuted", false);
     vimeoPost(iframeRef.current, "setVolume", 1);
     vimeoPost(iframeRef.current, "play");
@@ -73,6 +74,7 @@ export default function VideoPlayer({
   function ativarSomFile() {
     const v = videoRef.current;
     if (v) {
+      v.currentTime = 0;
       v.muted = false;
       v.play().catch(() => {});
     }
