@@ -21,6 +21,7 @@ import type {
   LogosConfig,
   LogoItem,
   RodapeConfig,
+  VideoOpcoesConfig,
   AvisoConfig,
   EstatisticasConfig,
   PassosConfig,
@@ -147,6 +148,42 @@ function BotaoEditor({ value, onChange }: { value: BotaoConfig; onChange: (v: Bo
   );
 }
 
+function VideoOpcoesEditor({
+  value,
+  onChange,
+}: {
+  value?: VideoOpcoesConfig;
+  onChange: (v: VideoOpcoesConfig) => void;
+}) {
+  const v = value ?? {};
+  const set = (p: Partial<VideoOpcoesConfig>) => onChange({ ...v, ...p });
+  const check = (label: string, campo: keyof VideoOpcoesConfig, dica?: string) => (
+    <label className="flex cursor-pointer items-start gap-2 text-sm text-paper">
+      <input
+        type="checkbox"
+        className="mt-0.5"
+        checked={Boolean(v[campo])}
+        onChange={(e) => set({ [campo]: e.target.checked })}
+      />
+      <span>
+        {label}
+        {dica && <span className="block text-xs text-paper-dim">{dica}</span>}
+      </span>
+    </label>
+  );
+  return (
+    <div className="flex flex-col gap-2.5 rounded-lg border border-white/10 bg-ink-3 p-3">
+      <span className="text-xs font-semibold uppercase tracking-wide text-paper-dim">
+        Opções do vídeo
+      </span>
+      {check("Tocar sozinho (autoplay)", "autoplay", "Inicia ao abrir a página. Precisa estar mudo para funcionar no celular.")}
+      {check("Começar mudo", "mudo", "Recomendado junto com o autoplay.")}
+      {check("Mostrar controles (play/pause/barra)", "controles", "Desmarque para um vídeo estilo banner, sem botões.")}
+      {check("Repetir em loop", "loop")}
+    </div>
+  );
+}
+
 function Alinhamento({ value, onChange }: { value?: string; onChange: (v: "centro" | "esquerda") => void }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -182,7 +219,8 @@ function HeroForm({ value, onChange, orgId }: FormProps) {
       <Area label="Subtítulo" value={c.subtitulo} onChange={(v) => up({ subtitulo: v })} />
       <Alinhamento value={c.alinhamento} onChange={(v) => up({ alinhamento: v })} />
       <UploadInput orgId={orgId} pasta="hero" label="Imagem (opcional)" value={c.imagem_url ?? ""} onChange={(v) => up({ imagem_url: v })} />
-      <Campo label="Vídeo — link YouTube/Shorts/Instagram (opcional)" value={c.video_url ?? ""} onChange={(v) => up({ video_url: v })} />
+      <Campo label="Vídeo — link YouTube/Vimeo/Shorts/Instagram (opcional)" value={c.video_url ?? ""} onChange={(v) => up({ video_url: v })} />
+      {c.video_url && <VideoOpcoesEditor value={c.video_opcoes} onChange={(v) => up({ video_opcoes: v })} />}
       <ArrayEditor
         label="Botões"
         itens={c.botoes ?? []}
@@ -231,8 +269,9 @@ function VideoForm({ value, onChange, orgId }: FormProps) {
   return (
     <div className="flex flex-col gap-3">
       <Campo label="Título (opcional)" value={c.titulo} onChange={(v) => up({ titulo: v })} />
-      <Campo label="Link do vídeo (YouTube, Shorts, Instagram)" value={c.video_url ?? ""} onChange={(v) => up({ video_url: v })} />
+      <Campo label="Link do vídeo (YouTube, Vimeo, Shorts, Instagram)" value={c.video_url ?? ""} onChange={(v) => up({ video_url: v })} />
       <UploadInput orgId={orgId} pasta="video" label="Capa (opcional)" value={c.poster_url ?? ""} onChange={(v) => up({ poster_url: v })} />
+      {c.video_url && <VideoOpcoesEditor value={c.video_opcoes} onChange={(v) => up({ video_opcoes: v })} />}
     </div>
   );
 }

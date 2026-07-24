@@ -105,7 +105,12 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
                 className="pp-hero-media"
                 style={vertical ? { maxWidth: 330, aspectRatio: "9/16" } : undefined}
               >
-                <VideoPlayer url={cfg.video_url} poster={cfg.imagem_url} title={cfg.titulo} />
+                <VideoPlayer
+                  url={cfg.video_url}
+                  poster={cfg.imagem_url}
+                  title={cfg.titulo}
+                  opcoes={cfg.video_opcoes}
+                />
               </div>
             ) : cfg.imagem_url ? (
               <div className="pp-hero-media">
@@ -172,7 +177,12 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
               className="pp-media-wrap pp-media-media"
               style={vertical ? { maxWidth: 330, aspectRatio: "9/16" } : undefined}
             >
-              <VideoPlayer url={cfg.video_url} poster={cfg.poster_url} title={cfg.titulo || "Vídeo"} />
+              <VideoPlayer
+                url={cfg.video_url}
+                poster={cfg.poster_url}
+                title={cfg.titulo || "Vídeo"}
+                opcoes={cfg.video_opcoes}
+              />
             </div>
           </div>
         </section>

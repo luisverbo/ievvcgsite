@@ -6,21 +6,26 @@ import {
   youtubeEmbedUrl,
   youtubeThumb,
   youtubeThumbFallback,
+  vimeoEmbedUrl,
+  type VideoOpcoes,
 } from "@/lib/video";
 
-// Player unificado: arquivos (Supabase Storage) viram <video>, links do
-// YouTube viram thumbnail em alta + play que carrega o iframe só ao clicar
-// (leve para mobile), Instagram vira embed direto.
+// Player unificado: arquivos (Supabase Storage) viram <video>, YouTube/Vimeo
+// viram thumbnail + play que carrega o iframe só ao clicar (leve p/ mobile),
+// Instagram vira embed direto. Com autoplay, o iframe já carrega tocando.
 export default function VideoPlayer({
   url,
   poster,
   title,
+  opcoes,
 }: {
   url: string;
   poster?: string | null;
   title: string;
+  opcoes?: VideoOpcoes;
 }) {
-  const [playing, setPlaying] = useState(false);
+  // Autoplay: o iframe começa já ativo (sem esperar clique).
+  const [playing, setPlaying] = useState(Boolean(opcoes?.autoplay));
   const video = parseVideoUrl(url);
 
   if (video.kind === "file") {
@@ -28,7 +33,10 @@ export default function VideoPlayer({
       <video
         className="video-el"
         src={video.url}
-        controls
+        controls={opcoes?.controles !== false}
+        autoPlay={opcoes?.autoplay}
+        muted={opcoes?.mudo ?? opcoes?.autoplay} // autoplay em <video> exige mudo
+        loop={opcoes?.loop}
         playsInline
         preload="metadata"
         poster={poster ?? undefined}
@@ -63,9 +71,37 @@ export default function VideoPlayer({
     return (
       <iframe
         className="video-el"
-        src={youtubeEmbedUrl(video.id)}
+        src={youtubeEmbedUrl(video.id, { ...opcoes, autoplay: true })}
         title={title}
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+      />
+    );
+  }
+
+  if (video.kind === "vimeo") {
+    if (!playing) {
+      return (
+        <button
+          type="button"
+          className="video-thumb"
+          onClick={() => setPlaying(true)}
+          aria-label={`Assistir vídeo: ${title}`}
+        >
+          {poster && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img className="video-thumb-img" src={poster} alt="" />
+          )}
+          <span className="play" aria-hidden="true" />
+        </button>
+      );
+    }
+    return (
+      <iframe
+        className="video-el"
+        src={vimeoEmbedUrl(video.id, { ...opcoes, autoplay: true })}
+        title={title}
+        allow="autoplay; fullscreen; picture-in-picture"
         allowFullScreen
       />
     );

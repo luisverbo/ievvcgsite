@@ -1,8 +1,17 @@
 export type ParsedVideo =
   | { kind: "youtube"; id: string; shorts: boolean }
+  | { kind: "vimeo"; id: string }
   | { kind: "instagram"; embedUrl: string }
   | { kind: "file"; url: string }
   | { kind: "unknown"; url: string };
+
+// Opções de reprodução configuráveis por bloco de vídeo.
+export type VideoOpcoes = {
+  autoplay?: boolean;
+  controles?: boolean; // mostrar botões de play/pause/barra
+  mudo?: boolean; // autoplay em navegadores modernos exige mudo
+  loop?: boolean;
+};
 
 const YT_ID = "([A-Za-z0-9_-]{11})";
 const YT_PATTERNS: { re: RegExp; shorts: boolean }[] = [
@@ -13,6 +22,7 @@ const YT_PATTERNS: { re: RegExp; shorts: boolean }[] = [
   { re: new RegExp(`youtube\\.com/live/${YT_ID}`), shorts: false },
 ];
 
+const VIMEO_RE = /vimeo\.com\/(?:video\/|channels\/[^/]+\/|groups\/[^/]+\/videos\/)?(\d{6,})/;
 const INSTAGRAM_RE = /instagram\.com\/(reel|reels|p|tv)\/([A-Za-z0-9_-]+)/;
 const FILE_RE = /\.(mp4|webm|ogg|mov|m4v)(\?.*)?$/i;
 
@@ -21,6 +31,9 @@ export function parseVideoUrl(url: string): ParsedVideo {
     const match = url.match(re);
     if (match) return { kind: "youtube", id: match[1], shorts };
   }
+
+  const vimeo = url.match(VIMEO_RE);
+  if (vimeo) return { kind: "vimeo", id: vimeo[1] };
 
   const insta = url.match(INSTAGRAM_RE);
   if (insta) {
@@ -46,8 +59,25 @@ export function youtubeThumbFallback(id: string) {
   return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 }
 
-export function youtubeEmbedUrl(id: string) {
-  return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0`;
+export function youtubeEmbedUrl(id: string, opcoes?: VideoOpcoes) {
+  const p = new URLSearchParams({ playsinline: "1", rel: "0" });
+  p.set("autoplay", opcoes?.autoplay ? "1" : "0");
+  p.set("controls", opcoes?.controles === false ? "0" : "1");
+  if (opcoes?.mudo) p.set("mute", "1");
+  if (opcoes?.loop) {
+    p.set("loop", "1");
+    p.set("playlist", id); // o YouTube exige playlist=id para o loop funcionar
+  }
+  return `https://www.youtube-nocookie.com/embed/${id}?${p.toString()}`;
+}
+
+export function vimeoEmbedUrl(id: string, opcoes?: VideoOpcoes) {
+  const p = new URLSearchParams();
+  if (opcoes?.autoplay) p.set("autoplay", "1");
+  if (opcoes?.mudo) p.set("muted", "1");
+  if (opcoes?.loop) p.set("loop", "1");
+  if (opcoes?.controles === false) p.set("controls", "0");
+  return `https://player.vimeo.com/video/${id}?${p.toString()}`;
 }
 
 // Shorts e reels do Instagram são exibidos em formato vertical (9:16)

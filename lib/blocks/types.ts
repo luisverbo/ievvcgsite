@@ -15,12 +15,20 @@ export type CabecalhoConfig = {
   fixo?: boolean;
 };
 
+export type VideoOpcoesConfig = {
+  autoplay?: boolean;
+  controles?: boolean;
+  mudo?: boolean;
+  loop?: boolean;
+};
+
 export type HeroConfig = {
   selo?: string;
   titulo: string;
   subtitulo?: string;
   imagem_url?: string | null;
   video_url?: string | null;
+  video_opcoes?: VideoOpcoesConfig;
   botoes?: BotaoConfig[];
   alinhamento?: "centro" | "esquerda";
 };
@@ -42,6 +50,7 @@ export type VideoConfig = {
   titulo?: string;
   video_url?: string | null;
   poster_url?: string | null;
+  video_opcoes?: VideoOpcoesConfig;
 };
 
 export type CtaConfig = {
