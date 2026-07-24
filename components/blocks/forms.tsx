@@ -29,6 +29,7 @@ import type {
   PlanoItem,
   GarantiaConfig,
   MidiaTextoConfig,
+  HtmlConfig,
 } from "@/lib/blocks/types";
 
 type Cfg = Record<string, unknown>;
@@ -702,6 +703,45 @@ function MidiaTextoForm({ value, onChange, orgId }: FormProps) {
   );
 }
 
+function HtmlForm({ value, onChange }: FormProps) {
+  const c = value as HtmlConfig;
+  const up = (p: Partial<HtmlConfig>) => onChange({ ...c, ...p });
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="rounded-lg border border-warn/30 bg-warn/10 px-3 py-2.5 text-xs text-paper">
+        ⚠️ Cole aqui apenas código de fontes que você confia (Kiwify, Hotmart, Google, Meta…). Ele
+        roda no navegador de quem visita a sua página.
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className={labelClass}>Código HTML / embed</label>
+        <textarea
+          className={`${inputClass} font-mono text-xs`}
+          rows={8}
+          spellCheck={false}
+          value={c.html ?? ""}
+          placeholder='Cole aqui o código, ex: o botão da Kiwify com <script src="...">'
+          onChange={(e) => up({ html: e.target.value })}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <label className={labelClass}>Largura</label>
+        <select
+          className={inputClass}
+          value={c.largura ?? "media"}
+          onChange={(e) => up({ largura: e.target.value as HtmlConfig["largura"] })}
+        >
+          <option value="media">Centralizado (recomendado)</option>
+          <option value="total">Largura total</option>
+        </select>
+      </div>
+      <p className="text-xs text-paper-dim">
+        Dica: o botão de 1 clique da Kiwify precisa que a pessoa já tenha passado pelo checkout —
+        funciona nas páginas de upsell/obrigado do funil.
+      </p>
+    </div>
+  );
+}
+
 const FORMS: Record<string, (p: FormProps) => React.ReactNode> = {
   cabecalho: CabecalhoForm,
   hero: HeroForm,
@@ -724,6 +764,7 @@ const FORMS: Record<string, (p: FormProps) => React.ReactNode> = {
   planos: PlanosForm,
   garantia: GarantiaForm,
   midiatexto: MidiaTextoForm,
+  html: HtmlForm,
 };
 
 export default function BlockForm({ tipo, ...props }: FormProps & { tipo: string }) {

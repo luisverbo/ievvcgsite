@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import AtrasoReveal from "./AtrasoReveal";
+import HtmlEmbed from "./HtmlEmbed";
 import VideoPlayer from "@/components/site/VideoPlayer";
 import Faq from "@/components/site/Faq";
 import Countdown from "@/components/site/Countdown";
@@ -23,6 +24,7 @@ import type {
   FormularioConfig,
   LogosConfig,
   RodapeConfig,
+  HtmlConfig,
   AvisoConfig,
   EstatisticasConfig,
   PassosConfig,
@@ -526,6 +528,17 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
                 </div>
               )}
             </div>
+          </div>
+        </section>
+      );
+    }
+    case "html": {
+      const cfg = c as HtmlConfig;
+      if (!cfg.html?.trim()) return null;
+      return (
+        <section className="pp-section">
+          <div className={`pp-wrap ${cfg.largura === "media" ? "pp-html-media" : ""}`}>
+            <HtmlEmbed html={cfg.html} />
           </div>
         </section>
       );

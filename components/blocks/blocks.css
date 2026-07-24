@@ -58,6 +58,14 @@
   }
 }
 
+/* bloco de HTML / código embutido */
+.pp-html-media {
+  max-width: 620px;
+}
+.pp-html {
+  width: 100%;
+}
+
 /* aparecer depois de X segundos */
 .pp-atraso {
   display: none;

@@ -309,6 +309,14 @@ export const BLOCOS: BlocoDef[] = [
       botao: { texto: "Saiba mais", href: "#", estilo: "secundario", rastreio: "MidiaTexto" },
     },
   },
+  {
+    tipo: "html",
+    nome: "HTML / Código",
+    categoria: "Conversão",
+    icone: "</>",
+    descricao: "Cole um botão de checkout (Kiwify, Hotmart…) ou qualquer código embed.",
+    defaultConfig: { html: "", largura: "media" },
+  },
 ];
 
 export const BLOCOS_POR_TIPO = new Map(BLOCOS.map((b) => [b.tipo, b]));

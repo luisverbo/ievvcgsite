@@ -185,6 +185,11 @@ export type MidiaTextoConfig = {
   botao?: BotaoConfig | null;
 };
 
+export type HtmlConfig = {
+  html?: string; // código HTML/embed colado pelo usuário (ex: botão Kiwify)
+  largura?: "media" | "total";
+};
+
 export type BlocoConfig =
   | CabecalhoConfig
   | HeroConfig
@@ -206,7 +211,8 @@ export type BlocoConfig =
   | PassosConfig
   | PlanosConfig
   | GarantiaConfig
-  | MidiaTextoConfig;
+  | MidiaTextoConfig
+  | HtmlConfig;
 
 // Contexto que os blocos recebem para render (dados do site).
 export type BlocoCtx = {
