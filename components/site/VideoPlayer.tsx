@@ -24,14 +24,18 @@ function vimeoPost(iframe: HTMLIFrameElement | null, method: string, value?: unk
   iframe?.contentWindow?.postMessage(JSON.stringify({ method, value }), "*");
 }
 
-// Botão flutuante "ativar som" para autoplay que o usuário quer com áudio.
+// Botão redondo "ativar som", centralizado no vídeo (ícone limpo + rótulo).
 function BotaoSom({ onClick }: { onClick: () => void }) {
   return (
     <button type="button" className="pp-som" onClick={onClick} aria-label="Ativar o som do vídeo">
-      <span className="pp-som-ico" aria-hidden="true">
-        🔊
+      <span className="pp-som-circ" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor" stroke="none" />
+          <path d="M16.5 8.5a5 5 0 0 1 0 7" />
+          <path d="M19 6a8 8 0 0 1 0 12" />
+        </svg>
       </span>
-      Clique para ativar o som
+      <span className="pp-som-txt">Ativar som</span>
     </button>
   );
 }
