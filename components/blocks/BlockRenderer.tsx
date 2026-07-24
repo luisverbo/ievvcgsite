@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import AtrasoReveal from "./AtrasoReveal";
 import VideoPlayer from "@/components/site/VideoPlayer";
 import Faq from "@/components/site/Faq";
 import Countdown from "@/components/site/Countdown";
@@ -552,12 +553,21 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
 
 export default function BlockRenderer({ blocos, ctx }: { blocos: Bloco[]; ctx: RenderCtx }) {
   // Sem wrapper por bloco: um <div> em volta quebraria o position:sticky do
-  // cabeçalho (sticky só "gruda" dentro do elemento pai).
+  // cabeçalho (sticky só "gruda" dentro do elemento pai). Exceção: blocos com
+  // "aparecer após X segundos" precisam do wrapper AtrasoReveal.
   return (
     <>
-      {blocos.map((bloco) => (
-        <Fragment key={bloco.id}>{renderBloco(bloco, ctx)}</Fragment>
-      ))}
+      {blocos.map((bloco) => {
+        const atraso = Number((bloco.config as { _aparecer_apos?: number })._aparecer_apos) || 0;
+        const conteudo = renderBloco(bloco, ctx);
+        return atraso > 0 ? (
+          <AtrasoReveal key={bloco.id} segundos={atraso}>
+            {conteudo}
+          </AtrasoReveal>
+        ) : (
+          <Fragment key={bloco.id}>{conteudo}</Fragment>
+        );
+      })}
     </>
   );
 }

@@ -336,6 +336,38 @@ export default function Editor(props: Props) {
                   value={editando.config}
                   onChange={(config) => setEditando({ ...editando, config })}
                 />
+
+                {/* comportamento universal — vale para qualquer bloco */}
+                <div className="mt-5 border-t border-white/10 pt-4">
+                  <label className="text-sm font-medium text-paper-dim">
+                    Aparecer no site
+                  </label>
+                  <select
+                    className="mt-1.5 w-full rounded-lg border border-white/10 bg-ink-2 px-4 py-2.5 text-sm text-paper outline-none focus-visible:border-brand-2"
+                    value={String(
+                      (editando.config as { _aparecer_apos?: number })._aparecer_apos ?? 0,
+                    )}
+                    onChange={(e) =>
+                      setEditando({
+                        ...editando,
+                        config: { ...editando.config, _aparecer_apos: Number(e.target.value) },
+                      })
+                    }
+                  >
+                    <option value="0">Imediatamente (padrão)</option>
+                    <option value="5">Depois de 5 segundos</option>
+                    <option value="10">Depois de 10 segundos</option>
+                    <option value="15">Depois de 15 segundos</option>
+                    <option value="20">Depois de 20 segundos</option>
+                    <option value="30">Depois de 30 segundos</option>
+                    <option value="45">Depois de 45 segundos</option>
+                    <option value="60">Depois de 1 minuto</option>
+                  </select>
+                  <p className="mt-1.5 text-xs text-paper-dim">
+                    O bloco surge com animação depois desse tempo na página. Ótimo para revelar uma
+                    oferta quando o visitante já está engajado.
+                  </p>
+                </div>
               </div>
               <div className="flex flex-none gap-2 border-t border-white/10 p-3">
                 <button
