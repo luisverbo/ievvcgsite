@@ -46,6 +46,72 @@ export async function criarPagina(_prev: PaginaState, formData: FormData): Promi
   redirect(`/app/sites/${siteId}/paginas/${novaId}/editor`);
 }
 
+// Duplica a página com todos os blocos (config, ordem e visibilidade).
+// A cópia nasce como rascunho, para você revisar antes de publicar.
+export async function duplicarPagina(paginaId: string, siteId: string) {
+  const supabase = await createClient();
+  const { data: orig } = await supabase
+    .from("paginas")
+    .select("org_id, titulo, slug, descricao_seo, og_image_url")
+    .eq("id", paginaId)
+    .maybeSingle();
+  if (!orig) return;
+  const o = orig as {
+    org_id: string;
+    titulo: string;
+    slug: string;
+    descricao_seo: string | null;
+    og_image_url: string | null;
+  };
+
+  // Slug livre: "sobre" → "sobre-copia", "sobre-copia-2"… (a home tem slug "")
+  const base = slugify(`${o.slug || o.titulo} copia`) || "pagina-copia";
+  const { data: existentes } = await supabase.from("paginas").select("slug").eq("site_id", siteId);
+  const usados = new Set(((existentes as { slug: string }[] | null) ?? []).map((p) => p.slug));
+  let slug = base;
+  for (let i = 2; usados.has(slug); i++) slug = `${base}-${i}`;
+
+  const { data: max } = await supabase
+    .from("paginas")
+    .select("ordem")
+    .eq("site_id", siteId)
+    .order("ordem", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const ordem = ((max as { ordem: number } | null)?.ordem ?? 0) + 1;
+
+  const { data: nova, error } = await supabase
+    .from("paginas")
+    .insert({
+      org_id: o.org_id,
+      site_id: siteId,
+      slug,
+      titulo: `${o.titulo} (cópia)`,
+      descricao_seo: o.descricao_seo,
+      og_image_url: o.og_image_url,
+      ordem,
+      publicado: false,
+    })
+    .select("id")
+    .single();
+  if (error || !nova) return;
+  const novaId = (nova as { id: string }).id;
+
+  const { data: blocos } = await supabase
+    .from("blocos")
+    .select("tipo, config, ordem, oculto")
+    .eq("pagina_id", paginaId)
+    .order("ordem", { ascending: true });
+
+  const rows = ((blocos as { tipo: string; config: unknown; ordem: number; oculto: boolean }[] | null) ?? []).map(
+    (b) => ({ org_id: o.org_id, pagina_id: novaId, tipo: b.tipo, config: b.config, ordem: b.ordem, oculto: b.oculto }),
+  );
+  if (rows.length > 0) await supabase.from("blocos").insert(rows);
+
+  revalidatePath(`/app/sites/${siteId}`);
+  redirect(`/app/sites/${siteId}/paginas/${novaId}/editor`);
+}
+
 export async function excluirPagina(paginaId: string, siteId: string) {
   const supabase = await createClient();
   // não deixa excluir a home (slug '')

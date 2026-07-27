@@ -4,7 +4,7 @@ import { getPaginas, getSite } from "@/lib/painel/queries";
 import SiteForm from "./SiteForm";
 import NovaPaginaForm from "./NovaPaginaForm";
 import ExcluirSite from "./ExcluirSite";
-import { excluirPagina } from "./paginas/actions";
+import { duplicarPagina, excluirPagina } from "./paginas/actions";
 import { cardClass } from "@/components/painel/ui";
 
 const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
@@ -72,6 +72,15 @@ export default async function SitePage({ params }: { params: Promise<{ id: strin
                 >
                   📊
                 </Link>
+                <form action={duplicarPagina.bind(null, pagina.id, site.id)}>
+                  <button
+                    type="submit"
+                    title="Duplicar esta página"
+                    className="text-sm text-paper-dim transition hover:text-paper"
+                  >
+                    ⧉
+                  </button>
+                </form>
                 <Link
                   href={`/app/sites/${site.id}/paginas/${pagina.id}/editor`}
                   className="rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white hover:bg-brand-2"
