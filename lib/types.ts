@@ -59,6 +59,8 @@ export type Pagina = {
   etapa_ordem: number | null;
   publicado: boolean;
   ordem: number;
+  // null/vazio = herda as cores e fontes do site
+  tema?: Tema | null;
   created_at: string;
 };
 

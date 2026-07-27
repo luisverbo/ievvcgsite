@@ -15,14 +15,16 @@ export default function BlocosLive({
   ctx: RenderCtx;
 }) {
   const [blocos, setBlocos] = useState<Bloco[]>(blocosIniciais);
+  const [temaCss, setTemaCss] = useState<string | null>(null);
 
   useEffect(() => {
     function onMensagem(e: MessageEvent) {
       // Só aceita mensagens do próprio painel (mesma origem).
       if (e.origin !== window.location.origin) return;
-      const dados = e.data as { tipo?: string; blocos?: Bloco[] };
-      if (dados?.tipo === "pp-preview" && Array.isArray(dados.blocos)) {
-        setBlocos(dados.blocos);
+      const dados = e.data as { tipo?: string; blocos?: Bloco[]; temaCss?: string | null };
+      if (dados?.tipo === "pp-preview") {
+        if (Array.isArray(dados.blocos)) setBlocos(dados.blocos);
+        if ("temaCss" in dados) setTemaCss(dados.temaCss ?? null);
       }
     }
     window.addEventListener("message", onMensagem);
@@ -31,16 +33,27 @@ export default function BlocosLive({
     return () => window.removeEventListener("message", onMensagem);
   }, []);
 
+  // O <style> vem depois do tema do site, então vence as variáveis herdadas.
+  const estilo = temaCss ? <style dangerouslySetInnerHTML={{ __html: temaCss }} /> : null;
+
   if (blocos.length === 0) {
     return (
-      <div className="pp-empty">
-        <div>
-          <h1 style={{ fontSize: 28 }}>{ctx.siteNome}</h1>
-          <p style={{ marginTop: 12 }}>Esta página ainda não tem conteúdo. Adicione blocos.</p>
+      <>
+        {estilo}
+        <div className="pp-empty">
+          <div>
+            <h1 style={{ fontSize: 28 }}>{ctx.siteNome}</h1>
+            <p style={{ marginTop: 12 }}>Esta página ainda não tem conteúdo. Adicione blocos.</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
-  return <BlockRenderer blocos={blocos} ctx={ctx} />;
+  return (
+    <>
+      {estilo}
+      <BlockRenderer blocos={blocos} ctx={ctx} />
+    </>
+  );
 }

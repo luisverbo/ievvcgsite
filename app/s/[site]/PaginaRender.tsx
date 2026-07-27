@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import BlockRenderer from "@/components/blocks/BlockRenderer";
 import { getSitePorSlug, getPaginaComBlocos } from "@/lib/painel/site-publico";
+import { buildThemeCss, googleFontsHref, mesclarTema, temPersonalizacao } from "@/lib/theme";
 
 // Render compartilhado entre a home ('') e as demais páginas ([slug]).
 export default async function PaginaRender({
@@ -31,17 +32,27 @@ export default async function PaginaRender({
     );
   }
 
+  // Tema próprio da página (opcional): vem depois do tema do site no DOM,
+  // então sobrescreve as variáveis herdadas.
+  const temaPagina = temPersonalizacao(pagina.tema) ? mesclarTema(site.tema, pagina.tema) : null;
+  const cssPagina = temaPagina ? buildThemeCss(temaPagina) : null;
+  const fontesPagina = temaPagina ? googleFontsHref(temaPagina) : null;
+
   return (
-    <BlockRenderer
-      blocos={blocos}
-      ctx={{
-        siteNome: site.nome,
-        logoUrl: site.logo_url,
-        siteId: site.id,
-        orgId: site.org_id,
-        paginaId: pagina.id,
-      }}
-    />
+    <>
+      {fontesPagina && <link rel="stylesheet" href={fontesPagina} />}
+      {cssPagina && <style dangerouslySetInnerHTML={{ __html: cssPagina }} />}
+      <BlockRenderer
+        blocos={blocos}
+        ctx={{
+          siteNome: site.nome,
+          logoUrl: site.logo_url,
+          siteId: site.id,
+          orgId: site.org_id,
+          paginaId: pagina.id,
+        }}
+      />
+    </>
   );
 }
 

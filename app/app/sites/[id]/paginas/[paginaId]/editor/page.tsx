@@ -59,6 +59,8 @@ export default async function EditorPage({
       urlPublica={urlPublicaPreview}
       urlVer={urlVer}
       blocosIniciais={blocos}
+      temaSite={site.tema ?? {}}
+      temaPagina={pagina.tema ?? null}
     />
   );
 }

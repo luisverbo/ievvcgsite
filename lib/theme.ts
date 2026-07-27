@@ -275,6 +275,22 @@ export function buildThemeCss(tema: Tema): string | null {
   return decls.length > 0 ? `:root{${decls.join(";")}}` : null;
 }
 
+// A página pode sobrescrever cores/fontes do site. Campos ausentes herdam.
+export function mesclarTema(site: Tema | null | undefined, pagina: Tema | null | undefined): Tema {
+  const base = site ?? {};
+  if (!pagina || Object.keys(pagina).length === 0) return base;
+  return {
+    ...base,
+    ...pagina,
+    cores: { ...(base.cores ?? {}), ...(pagina.cores ?? {}) },
+  };
+}
+
+export function temPersonalizacao(tema: Tema | null | undefined): boolean {
+  if (!tema) return false;
+  return Boolean(tema.fonte_titulo || tema.fonte_texto || Object.keys(tema.cores ?? {}).length > 0);
+}
+
 export function googleFontsHref(tema: Tema): string | null {
   const families: string[] = [];
 

@@ -19,6 +19,9 @@ import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
 import { BLOCOS, BLOCOS_POR_TIPO, CATEGORIAS } from "@/lib/blocks/registry";
 import BlockForm from "@/components/blocks/forms";
+import CoresPagina from "./CoresPagina";
+import { buildThemeCss, mesclarTema, temPersonalizacao } from "@/lib/theme";
+import type { Tema } from "@/lib/types";
 import {
   IconBack,
   IconCheck,
@@ -60,6 +63,8 @@ type Props = {
   urlPublica: string;
   urlVer: string;
   blocosIniciais: Bloco[];
+  temaSite: Tema;
+  temaPagina: Tema | null;
 };
 
 const acaoBtn =
@@ -148,6 +153,11 @@ export default function Editor(props: Props) {
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [coresAberto, setCoresAberto] = useState(false);
+  // temaPagina = o que a prévia mostra agora; temaSalvo = o que está no banco.
+  const [temaPagina, setTemaPagina] = useState<Tema | null>(props.temaPagina);
+  const [temaSalvo, setTemaSalvo] = useState<Tema | null>(props.temaPagina);
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -162,9 +172,18 @@ export default function Editor(props: Props) {
     [blocos, editando],
   );
 
+  // CSS do tema da página (null = herda do site, sem sobrescrever nada).
+  const temaCss = useMemo(
+    () =>
+      temPersonalizacao(temaPagina)
+        ? buildThemeCss(mesclarTema(props.temaSite, temaPagina))
+        : null,
+    [temaPagina, props.temaSite],
+  );
+
   function enviarRascunho() {
     iframeRef.current?.contentWindow?.postMessage(
-      { tipo: "pp-preview", blocos: blocosRascunho },
+      { tipo: "pp-preview", blocos: blocosRascunho, temaCss },
       window.location.origin,
     );
   }
@@ -173,7 +192,7 @@ export default function Editor(props: Props) {
     const t = setTimeout(enviarRascunho, 160);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blocosRascunho]);
+  }, [blocosRascunho, temaCss]);
 
   // Quando a prévia (re)carrega, ela avisa e recebe o rascunho atual.
   useEffect(() => {
@@ -323,6 +342,15 @@ export default function Editor(props: Props) {
         </div>
 
         <div className="ml-auto flex items-center gap-2 md:ml-0">
+          <button
+            onClick={() => setCoresAberto(true)}
+            title="Cores desta página"
+            className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition hover:bg-white/10 ${
+              temPersonalizacao(temaPagina) ? "text-brand-2" : "text-paper-dim hover:text-paper"
+            }`}
+          >
+            🎨 <span className="hidden sm:inline">Cores</span>
+          </button>
           <a
             href={props.urlVer}
             target="_blank"
@@ -595,6 +623,27 @@ export default function Editor(props: Props) {
             {toast}
           </div>
         </div>
+      )}
+
+      {/* ------- cores da página ------- */}
+      {coresAberto && (
+        <CoresPagina
+          paginaId={props.paginaId}
+          siteAdminId={props.siteAdminId}
+          temaSite={props.temaSite}
+          temaInicial={temaPagina}
+          onMudar={setTemaPagina}
+          onFechar={() => {
+            setCoresAberto(false);
+            setTemaPagina(temaSalvo); // cancelou: prévia volta ao salvo
+          }}
+          onSalvo={(t) => {
+            setTemaSalvo(t);
+            setTemaPagina(t);
+            setCoresAberto(false);
+            avisar("Cores da página salvas");
+          }}
+        />
       )}
 
       {/* ------- biblioteca de blocos ------- */}

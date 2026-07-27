@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { buildThemeCss, googleFontsHref } from "@/lib/theme";
+import { buildThemeCss, googleFontsHref, mesclarTema } from "@/lib/theme";
 import BlocosLive from "@/components/blocks/BlocosLive";
 import type { Bloco, Pagina, Site } from "@/lib/types";
 import "@/components/blocks/blocks.css";
@@ -37,8 +37,9 @@ export default async function PreviewPage({ params }: { params: Promise<{ pagina
   const site = siteRow as Site;
   const blocos = (blocosRows as Bloco[] | null) ?? [];
 
-  const themeCss = buildThemeCss(site.tema ?? {});
-  const fontsHref = googleFontsHref(site.tema ?? {});
+  const temaFinal = mesclarTema(site.tema, pagina.tema);
+  const themeCss = buildThemeCss(temaFinal);
+  const fontsHref = googleFontsHref(temaFinal);
 
   return (
     <>

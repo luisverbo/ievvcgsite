@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/format";
 import { semearBlocos } from "@/lib/painel/seed";
+import type { Tema } from "@/lib/types";
 
 export type PaginaState = { error?: string } | undefined;
 
@@ -44,6 +45,30 @@ export async function criarPagina(_prev: PaginaState, formData: FormData): Promi
   await semearBlocos(novaId, orgId, ["hero", "cta"]);
   revalidatePath(`/app/sites/${siteId}`);
   redirect(`/app/sites/${siteId}/paginas/${novaId}/editor`);
+}
+
+// Cores/fontes só desta página. null = volta a herdar do site.
+export async function salvarTemaPagina(
+  paginaId: string,
+  siteAdminId: string,
+  tema: Tema | null,
+) {
+  const supabase = await createClient();
+  const { data: pagina } = await supabase
+    .from("paginas")
+    .select("slug, sites(slug)")
+    .eq("id", paginaId)
+    .maybeSingle();
+  const { error } = await supabase.from("paginas").update({ tema }).eq("id", paginaId);
+  if (error) return { error: error.message };
+
+  const ctx = pagina as { slug: string; sites: { slug: string } } | null;
+  if (ctx) {
+    revalidatePath(`/s/${ctx.sites.slug}`);
+    if (ctx.slug) revalidatePath(`/s/${ctx.sites.slug}/${ctx.slug}`);
+  }
+  revalidatePath(`/app/sites/${siteAdminId}/paginas/${paginaId}/editor`);
+  return { ok: true };
 }
 
 // Duplica a página com todos os blocos (config, ordem e visibilidade).
