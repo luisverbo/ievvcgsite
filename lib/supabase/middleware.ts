@@ -2,6 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PAINEL_PREFIX = "/app";
+// Rotas que exigem sessão (a prévia do editor mostra rascunhos).
+const PROTEGIDAS = [PAINEL_PREFIX, "/pp-preview"];
 
 // Renova a sessão e protege o painel (/app). Rotas de login/cadastro ficam
 // fora de /app, então não precisam de exceção aqui.
@@ -33,7 +35,7 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith(PAINEL_PREFIX) && !user) {
+  if (PROTEGIDAS.some((p) => pathname.startsWith(p)) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("de", pathname);

@@ -39,6 +39,7 @@ export type RenderCtx = {
   siteId: string;
   orgId: string;
   paginaId: string | null;
+  preview?: boolean; // na prévia do editor, mostra tudo (ignora o atraso)
 };
 
 type Bloco = { id: string; tipo: string; config: Record<string, unknown> };
@@ -576,7 +577,7 @@ export default function BlockRenderer({ blocos, ctx }: { blocos: Bloco[]; ctx: R
           _pad_topo?: number;
           _pad_baixo?: number;
         };
-        const atraso = Number(meta._aparecer_apos) || 0;
+        const atraso = ctx.preview ? 0 : Number(meta._aparecer_apos) || 0;
         let conteudo = renderBloco(bloco, ctx);
 
         // Espaçamento por bloco: sobrescreve o padding vertical da seção.

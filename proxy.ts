@@ -28,6 +28,7 @@ export default async function proxy(request: NextRequest) {
   // Painel e auth: sessão + proteção
   if (
     pathname.startsWith("/app") ||
+    pathname.startsWith("/pp-preview") || // prévia do editor (exige sessão)
     pathname === "/login" ||
     pathname === "/cadastro"
   ) {

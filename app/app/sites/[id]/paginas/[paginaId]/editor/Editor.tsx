@@ -149,6 +149,42 @@ export default function Editor(props: Props) {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Prévia ao vivo: manda o rascunho para o iframe a cada tecla (com respiro),
+  // então o texto aparece na hora — sem precisar salvar.
+  const blocosRascunho = useMemo(
+    () =>
+      blocos
+        .filter((b) => !b.oculto)
+        .map((b) => (editando && b.id === editando.id ? { ...b, config: editando.config } : b))
+        .map((b) => ({ id: b.id, tipo: b.tipo, config: b.config })),
+    [blocos, editando],
+  );
+
+  function enviarRascunho() {
+    iframeRef.current?.contentWindow?.postMessage(
+      { tipo: "pp-preview", blocos: blocosRascunho },
+      window.location.origin,
+    );
+  }
+
+  useEffect(() => {
+    const t = setTimeout(enviarRascunho, 160);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocosRascunho]);
+
+  // Quando a prévia (re)carrega, ela avisa e recebe o rascunho atual.
+  useEffect(() => {
+    function onMensagem(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      if ((e.data as { tipo?: string })?.tipo === "pp-preview-pronto") enviarRascunho();
+    }
+    window.addEventListener("message", onMensagem);
+    return () => window.removeEventListener("message", onMensagem);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocosRascunho]);
 
   function avisar(msg: string) {
     setToast(msg);
@@ -221,7 +257,8 @@ export default function Editor(props: Props) {
     avisar(novo ? "Página publicada 🎉" : "Página despublicada");
   }
 
-  const previewSrc = `${props.urlPublica}?pv=${previewKey}`;
+  // Prévia dedicada (sempre dinâmica e conectada ao editor por postMessage).
+  const previewSrc = `/pp-preview/${props.paginaId}?pv=${previewKey}`;
   const defEditando = editando ? BLOCOS_POR_TIPO.get(editando.tipo) : null;
 
   const categorias = useMemo(() => ["Todos", ...CATEGORIAS], []);
@@ -538,9 +575,11 @@ export default function Editor(props: Props) {
             </div>
             <iframe
               key={previewKey}
+              ref={iframeRef}
               src={previewSrc}
               title="Prévia da página"
               className="min-h-0 w-full flex-1 border-0 bg-white"
+              onLoad={enviarRascunho}
             />
           </div>
         </div>
