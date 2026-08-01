@@ -223,6 +223,19 @@ function HeroForm({ value, onChange, orgId }: FormProps) {
       <UploadInput orgId={orgId} pasta="hero" label="Imagem (opcional)" value={c.imagem_url ?? ""} onChange={(v) => up({ imagem_url: v })} />
       <Campo label="Vídeo — link YouTube/Vimeo/Shorts/Instagram (opcional)" value={c.video_url ?? ""} onChange={(v) => up({ video_url: v })} />
       {c.video_url && <VideoOpcoesEditor value={c.video_opcoes} onChange={(v) => up({ video_opcoes: v })} />}
+      {(c.video_url || c.imagem_url) && (
+        <div className="flex flex-col gap-1.5">
+          <label className={labelClass}>Posição dos botões</label>
+          <select
+            className={inputClass}
+            value={c.botoes_abaixo_midia ? "depois" : "antes"}
+            onChange={(e) => up({ botoes_abaixo_midia: e.target.value === "depois" })}
+          >
+            <option value="antes">Acima do vídeo/imagem</option>
+            <option value="depois">Abaixo do vídeo/imagem</option>
+          </select>
+        </div>
+      )}
       <ArrayEditor
         label="Botões"
         itens={c.botoes ?? []}

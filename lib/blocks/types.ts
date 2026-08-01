@@ -31,6 +31,7 @@ export type HeroConfig = {
   video_url?: string | null;
   video_opcoes?: VideoOpcoesConfig;
   botoes?: BotaoConfig[];
+  botoes_abaixo_midia?: boolean; // true = botões depois do vídeo/imagem
   alinhamento?: "centro" | "esquerda";
 };
 

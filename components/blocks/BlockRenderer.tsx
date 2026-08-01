@@ -91,36 +91,41 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
       const cfg = c as HeroConfig;
       const center = (cfg.alinhamento ?? "centro") === "centro";
       const vertical = cfg.video_url ? isVerticalVideo(cfg.video_url) : false;
+      const botoes = (cfg.botoes?.length ?? 0) > 0 && (
+        <div className="pp-btn-row">
+          {cfg.botoes!.map((b, i) => (
+            <Botao key={i} b={b} />
+          ))}
+        </div>
+      );
+      const midia = cfg.video_url ? (
+        <div
+          className="pp-hero-media"
+          style={vertical ? { maxWidth: 330, aspectRatio: "9/16" } : undefined}
+        >
+          <VideoPlayer
+            url={cfg.video_url}
+            poster={cfg.imagem_url}
+            title={cfg.titulo}
+            opcoes={cfg.video_opcoes}
+          />
+        </div>
+      ) : cfg.imagem_url ? (
+        <div className="pp-hero-media">
+          <img src={cfg.imagem_url} alt="" />
+        </div>
+      ) : null;
+      // Por padrão os botões vêm antes da mídia; a opção inverte a ordem.
+      const botoesDepois = Boolean(cfg.botoes_abaixo_midia) && Boolean(midia);
       return (
         <section className={`pp-hero ${center ? "pp-center" : ""}`}>
           <div className="pp-wrap pp-hero-inner">
             {cfg.selo && <span className="pp-badge">{cfg.selo}</span>}
             <h1>{cfg.titulo}</h1>
             {cfg.subtitulo && <p className="pp-hero-sub">{cfg.subtitulo}</p>}
-            {(cfg.botoes?.length ?? 0) > 0 && (
-              <div className="pp-btn-row">
-                {cfg.botoes!.map((b, i) => (
-                  <Botao key={i} b={b} />
-                ))}
-              </div>
-            )}
-            {cfg.video_url ? (
-              <div
-                className="pp-hero-media"
-                style={vertical ? { maxWidth: 330, aspectRatio: "9/16" } : undefined}
-              >
-                <VideoPlayer
-                  url={cfg.video_url}
-                  poster={cfg.imagem_url}
-                  title={cfg.titulo}
-                  opcoes={cfg.video_opcoes}
-                />
-              </div>
-            ) : cfg.imagem_url ? (
-              <div className="pp-hero-media">
-                <img src={cfg.imagem_url} alt="" />
-              </div>
-            ) : null}
+            {!botoesDepois && botoes}
+            {midia}
+            {botoesDepois && botoes}
           </div>
         </section>
       );
