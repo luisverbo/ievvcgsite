@@ -36,6 +36,7 @@ export default function CoresPagina({
 }) {
   const [tema, setTema] = useState<Tema | null>(temaInicial);
   const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
   const personalizado = Boolean(tema && Object.keys(tema).length > 0);
   // O que está valendo agora (para mostrar nos seletores).
@@ -59,8 +60,15 @@ export default function CoresPagina({
   async function salvar() {
     const final = personalizado ? tema : null;
     setSalvando(true);
-    await salvarTemaPagina(paginaId, siteAdminId, final);
+    setErro(null);
+    const res = await salvarTemaPagina(paginaId, siteAdminId, final);
     setSalvando(false);
+    // Sem isto o erro passava batido: a prévia mostrava a cor nova (estado
+    // local) e o site continuava com a antiga.
+    if (res?.error) {
+      setErro(res.error);
+      return;
+    }
     onSalvo(final);
   }
 
@@ -157,6 +165,11 @@ export default function CoresPagina({
           )}
         </div>
 
+        {erro && (
+          <p className="mx-4 mb-1 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2.5 text-xs text-danger">
+            Não consegui salvar: {erro}
+          </p>
+        )}
         <div className="flex flex-none gap-2 border-t border-white/10 p-4">
           <button
             onClick={salvar}
