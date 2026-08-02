@@ -69,11 +69,18 @@ export type CardsConfig = {
   itens: CardItem[];
 };
 
+// Item da lista: texto simples (✓ verde) ou com marcador escolhido.
+export type ListaItem = { texto: string; marca?: "check" | "x" };
 export type ListaConfig = {
   eyebrow?: string;
   titulo?: string;
-  itens: string[]; // uma frase por item
+  itens: (string | ListaItem)[];
 };
+
+// Normaliza itens antigos (string) e novos (objeto) num formato só.
+export function normalizarItemLista(item: string | ListaItem): ListaItem {
+  return typeof item === "string" ? { texto: item, marca: "check" } : { marca: "check", ...item };
+}
 
 export type GaleriaConfig = {
   eyebrow?: string;

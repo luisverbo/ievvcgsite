@@ -12,6 +12,7 @@ import type {
   CtaConfig,
   CardsConfig,
   ListaConfig,
+  ListaItem,
   GaleriaConfig,
   DepoimentosConfig,
   FaqConfig,
@@ -31,6 +32,7 @@ import type {
   MidiaTextoConfig,
   HtmlConfig,
 } from "@/lib/blocks/types";
+import { normalizarItemLista } from "@/lib/blocks/types";
 
 type Cfg = Record<string, unknown>;
 type FormProps = { value: Cfg; onChange: (v: Cfg) => void; orgId: string };
@@ -346,10 +348,33 @@ function ListaForm({ value, onChange }: FormProps) {
         label="Itens"
         itens={c.itens ?? []}
         onChange={(v) => up({ itens: v })}
-        novo={() => "Novo item"}
-        render={(item, _patch, i) => (
-          <Campo label={`Item ${i + 1}`} value={item} onChange={(v) => up({ itens: (c.itens ?? []).map((it, idx) => (idx === i ? v : it)) })} />
-        )}
+        novo={() => ({ texto: "Novo item", marca: "check" }) as ListaItem}
+        render={(bruto, _patch, i) => {
+          const item = normalizarItemLista(bruto);
+          // Sempre grava no formato novo (objeto), convertendo itens antigos.
+          const trocar = (p: Partial<ListaItem>) =>
+            up({
+              itens: (c.itens ?? []).map((it, idx) =>
+                idx === i ? { ...normalizarItemLista(it), ...p } : it,
+              ),
+            });
+          return (
+            <div className="grid gap-2">
+              <Campo label={`Item ${i + 1}`} value={item.texto} onChange={(v) => trocar({ texto: v })} />
+              <div className="flex flex-col gap-1.5">
+                <label className={labelClass}>Marcador</label>
+                <select
+                  className={inputClass}
+                  value={item.marca ?? "check"}
+                  onChange={(e) => trocar({ marca: e.target.value as ListaItem["marca"] })}
+                >
+                  <option value="check">✓ Verde (inclui / pode)</option>
+                  <option value="x">✕ Vermelho (não inclui / não pode)</option>
+                </select>
+              </div>
+            </div>
+          );
+        }}
       />
     </div>
   );

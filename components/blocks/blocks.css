@@ -85,6 +85,16 @@
   }
 }
 
+/* Textos do usuário respeitam o Enter (quebra de linha) que ele digitou. */
+.pp-site p,
+.pp-site .pp-lista li,
+.pp-site .pp-plano-lista li,
+.pp-site .pp-card p,
+.pp-site .pp-passo p,
+.pp-site .pp-depo q {
+  white-space: pre-line;
+}
+
 .pp-eyebrow {
   display: inline-flex;
   align-items: center;
@@ -620,6 +630,18 @@
 .pp-lista li:hover {
   border-color: color-mix(in srgb, var(--color-green) 40%, transparent);
   transform: translateX(4px);
+}
+.pp-lista li[data-marca="x"]:hover {
+  border-color: color-mix(in srgb, var(--color-coral) 45%, transparent);
+}
+.pp-lista li[data-marca="x"] b {
+  background: linear-gradient(
+    135deg,
+    var(--color-coral),
+    color-mix(in srgb, var(--color-coral) 60%, var(--color-night))
+  );
+  color: var(--color-cream);
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--color-coral) 60%, transparent);
 }
 .pp-lista li b {
   flex: 0 0 auto;

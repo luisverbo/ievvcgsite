@@ -32,6 +32,7 @@ import type {
   GarantiaConfig,
   MidiaTextoConfig,
 } from "@/lib/blocks/types";
+import { normalizarItemLista } from "@/lib/blocks/types";
 
 export type RenderCtx = {
   siteNome: string;
@@ -243,11 +244,14 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
           <div className="pp-wrap">
             <Head eyebrow={cfg.eyebrow} titulo={cfg.titulo} />
             <ul className="pp-lista" style={{ textAlign: "left" }}>
-              {(cfg.itens ?? []).map((item, i) => (
-                <li key={i}>
-                  <b aria-hidden="true">✓</b> {item}
-                </li>
-              ))}
+              {(cfg.itens ?? []).map((bruto, i) => {
+                const item = normalizarItemLista(bruto);
+                return (
+                  <li key={i} data-marca={item.marca}>
+                    <b aria-hidden="true">{item.marca === "x" ? "✕" : "✓"}</b> {item.texto}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </section>
