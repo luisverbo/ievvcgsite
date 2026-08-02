@@ -1,5 +1,7 @@
 "use client";
 
+import { useRef } from "react";
+
 import UploadInput from "@/components/painel/UploadInput";
 import { inputClass, labelClass } from "@/components/painel/ui";
 import type {
@@ -62,19 +64,77 @@ function Campo({
   );
 }
 
+// Barra de formatação: envolve o trecho selecionado com os marcadores que o
+// site interpreta (**negrito**, _itálico_, __sublinhado__, ==destaque==, cor).
+function BarraFormato({
+  areaRef,
+  value,
+  onChange,
+}: {
+  areaRef: React.RefObject<HTMLTextAreaElement | null>;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  function envolver(antes: string, depois: string, textoPadrao: string) {
+    const el = areaRef.current;
+    const ini = el?.selectionStart ?? value.length;
+    const fim = el?.selectionEnd ?? value.length;
+    const selecionado = value.slice(ini, fim) || textoPadrao;
+    const novo = value.slice(0, ini) + antes + selecionado + depois + value.slice(fim);
+    onChange(novo);
+    // Deixa o trecho formatado selecionado, para continuar digitando por cima.
+    requestAnimationFrame(() => {
+      el?.focus();
+      el?.setSelectionRange(ini + antes.length, ini + antes.length + selecionado.length);
+    });
+  }
+
+  const botao = "rounded px-2 py-1 text-xs font-bold text-paper-dim transition hover:bg-white/10 hover:text-paper";
+  return (
+    <div className="flex flex-wrap items-center gap-0.5 rounded-lg border border-white/10 bg-ink-3 px-1.5 py-1">
+      <button type="button" title="Negrito" className={botao} onClick={() => envolver("**", "**", "negrito")}>
+        <b>B</b>
+      </button>
+      <button type="button" title="Itálico" className={botao} onClick={() => envolver("_", "_", "itálico")}>
+        <i>I</i>
+      </button>
+      <button type="button" title="Sublinhado" className={botao} onClick={() => envolver("__", "__", "sublinhado")}>
+        <u>U</u>
+      </button>
+      <button type="button" title="Destacar (marca-texto)" className={botao} onClick={() => envolver("==", "==", "destaque")}>
+        <span className="rounded bg-warn/40 px-1 text-paper">A</span>
+      </button>
+      <span className="mx-1 h-4 w-px bg-white/10" />
+      <label className="flex cursor-pointer items-center gap-1 rounded px-1.5 py-1 text-xs text-paper-dim transition hover:bg-white/10 hover:text-paper" title="Cor do texto">
+        🎨
+        <input
+          type="color"
+          className="h-4 w-5 cursor-pointer border-0 bg-transparent p-0"
+          onChange={(e) => envolver(`{cor:${e.target.value}}`, "{/cor}", "texto")}
+        />
+      </label>
+    </div>
+  );
+}
+
 function Area({
   label,
   value,
   onChange,
+  semFormato,
 }: {
   label: string;
   value?: string;
   onChange: (v: string) => void;
+  semFormato?: boolean;
 }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
   return (
     <div className="flex flex-col gap-1.5">
       <label className={labelClass}>{label}</label>
+      {!semFormato && <BarraFormato areaRef={ref} value={value ?? ""} onChange={onChange} />}
       <textarea
+        ref={ref}
         className={inputClass}
         rows={3}
         value={value ?? ""}

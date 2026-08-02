@@ -33,6 +33,7 @@ import type {
   MidiaTextoConfig,
 } from "@/lib/blocks/types";
 import { normalizarItemLista } from "@/lib/blocks/types";
+import { Rico } from "@/lib/blocks/rich";
 
 export type RenderCtx = {
   siteNome: string;
@@ -122,8 +123,14 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
         <section className={`pp-hero ${center ? "pp-center" : ""}`}>
           <div className="pp-wrap pp-hero-inner">
             {cfg.selo && <span className="pp-badge">{cfg.selo}</span>}
-            <h1>{cfg.titulo}</h1>
-            {cfg.subtitulo && <p className="pp-hero-sub">{cfg.subtitulo}</p>}
+            <h1>
+              <Rico>{cfg.titulo}</Rico>
+            </h1>
+            {cfg.subtitulo && (
+              <p className="pp-hero-sub">
+                <Rico>{cfg.subtitulo}</Rico>
+              </p>
+            )}
             {!botoesDepois && botoes}
             {midia}
             {botoesDepois && botoes}
@@ -138,7 +145,11 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
         <section className={`pp-section ${center ? "pp-center" : ""}`}>
           <div className="pp-wrap">
             {cfg.eyebrow && <div className="pp-eyebrow">{cfg.eyebrow}</div>}
-            {cfg.titulo && <h2 style={{ fontSize: "clamp(26px,5vw,40px)" }}>{cfg.titulo}</h2>}
+            {cfg.titulo && (
+              <h2 style={{ fontSize: "clamp(26px,5vw,40px)" }}>
+                <Rico>{cfg.titulo}</Rico>
+              </h2>
+            )}
             {cfg.corpo && (
               <p
                 style={{
@@ -150,7 +161,7 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
                   marginInline: center ? "auto" : undefined,
                 }}
               >
-                {cfg.corpo}
+                <Rico>{cfg.corpo}</Rico>
               </p>
             )}
           </div>
@@ -206,7 +217,7 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
             {cfg.titulo && <h2 style={{ fontSize: "clamp(26px,5vw,40px)" }}>{cfg.titulo}</h2>}
             {cfg.subtitulo && (
               <p style={{ color: "var(--color-cream-dim)", fontSize: 17, marginTop: 12 }}>
-                {cfg.subtitulo}
+                <Rico>{cfg.subtitulo}</Rico>
               </p>
             )}
             {cfg.botao?.texto && (
@@ -229,7 +240,11 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
                 <div key={i} className="pp-card" style={{ textAlign: "left" }}>
                   {item.emoji && <span className="pp-emoji">{item.emoji}</span>}
                   <h3>{item.titulo}</h3>
-                  {item.texto && <p>{item.texto}</p>}
+                  {item.texto && (
+                    <p>
+                      <Rico>{item.texto}</Rico>
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -248,7 +263,8 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
                 const item = normalizarItemLista(bruto);
                 return (
                   <li key={i} data-marca={item.marca}>
-                    <b aria-hidden="true">{item.marca === "x" ? "✕" : "✓"}</b> {item.texto}
+                    <b aria-hidden="true">{item.marca === "x" ? "✕" : "✓"}</b>{" "}
+                    <Rico>{item.texto}</Rico>
                   </li>
                 );
               })}
@@ -284,7 +300,9 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
             <div className="pp-depos" data-n={String(Math.min(3, itens.length))}>
               {itens.map((d, i) => (
                 <div key={i} className="pp-depo" style={{ textAlign: "left" }}>
-                  <q>{d.texto}</q>
+                  <q>
+                    <Rico>{d.texto}</Rico>
+                  </q>
                   {(d.autor || d.foto_url) && (
                     <div className="pp-depo-autor">
                       {d.foto_url && <img src={d.foto_url} alt="" />}
@@ -432,7 +450,11 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
                 <div key={i} className="pp-passo">
                   <span className="pp-passo-num">{i + 1}</span>
                   <h3>{p.titulo}</h3>
-                  {p.texto && <p>{p.texto}</p>}
+                  {p.texto && (
+                    <p>
+                      <Rico>{p.texto}</Rico>
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -492,7 +514,11 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
               <div>
                 {cfg.selo && <span className="pp-garantia-selo">{cfg.selo}</span>}
                 {cfg.titulo && <h3>{cfg.titulo}</h3>}
-                {cfg.texto && <p>{cfg.texto}</p>}
+                {cfg.texto && (
+                  <p>
+                    <Rico>{cfg.texto}</Rico>
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -522,7 +548,11 @@ function renderBloco(bloco: Bloco, ctx: RenderCtx) {
             <div className="pp-mt-texto">
               {cfg.eyebrow && <div className="pp-eyebrow">{cfg.eyebrow}</div>}
               {cfg.titulo && <h2>{cfg.titulo}</h2>}
-              {cfg.corpo && <p className="pp-mt-corpo">{cfg.corpo}</p>}
+              {cfg.corpo && (
+                <p className="pp-mt-corpo">
+                  <Rico>{cfg.corpo}</Rico>
+                </p>
+              )}
               {(cfg.itens?.length ?? 0) > 0 && (
                 <ul className="pp-lista" style={{ marginTop: 18 }}>
                   {cfg.itens!.map((item, i) => (

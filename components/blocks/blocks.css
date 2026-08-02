@@ -85,6 +85,21 @@
   }
 }
 
+/* Marca-texto do editor (==destaque==), na cor de realce do tema. */
+.pp-site .pp-marca {
+  background: linear-gradient(
+    transparent 58%,
+    color-mix(in srgb, var(--color-gold) 45%, transparent) 58%
+  );
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+.pp-site strong {
+  color: var(--color-cream);
+  font-weight: 800;
+}
+
 /* Textos do usuário respeitam o Enter (quebra de linha) que ele digitou. */
 .pp-site p,
 .pp-site .pp-lista li,
