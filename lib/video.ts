@@ -60,8 +60,18 @@ export function youtubeThumbFallback(id: string) {
   return `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 }
 
-export function youtubeEmbedUrl(id: string, opcoes?: VideoOpcoes) {
-  const p = new URLSearchParams({ playsinline: "1", rel: "0", enablejsapi: "1" });
+// `jsapi` só é ligado quando precisamos controlar o player por postMessage
+// (botão de ativar som). Nesse caso o YouTube exige também o parâmetro
+// `origin` — sem ele o embed responde "vídeo não disponível".
+export function youtubeEmbedUrl(
+  id: string,
+  opcoes?: VideoOpcoes & { jsapi?: boolean; origin?: string },
+) {
+  const p = new URLSearchParams({ playsinline: "1", rel: "0" });
+  if (opcoes?.jsapi) {
+    p.set("enablejsapi", "1");
+    if (opcoes.origin) p.set("origin", opcoes.origin);
+  }
   p.set("autoplay", opcoes?.autoplay ? "1" : "0");
   // Autoplay só arranca mudo; se o usuário quer som, o overlay reativa depois.
   const iniciarMudo = opcoes?.mudo || Boolean(opcoes?.autoplay);

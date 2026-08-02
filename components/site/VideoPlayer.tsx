@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import {
   parseVideoUrl,
   youtubeEmbedUrl,
@@ -59,6 +59,14 @@ export default function VideoPlayer({
   // Quer som mas o autoplay obriga a começar mudo → mostra o botão de som.
   const querSom = Boolean(opcoes?.autoplay && !opcoes?.mudo);
   const [precisaSom, setPrecisaSom] = useState(querSom);
+  // A API de controle do YouTube exige o `origin`, que só existe no navegador.
+  // No servidor vale null, então o HTML bate com o do cliente na hidratação.
+  const origin = useSyncExternalStore(
+    () => () => {},
+    () => window.location.origin,
+    () => null,
+  );
+  const jsapi = querSom && Boolean(origin);
 
   // Efeito "VTurb": ao ativar o som, o vídeo VOLTA AO INÍCIO com áudio —
   // a pessoa assiste tudo desde o começo, agora ouvindo.
@@ -136,14 +144,19 @@ export default function VideoPlayer({
         <iframe
           ref={iframeRef}
           className="video-el"
-          src={youtubeEmbedUrl(video.id, { ...opcoes, autoplay: true })}
+          src={youtubeEmbedUrl(video.id, {
+            ...opcoes,
+            autoplay: true,
+            jsapi,
+            origin: origin ?? undefined,
+          })}
           title={title}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
         />
         {/* No modo nativo, uma camada transparente bloqueia cliques na marca do YouTube */}
         {opcoes?.nativo && !precisaSom && <span className="pp-video-capa" aria-hidden="true" />}
-        {precisaSom && <BotaoSom onClick={ativarSomYoutube} />}
+        {precisaSom && jsapi && <BotaoSom onClick={ativarSomYoutube} />}
       </>
     );
   }
