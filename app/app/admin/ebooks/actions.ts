@@ -119,7 +119,9 @@ export async function criarEbookIA(formData: FormData): Promise<NovoEbookIAResul
   if (tema.length < 10) return { error: "Descreva melhor o tema do ebook (mínimo 10 caracteres)." };
 
   const formato = (String(formData.get("formato") ?? "a4") as FormatoEbook) || "a4";
-  const numPaginas = Math.min(40, Math.max(4, Number(formData.get("paginas")) || 12));
+  // Teto de 24: acima disso a diagramação não cabe no tempo da função e a
+  // geração morre no meio, sem salvar nada.
+  const numPaginas = Math.min(24, Math.max(4, Number(formData.get("paginas")) || 12));
   const qualidade: QualidadeImagem =
     String(formData.get("qualidade_imagem")) === "alta" ? "alta" : "media";
   const modeloIA = modeloValido(String(formData.get("modelo_ia") ?? ""));

@@ -148,8 +148,8 @@ export default function NovoEbook({ temChave }: { temChave: boolean }) {
             name="paginas"
             type="number"
             min={4}
-            max={40}
-            defaultValue={14}
+            max={24}
+            defaultValue={12}
             className={inputClass}
           />
         </div>

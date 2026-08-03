@@ -114,6 +114,18 @@ export async function POST(req: Request) {
         }
       };
 
+      // Sem isto, uma falha sumia ao recarregar: só a mensagem do usuário
+      // ficava salva e a tela voltava em branco, sem explicação.
+      const registrarFalha = async (motivo: string) => {
+        linha({ t: "erro", v: motivo });
+        await supabase.from("sites_ia_mensagens").insert({
+          site_ia_id: siteIaId,
+          org_id: site.org_id,
+          papel: "assistant",
+          conteudo: `⚠️ ${motivo}`,
+        });
+      };
+
       try {
         const resposta = await conversarComIA({
           key,
@@ -125,7 +137,7 @@ export async function POST(req: Request) {
         });
 
         if (!resposta.html) {
-          linha({ t: "erro", v: "A IA não devolveu o HTML da página. Tente pedir de novo." });
+          await registrarFalha("A IA não devolveu o HTML da página. Tente pedir de novo.");
           controller.close();
           return;
         }
@@ -158,7 +170,7 @@ export async function POST(req: Request) {
           versaoId: (versao as { id: string } | null)?.id ?? null,
         });
       } catch (e) {
-        linha({ t: "erro", v: e instanceof Error ? e.message : "Falha ao falar com a IA." });
+        await registrarFalha(e instanceof Error ? e.message : "Falha ao falar com a IA.");
       }
       controller.close();
     },

@@ -30,6 +30,9 @@ Um único documento HTML: um <style> com TODO o CSS e, em seguida, uma <section 
 2. Depois da cerca, 1 a 3 frases em português sobre a direção adotada.
 Ao editar um ebook existente, devolva SEMPRE o documento completo.
 
+# ORÇAMENTO DE TEMPO (restrição dura de infraestrutura)
+Você tem um limite real de tempo para escrever. Um CSS enxuto e reaproveitado é obrigatório: defina classes utilitárias (.pg-titulo, .card, .num, .cita, .passo) uma vez e reutilize em todas as páginas, em vez de escrever regra nova por página. Nada de comentário longo nem estilo duplicado. Se o ebook pedido for grande, ainda assim entregue TODAS as páginas — corte na verbosidade do CSS, nunca no número de páginas.
+
 # REGRA DE OURO: A PÁGINA NUNCA TRANSBORDA
 Cada <section class="pg"> é uma página física de tamanho fixo. Texto cortado é falha grave.
 - O sistema aplica a proporção; você escreve o CSS com medidas RELATIVAS a ela: use em/%, clamp() e cqw/cqh se precisar. NUNCA use px fixo em fonte ou espaçamento.

@@ -73,7 +73,13 @@ export default function Construtor({
   const [erroImg, setErroImg] = useState<Record<number, string>>({});
 
   const [bolhas, setBolhas] = useState<Bolha[]>(
-    mensagensIniciais.map((m) => ({ papel: m.papel, conteudo: m.conteudo, anexos: m.anexos })),
+    // Falhas ficam salvas com ⚠️ na frente para continuarem visíveis (e
+    // vermelhas) depois de recarregar a página.
+    mensagensIniciais.map((m) => ({
+      papel: m.papel === "assistant" && m.conteudo.startsWith("⚠️") ? "erro" : m.papel,
+      conteudo: m.conteudo,
+      anexos: m.anexos,
+    })),
   );
   const [texto, setTexto] = useState("");
   const [anexos, setAnexos] = useState<AnexoLocal[]>([]);
@@ -426,6 +432,11 @@ export default function Construtor({
                   Quanto mais específico, melhor: para quem é, o que vende, qual o preço, que
                   sensação a página tem que passar. Você pode anexar uma imagem de referência ou um
                   PDF com o briefing.
+                </p>
+                <p className="mt-2">
+                  Peça <b className="text-paper">uma página por vez</b>. Briefings gigantes, com
+                  dezenas de exigências, fazem a geração estourar o tempo limite e se perder —
+                  comece pelo essencial e vá refinando no chat.
                 </p>
               </div>
             )}

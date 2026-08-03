@@ -99,6 +99,10 @@ export async function conversarComIA(opcoes: {
   mensagens: MensagemChat[];
   htmlAtual?: string | null;
   onTexto?: (pedaco: string) => void;
+  // Quanto a IA "pensa" antes de escrever. Baixo = mais rápido, e velocidade
+  // aqui é requisito: a função tem 300s no total (Vercel).
+  esforco?: "low" | "medium" | "high";
+  maxTokens?: number;
 }): Promise<RespostaIA> {
   const client = new Anthropic({ apiKey: opcoes.key });
 
@@ -122,8 +126,10 @@ export async function conversarComIA(opcoes: {
 
   const stream = client.messages.stream({
     model: modeloValido(opcoes.modelo),
-    max_tokens: 64000,
-    output_config: { effort: "high" },
+    // Teto de segurança: uma página passa longe disto, e um documento que
+    // crescesse sem limite estouraria o tempo da função antes de terminar.
+    max_tokens: opcoes.maxTokens ?? 32000,
+    output_config: { effort: opcoes.esforco ?? "medium" },
     system: [{ type: "text", text: opcoes.system, cache_control: { type: "ephemeral" } }],
     messages: historico,
   });
@@ -141,6 +147,12 @@ export async function conversarComIA(opcoes: {
   // erro apareceria como "a IA não devolveu HTML", que confunde.
   if (final.stop_reason === "refusal") {
     throw new Error("A IA recusou este pedido. Reescreva o prompt e tente de novo.");
+  }
+  // Documento cortado no meio: melhor avisar do que salvar uma página quebrada.
+  if (final.stop_reason === "max_tokens") {
+    throw new Error(
+      "A página ficou longa demais e foi cortada. Peça algo mais enxuto (menos seções) e tente de novo.",
+    );
   }
 
   return { html: extrairHtml(texto), resumo: extrairResumo(texto), textoBruto: texto };
