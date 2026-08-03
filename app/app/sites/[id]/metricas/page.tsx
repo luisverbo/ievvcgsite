@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSite } from "@/lib/painel/queries";
+import { createClient } from "@/lib/supabase/server";
 import {
   getMetricasSite,
   type BotaoPorOrigem,
@@ -276,8 +277,22 @@ export default async function MetricasPage({
   const intervalo = resolverIntervalo(p, de, ate);
   const numDias = Math.max(1, Math.round((intervalo.ate.getTime() - intervalo.desde.getTime()) / 86_400_000));
 
-  const site = await getSite(id);
-  if (!site) notFound();
+  // Sites normais e páginas do construtor com IA compartilham esta tela: os
+  // eventos vão para a mesma tabela, mudando só de qual registro vem o nome.
+  let site = await getSite(id);
+  let voltarPara = site ? `/app/sites/${site.id}` : "";
+  if (!site) {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("sites_ia")
+      .select("id, titulo")
+      .eq("id", id)
+      .maybeSingle();
+    const ia = data as { id: string; titulo: string } | null;
+    if (!ia) notFound();
+    site = { id: ia.id, nome: ia.titulo } as NonNullable<typeof site>;
+    voltarPara = `/app/admin/ia/${ia.id}`;
+  }
 
   const m = await getMetricasSite(site.id, { desde: intervalo.desde, ate: intervalo.ate }, filtroPagina);
   const urlBase = `/app/sites/${site.id}/metricas`;
@@ -322,7 +337,7 @@ export default async function MetricasPage({
   return (
     <div className="painel-wrap flex flex-col gap-6">
       <div>
-        <Link href={`/app/sites/${site.id}`} className="text-sm text-paper-dim hover:text-paper">
+        <Link href={voltarPara} className="text-sm text-paper-dim hover:text-paper">
           ← {site.nome}
         </Link>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">

@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { MODELOS_IA } from "@/lib/ia/modelos";
+import { listarImagensHtml } from "@/lib/ia/html-imagens";
 import {
+  gerarImagemIA,
   publicarPaginaIA,
   restaurarVersao,
   trocarModelo,
@@ -53,6 +55,15 @@ export default function Construtor({
   const [versoes, setVersoes] = useState(versoesIniciais);
   const [mostrarVersoes, setMostrarVersoes] = useState(false);
   const [dispositivo, setDispositivo] = useState<"desktop" | "mobile">("desktop");
+
+  // Imagens que a IA marcou no HTML com data-ia-prompt.
+  const imagens = useMemo(() => listarImagensHtml(html), [html]);
+  const pendentes = imagens.filter((im) => !im.gerada).length;
+  const [mostrarImagens, setMostrarImagens] = useState(false);
+  const [qualidadeImg, setQualidadeImg] = useState<"media" | "alta">("media");
+  const [promptsImg, setPromptsImg] = useState<Record<number, string>>({});
+  const [gerandoImg, setGerandoImg] = useState<Set<number>>(new Set());
+  const [erroImg, setErroImg] = useState<Record<number, string>>({});
 
   const [bolhas, setBolhas] = useState<Bolha[]>(
     mensagensIniciais.map((m) => ({ papel: m.papel, conteudo: m.conteudo, anexos: m.anexos })),
@@ -189,6 +200,37 @@ export default function Construtor({
     }
   }
 
+  async function gerarImagem(indice: number) {
+    setGerandoImg((s) => new Set(s).add(indice));
+    setErroImg((e) => ({ ...e, [indice]: "" }));
+    try {
+      const res = await gerarImagemIA(site.id, indice, {
+        prompt: promptsImg[indice]?.trim() || undefined,
+        qualidade: qualidadeImg,
+      });
+      if (res.error) setErroImg((e) => ({ ...e, [indice]: res.error! }));
+      else if (res.html) setHtml(res.html);
+    } catch (e) {
+      setErroImg((x) => ({
+        ...x,
+        [indice]: e instanceof Error ? e.message : "Falha ao gerar a imagem.",
+      }));
+    } finally {
+      setGerandoImg((s) => {
+        const novo = new Set(s);
+        novo.delete(indice);
+        return novo;
+      });
+    }
+  }
+
+  // Fila sequencial: uma imagem por vez, e uma falha não trava as demais.
+  async function gerarPendentes() {
+    for (const im of listarImagensHtml(html)) {
+      if (!im.gerada) await gerarImagem(im.indice);
+    }
+  }
+
   return (
     <div className="fixed inset-0 flex flex-col bg-ink">
       {/* ------------------------------- topo ------------------------------ */}
@@ -237,12 +279,38 @@ export default function Construtor({
           </button>
         </div>
 
+        {imagens.length > 0 && (
+          <button
+            onClick={() => {
+              setMostrarImagens((v) => !v);
+              setMostrarVersoes(false);
+            }}
+            className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
+              pendentes > 0
+                ? "border-brand-2/50 text-brand-2 hover:bg-brand/10"
+                : "border-white/15 text-paper-dim hover:border-white/30 hover:text-paper"
+            }`}
+          >
+            Imagens {pendentes > 0 ? `(${pendentes} p/ gerar)` : `(${imagens.length})`}
+          </button>
+        )}
         <button
-          onClick={() => setMostrarVersoes((v) => !v)}
+          onClick={() => {
+            setMostrarVersoes((v) => !v);
+            setMostrarImagens(false);
+          }}
           className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-paper-dim transition hover:border-white/30 hover:text-paper"
         >
           Versões ({versoes.length})
         </button>
+        {publicado && (
+          <Link
+            href={`/app/sites/${site.id}/metricas`}
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-paper-dim transition hover:border-white/30 hover:text-paper"
+          >
+            Métricas
+          </Link>
+        )}
         <button
           onClick={abrirEmNovaAba}
           disabled={!html}
@@ -409,6 +477,93 @@ export default function Construtor({
               <p className="max-w-xs text-center text-sm text-paper-dim">
                 A prévia aparece aqui assim que a IA escrever a primeira versão da página.
               </p>
+            </div>
+          )}
+
+          {mostrarImagens && (
+            <div className="absolute right-4 top-4 z-10 flex max-h-[85%] w-96 flex-col rounded-xl border border-white/10 bg-ink-2 p-4 shadow-2xl">
+              <div className="mb-3 flex flex-none items-center justify-between">
+                <h2 className="text-sm font-bold">Imagens da página 🎨</h2>
+                <button
+                  onClick={() => setMostrarImagens(false)}
+                  className="text-paper-dim transition hover:text-paper"
+                >
+                  <IconX size={14} />
+                </button>
+              </div>
+
+              <div className="mb-3 flex flex-none items-center gap-2">
+                <select
+                  value={qualidadeImg}
+                  onChange={(e) => setQualidadeImg(e.target.value as "media" | "alta")}
+                  className="rounded-lg border border-white/10 bg-ink px-2.5 py-1.5 text-xs text-paper outline-none"
+                >
+                  <option value="media">Qualidade média (~US$0,07)</option>
+                  <option value="alta">Qualidade alta (~US$0,22)</option>
+                </select>
+                {pendentes > 0 && (
+                  <button
+                    onClick={gerarPendentes}
+                    disabled={gerandoImg.size > 0}
+                    className="flex-1 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white transition hover:bg-brand-2 disabled:opacity-50"
+                  >
+                    {gerandoImg.size > 0 ? "Gerando…" : `Gerar as ${pendentes} pendentes`}
+                  </button>
+                )}
+              </div>
+
+              <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+                {imagens.map((im) => (
+                  <div key={im.indice} className="rounded-lg border border-white/10 p-2.5">
+                    <div className="flex gap-2.5">
+                      {im.gerada ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={im.src}
+                          alt={im.alt}
+                          className="h-14 w-14 flex-none rounded-md object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-14 w-14 flex-none items-center justify-center rounded-md border border-dashed border-white/20 text-lg">
+                          🖼️
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-paper">
+                          {im.indice + 1}. {im.alt || "(sem alt)"}{" "}
+                          <span className="font-normal text-paper-dim">· {im.orientacao}</span>
+                        </p>
+                        <textarea
+                          defaultValue={im.prompt}
+                          onChange={(e) =>
+                            setPromptsImg((p) => ({ ...p, [im.indice]: e.target.value }))
+                          }
+                          rows={2}
+                          className="mt-1 w-full resize-none rounded-md border border-white/10 bg-ink px-2 py-1.5 text-xs text-paper outline-none focus-visible:border-brand-2"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <button
+                        onClick={() => gerarImagem(im.indice)}
+                        disabled={gerandoImg.has(im.indice)}
+                        className="rounded-md border border-brand-2/50 px-2.5 py-1 text-xs font-bold text-brand-2 transition hover:bg-brand/10 disabled:opacity-50"
+                      >
+                        {gerandoImg.has(im.indice)
+                          ? "Gerando…"
+                          : im.gerada
+                            ? "Gerar de novo"
+                            : "Gerar"}
+                      </button>
+                      {erroImg[im.indice] && (
+                        <p className="min-w-0 flex-1 truncate text-xs text-danger" title={erroImg[im.indice]}>
+                          {erroImg[im.indice]}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

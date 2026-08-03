@@ -5,6 +5,10 @@ import { ehAdmin } from "../../actions";
 import Construtor from "./Construtor";
 import type { MensagemRow, SiteIA, VersaoRow } from "../actions";
 
+// A geração de imagem (server action chamada a partir desta rota) pode levar
+// mais de um minuto por foto.
+export const maxDuration = 300;
+
 export default async function ConstrutorPage({ params }: { params: Promise<{ id: string }> }) {
   if (!(await ehAdmin())) notFound();
   const { id } = await params;
