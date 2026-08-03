@@ -46,6 +46,21 @@ document.addEventListener('visibilitychange',function(){if(document.visibilitySt
 })();</script>`;
 }
 
+// Meta Pixel: PageView ao abrir e um evento por clique em botão de ação.
+// Fica aqui (e não no HTML da página) para poder ligar/trocar o pixel de uma
+// página já criada sem a IA reescrever nada.
+function scriptPixel(pixelId: string) {
+  const id = JSON.stringify(pixelId);
+  return `<script>(function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)})(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+fbq('init',${id});fbq('track','PageView');
+document.addEventListener('click',function(e){
+var el=e.target&&e.target.closest?e.target.closest('[data-fbq],.cta'):null;if(!el)return;
+var ev=el.getAttribute('data-fbq');
+if(ev)fbq('trackCustom',ev);else fbq('track','InitiateCheckout');});
+</script>
+<noscript><img height="1" width="1" style="display:none" alt="" src="https://www.facebook.com/tr?id=${encodeURIComponent(pixelId)}&ev=PageView&noscript=1"></noscript>`;
+}
+
 export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }> }) {
   const { slug } = await ctx.params;
   if (!/^[a-z0-9-]{3,60}$/.test(slug)) {
@@ -55,21 +70,38 @@ export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }
   const admin = createAdminClient();
   const { data } = await admin
     .from("sites_ia")
-    .select("id, org_id, html, publicado")
+    .select("id, org_id, html, publicado, facebook_pixel_id, codigo_head")
     .eq("slug", slug)
     .maybeSingle();
 
-  const site = data as { id: string; org_id: string; html: string; publicado: boolean } | null;
+  const site = data as {
+    id: string;
+    org_id: string;
+    html: string;
+    publicado: boolean;
+    facebook_pixel_id: string | null;
+    codigo_head: string | null;
+  } | null;
   if (!site?.publicado || !site.html) {
     return new Response("Não encontrado", { status: 404 });
   }
 
+  // Pixel e tags o mais cedo possível (dentro do <head>), métricas no fim.
+  const cabeca =
+    (site.facebook_pixel_id ? scriptPixel(site.facebook_pixel_id) : "") + (site.codigo_head ?? "");
   const script = scriptMetricas(site.org_id, site.id);
+
   // Replacer em função: se o script tivesse "$&" etc., o replace de string
   // interpretaria como padrão especial e corromperia a página.
-  const html = /<\/body>/i.test(site.html)
-    ? site.html.replace(/<\/body>/i, () => `${script}</body>`)
-    : site.html + script;
+  let html = site.html;
+  if (cabeca) {
+    html = /<\/head>/i.test(html)
+      ? html.replace(/<\/head>/i, () => `${cabeca}</head>`)
+      : cabeca + html;
+  }
+  html = /<\/body>/i.test(html)
+    ? html.replace(/<\/body>/i, () => `${script}</body>`)
+    : html + script;
 
   return new Response(html, {
     headers: {

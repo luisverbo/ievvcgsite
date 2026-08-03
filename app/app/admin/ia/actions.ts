@@ -19,6 +19,8 @@ export type SiteIA = {
   html: string;
   modelo: string;
   publicado: boolean;
+  facebook_pixel_id: string | null;
+  codigo_head: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -111,6 +113,39 @@ export async function restaurarVersao(id: string, versaoId: string) {
     .eq("id", id);
   revalidatePath(`/app/admin/ia/${id}`);
   return { html };
+}
+
+/* -------------------------- pixel e tags de anúncio ----------------------- */
+export type PixelState = { ok?: boolean; error?: string } | undefined;
+
+// Guardado fora do HTML: dá para ligar o pixel numa página já pronta sem
+// mexer no que a IA escreveu.
+export async function salvarPixel(
+  siteIaId: string,
+  _prev: PixelState,
+  formData: FormData,
+): Promise<PixelState> {
+  if (!(await ehAdmin())) return { error: "Sem permissão." };
+
+  // O usuário costuma colar o script inteiro; extraímos só o ID numérico.
+  const bruto = String(formData.get("facebook_pixel_id") ?? "");
+  const doScript = /fbq\(\s*['"]init['"]\s*,\s*['"](\d{6,20})['"]/.exec(bruto)?.[1];
+  const pixel = (doScript ?? bruto.replace(/\D/g, "")) || null;
+  if (pixel && (pixel.length < 6 || pixel.length > 20)) {
+    return { error: "O ID do Pixel tem entre 6 e 20 dígitos. Confira no Gerenciador de Eventos." };
+  }
+
+  const codigo = String(formData.get("codigo_head") ?? "").trim().slice(0, 20_000) || null;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("sites_ia")
+    .update({ facebook_pixel_id: pixel, codigo_head: codigo })
+    .eq("id", siteIaId);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/app/admin/ia/${siteIaId}`);
+  return { ok: true };
 }
 
 /* ------------------------------- imagens --------------------------------- */

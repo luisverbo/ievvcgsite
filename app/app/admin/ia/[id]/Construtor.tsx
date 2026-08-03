@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { MODELOS_IA } from "@/lib/ia/modelos";
 import { listarImagensHtml } from "@/lib/ia/html-imagens";
+import PainelPixel from "./PainelPixel";
 import {
   gerarImagemIA,
   publicarPaginaIA,
@@ -60,6 +61,7 @@ export default function Construtor({
   const imagens = useMemo(() => listarImagensHtml(html), [html]);
   const pendentes = imagens.filter((im) => !im.gerada).length;
   const [mostrarImagens, setMostrarImagens] = useState(false);
+  const [mostrarPixel, setMostrarPixel] = useState(false);
   const [qualidadeImg, setQualidadeImg] = useState<"media" | "alta">("media");
   const [promptsImg, setPromptsImg] = useState<Record<number, string>>({});
   const [gerandoImg, setGerandoImg] = useState<Set<number>>(new Set());
@@ -279,6 +281,7 @@ export default function Construtor({
             onClick={() => {
               setMostrarImagens((v) => !v);
               setMostrarVersoes(false);
+              setMostrarPixel(false);
             }}
             className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
               pendentes > 0
@@ -291,8 +294,24 @@ export default function Construtor({
         )}
         <button
           onClick={() => {
+            setMostrarPixel((v) => !v);
+            setMostrarImagens(false);
+            setMostrarVersoes(false);
+          }}
+          title="Pixel do Facebook e outras tags"
+          className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
+            site.facebook_pixel_id
+              ? "border-ok/40 text-ok hover:bg-ok/10"
+              : "border-white/15 text-paper-dim hover:border-white/30 hover:text-paper"
+          }`}
+        >
+          Pixel {site.facebook_pixel_id ? "✓" : ""}
+        </button>
+        <button
+          onClick={() => {
             setMostrarVersoes((v) => !v);
             setMostrarImagens(false);
+            setMostrarPixel(false);
           }}
           className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-paper-dim transition hover:border-white/30 hover:text-paper"
         >
@@ -475,6 +494,15 @@ export default function Construtor({
                 A prévia aparece aqui assim que a IA escrever a primeira versão da página.
               </p>
             </div>
+          )}
+
+          {mostrarPixel && (
+            <PainelPixel
+              siteIaId={site.id}
+              pixelInicial={site.facebook_pixel_id}
+              codigoInicial={site.codigo_head}
+              onFechar={() => setMostrarPixel(false)}
+            />
           )}
 
           {mostrarImagens && (
