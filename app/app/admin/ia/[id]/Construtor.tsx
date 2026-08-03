@@ -44,15 +44,20 @@ export default function Construtor({
   mensagensIniciais,
   versoesIniciais,
   temChave,
+  urlPublica,
 }: {
   site: SiteIA;
   mensagensIniciais: MensagemRow[];
   versoesIniciais: VersaoRow[];
   temChave: boolean;
+  urlPublica: string;
 }) {
   const [html, setHtml] = useState(site.html);
   const [modelo, setModelo] = useState(site.modelo);
   const [publicado, setPublicado] = useState(site.publicado);
+  const [publicando, setPublicando] = useState(false);
+  const [erroPublicar, setErroPublicar] = useState("");
+  const [copiado, setCopiado] = useState(false);
   const [versoes, setVersoes] = useState(versoesIniciais);
   const [mostrarVersoes, setMostrarVersoes] = useState(false);
   const [dispositivo, setDispositivo] = useState<"desktop" | "mobile">("desktop");
@@ -184,6 +189,28 @@ export default function Construtor({
     } finally {
       setGerando(false);
       setTicker("");
+    }
+  }
+
+  // Antes isto era "dispara e esquece": se o salvamento falhasse, o botão
+  // mostrava "No ar" e a página continuava fora — o mesmo tipo de erro
+  // silencioso que já tinha acontecido com as cores.
+  async function alternarPublicacao() {
+    if (publicando || !html) return;
+    const novo = !publicado;
+    setPublicando(true);
+    setErroPublicar("");
+    try {
+      const res = await publicarPaginaIA(site.id, novo);
+      if (res?.error) {
+        setErroPublicar(res.error);
+        return;
+      }
+      setPublicado(novo);
+    } catch (e) {
+      setErroPublicar(e instanceof Error ? e.message : "Não consegui salvar a publicação.");
+    } finally {
+      setPublicando(false);
     }
   }
 
@@ -336,21 +363,57 @@ export default function Construtor({
           </a>
         ) : null}
         <button
-          onClick={() => {
-            const novo = !publicado;
-            setPublicado(novo);
-            publicarPaginaIA(site.id, novo);
-          }}
-          disabled={!html}
+          onClick={alternarPublicacao}
+          disabled={!html || publicando}
           className={`flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-bold transition disabled:opacity-40 ${
             publicado
               ? "border border-ok/40 text-ok hover:bg-ok/10"
               : "bg-brand text-white hover:bg-brand-2"
           }`}
         >
-          <IconRocket size={14} /> {publicado ? "No ar" : "Publicar"}
+          <IconRocket size={14} />{" "}
+          {publicando ? "Salvando…" : publicado ? "No ar — despublicar" : "Publicar"}
         </button>
       </header>
+
+      {/* Endereço público: só aparece quando a página está mesmo no ar. */}
+      {publicado && (
+        <div className="flex flex-none flex-wrap items-center gap-2 border-b border-ok/25 bg-ok/10 px-4 py-2 text-xs">
+          <span className="font-bold text-ok">🌐 No ar em</span>
+          <a
+            href={urlPublica}
+            target="_blank"
+            rel="noreferrer"
+            className="min-w-0 flex-1 truncate font-mono text-paper underline decoration-white/30 underline-offset-2 hover:decoration-paper"
+          >
+            {urlPublica}
+          </a>
+          <button
+            onClick={() => {
+              navigator.clipboard?.writeText(urlPublica);
+              setCopiado(true);
+              window.setTimeout(() => setCopiado(false), 2000);
+            }}
+            className="flex-none rounded-md border border-white/20 px-2.5 py-1 font-bold text-paper transition hover:border-white/40"
+          >
+            {copiado ? "Copiado ✓" : "Copiar link"}
+          </button>
+          <a
+            href={urlPublica}
+            target="_blank"
+            rel="noreferrer"
+            className="flex-none rounded-md bg-ok/20 px-2.5 py-1 font-bold text-ok transition hover:bg-ok/30"
+          >
+            Abrir página →
+          </a>
+        </div>
+      )}
+
+      {erroPublicar && (
+        <p className="flex-none border-b border-danger/30 bg-danger/10 px-4 py-2 text-xs text-danger">
+          {erroPublicar}
+        </p>
+      )}
 
       <div className="flex min-h-0 flex-1">
         {/* ------------------------------ chat ----------------------------- */}

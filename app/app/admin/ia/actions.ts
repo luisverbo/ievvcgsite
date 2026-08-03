@@ -86,11 +86,23 @@ export async function trocarModelo(id: string, modelo: string) {
 }
 
 export async function publicarPaginaIA(id: string, publicado: boolean) {
-  if (!(await ehAdmin())) return;
+  if (!(await ehAdmin())) return { error: "Sem permissão." };
   const supabase = await createClient();
-  await supabase.from("sites_ia").update({ publicado }).eq("id", id);
+
+  // Publicar sem HTML deixaria um endereço no ar respondendo 404.
+  if (publicado) {
+    const { data } = await supabase.from("sites_ia").select("html").eq("id", id).maybeSingle();
+    if (!(data as { html: string } | null)?.html) {
+      return { error: "A página ainda está vazia — peça a primeira versão à IA antes de publicar." };
+    }
+  }
+
+  const { error } = await supabase.from("sites_ia").update({ publicado }).eq("id", id);
+  if (error) return { error: error.message };
+
   revalidatePath(`/app/admin/ia/${id}`);
   revalidatePath("/app/admin/ia");
+  return { ok: true };
 }
 
 // Volta a página para uma versão anterior. A versão restaurada vira a atual;

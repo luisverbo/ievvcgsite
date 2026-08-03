@@ -63,7 +63,19 @@ export default async function PaginasIAPage() {
                     )}
                   </div>
                   <p className="mt-1 truncate text-xs text-paper-dim">
-                    /ia/{p.slug} · {MODELOS_IA[p.modelo]?.rotulo ?? p.modelo}
+                    {p.publicado ? (
+                      <a
+                        href={`/ia/${p.slug}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-ok underline decoration-ok/40 underline-offset-2 hover:decoration-ok"
+                      >
+                        /ia/{p.slug} ↗
+                      </a>
+                    ) : (
+                      <>/ia/{p.slug}</>
+                    )}{" "}
+                    · {MODELOS_IA[p.modelo]?.rotulo ?? p.modelo}
                   </p>
                   <p className="mt-0.5 text-xs text-paper-dim">
                     {p.html ? "Página criada" : "Ainda vazia"} ·{" "}

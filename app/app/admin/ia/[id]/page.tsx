@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getAnthropicKey } from "@/lib/ia/anthropic";
 import { ehAdmin } from "../../actions";
@@ -35,12 +36,19 @@ export default async function ConstrutorPage({ params }: { params: Promise<{ id:
 
   const chave = await getAnthropicKey();
 
+  // Endereço público completo, para o link ser copiável e clicável.
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
+  const protocolo = host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https";
+  const urlPublica = host ? `${protocolo}://${host}/ia/${site.slug}` : `/ia/${site.slug}`;
+
   return (
     <Construtor
       site={site}
       mensagensIniciais={(msgs as MensagemRow[] | null) ?? []}
       versoesIniciais={(versoes as VersaoRow[] | null) ?? []}
       temChave={Boolean(chave)}
+      urlPublica={urlPublica}
     />
   );
 }
