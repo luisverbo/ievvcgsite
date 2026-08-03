@@ -16,6 +16,7 @@ import {
   type QualidadeImagem,
 } from "@/lib/ebooks/openai";
 import { modeloValido } from "@/lib/ia/modelos";
+import { getAnthropicKey } from "@/lib/ia/anthropic";
 import { gerarImagemLanding, subirImagemIA } from "@/lib/ia/imagens";
 import { listarImagensHtml, trocarImagemHtml } from "@/lib/ia/html-imagens";
 
@@ -114,6 +115,15 @@ export async function criarEbookIA(formData: FormData): Promise<NovoEbookIAResul
   if (!(await ehAdmin())) return { error: "Sem permissão." };
   const org = await getMinhaOrg();
   if (!org) return { error: "Organização não encontrada." };
+
+  // Checa a chave ANTES de criar o registro: sem ela nada é gerado, e um
+  // ebook vazio ficaria na lista sem explicação.
+  if (!(await getAnthropicKey())) {
+    return {
+      error:
+        "Falta a chave da Anthropic. Vá em Admin 👑 → card “Construtor de páginas com IA”, cole a chave (sk-ant-…) e volte aqui.",
+    };
+  }
 
   const tema = String(formData.get("tema") ?? "").trim();
   if (tema.length < 10) return { error: "Descreva melhor o tema do ebook (mínimo 10 caracteres)." };

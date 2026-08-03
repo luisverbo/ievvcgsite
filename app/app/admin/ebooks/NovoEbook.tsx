@@ -107,6 +107,16 @@ export default function NovoEbook({ temChave }: { temChave: boolean }) {
 
   return (
     <form action={criar} className="flex flex-col gap-4">
+      {!temChave && (
+        <p className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
+          ⚠️ Falta a <b>chave da Anthropic</b> — é ela que escreve o ebook. Vá em{" "}
+          <a href="/app/admin" className="underline">
+            Admin 👑
+          </a>{" "}
+          → card “Construtor de páginas com IA” e cole a chave (sk-ant-…).
+        </p>
+      )}
+
       <div className={fieldClass}>
         <label className={labelClass} htmlFor="tema">
           Sobre o que é o ebook?
@@ -192,20 +202,26 @@ export default function NovoEbook({ temChave }: { temChave: boolean }) {
         </p>
       </div>
 
+      {/* O botão nunca fica desabilitado: clique que "não faz nada" não
+          explica o motivo. Melhor deixar clicar e dizer o que falta. */}
       <button
         type="submit"
-        disabled={!temChave}
-        className="rounded-lg bg-brand px-6 py-3 font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+        className="rounded-lg bg-brand px-6 py-3 font-bold text-white transition hover:bg-brand-2"
       >
         ✨ Criar ebook
       </button>
 
-      {!temChave && (
-        <p className="text-sm text-danger">
-          Configure a chave da Anthropic no painel admin antes de criar o ebook.
+      {erro && (
+        <p
+          role="alert"
+          ref={(el) => {
+            el?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+          className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger"
+        >
+          {erro}
         </p>
       )}
-      {erro && <p className="text-sm text-danger">{erro}</p>}
     </form>
   );
 }

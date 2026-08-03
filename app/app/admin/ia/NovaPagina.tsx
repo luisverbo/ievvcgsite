@@ -29,7 +29,7 @@ export default function NovaPagina({ temChave }: { temChave: boolean }) {
         </select>
         <button
           type="submit"
-          disabled={pending || !temChave}
+          disabled={pending}
           className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
         >
           {pending ? "Criando…" : "Criar página"}
@@ -40,11 +40,23 @@ export default function NovaPagina({ temChave }: { temChave: boolean }) {
         qualquer momento.
       </p>
       {!temChave && (
-        <p className="text-sm text-danger">
-          Configure a chave da Anthropic no painel admin antes de criar a primeira página.
+        <p className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
+          ⚠️ Falta a <b>chave da Anthropic</b> — é ela que escreve as páginas. Cole a sua no card
+          “Construtor de páginas com IA”, aqui mesmo no{" "}
+          <a href="/app/admin" className="underline">
+            Admin 👑
+          </a>
+          .
         </p>
       )}
-      {state?.error && <p className="text-sm text-danger">{state.error}</p>}
+      {state?.error && (
+        <p
+          role="alert"
+          className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger"
+        >
+          {state.error}
+        </p>
+      )}
     </form>
   );
 }

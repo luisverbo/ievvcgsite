@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { slugify } from "@/lib/format";
 import { ehAdmin } from "../actions";
-import { modeloValido } from "@/lib/ia/anthropic";
+import { getAnthropicKey, modeloValido } from "@/lib/ia/anthropic";
 import { getOpenAIKey } from "@/lib/ebooks/openai";
 import { gerarImagemLanding, subirImagemIA } from "@/lib/ia/imagens";
 import { listarImagensHtml, trocarImagemHtml } from "@/lib/ia/html-imagens";
@@ -44,6 +44,13 @@ export async function criarPaginaIA(
   if (!(await ehAdmin())) return { error: "Sem permissão." };
   const org = await getMinhaOrg();
   if (!org) return { error: "Organização não encontrada." };
+
+  if (!(await getAnthropicKey())) {
+    return {
+      error:
+        "Falta a chave da Anthropic. Cole a sua no card “Construtor de páginas com IA” do painel Admin (sk-ant-…).",
+    };
+  }
 
   const titulo = String(formData.get("titulo") ?? "").trim();
   if (titulo.length < 3) return { error: "Dê um nome com pelo menos 3 caracteres." };
