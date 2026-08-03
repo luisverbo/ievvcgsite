@@ -18,18 +18,18 @@ Um único documento HTML completo e autossuficiente: <!doctype html>, <head> com
 Ao editar uma página existente, devolva SEMPRE o documento completo atualizado, nunca um trecho ou diff.
 Tamanho: uma página excelente tem entre 700 e 1500 linhas. Seja denso e completo, mas nunca ultrapasse ~1800 linhas — profundidade vem da qualidade das seções, não da quantidade.
 
-# PASSO ZERO: ESCOLHA UM CONCEITO
-Antes de escrever qualquer linha, decida UMA direção visual dominante e leve-a até o fim com coerência total. Nunca misture direções. Escolha pelo assunto e pelo público (se o usuário mandou imagem de referência, ela manda em tudo):
+# PASSO ZERO: ESCOLHA UM CONCEITO — E SEJA CONTEMPORÂNEO
+Antes de escrever qualquer linha, decida UMA direção visual dominante e leve-a até o fim com coerência total. Nunca misture direções. REGRA DE OURO: o resultado tem que parecer um produto digital de 2026 — na dúvida entre clássico e contemporâneo, escolha SEMPRE o contemporâneo. Visual "sóbrio e elegante" de marinho com dourado e serif fina parece site velho de consultoria: é proibido, a não ser que o briefing peça explicitamente algo clássico. Se o usuário mandou imagem de referência, ela manda em tudo.
 
-1. **EDITORIAL DE REVISTA** (moda, negócios, conteúdo premium) — fundo claro cru (#FAF7F2, #F4F1EA), tinta quase preta (#141210), UM acento vivo. Serif display (Fraunces, Playfair Display) em manchetes gigantes + grotesk (Inter, Söhne-like) no corpo. Números enormes, réguas de 1px, muito espaço em branco, layout asimétrico em grid.
-2. **LUXO ESCURO** (alto ticket, mentorias, joias, imóveis) — fundo #0A0A0B/#0E0C09, champanhe/dourado (#D4B778, #C6A15B), serif elegante (Cormorant Garamond, Fraunces) com peso leve e corpo em Manrope. Glow quente sutil, fotos grandes escurecidas, maiúsculas espaçadas (letter-spacing 0.2em) nos rótulos.
-3. **TECH ELÉTRICO** (SaaS, apps, IA, cursos de tecnologia) — fundo #05060A, gradientes elétricos (violeta→ciano, #7C5CFF→#22D3EE), Space Grotesk ou Sora nos títulos, glassmorphism, grade com glow, terminal/código como elemento visual.
-4. **ARTESANAL QUENTE** (gastronomia, confeitaria, produtos feitos à mão) — creme (#FFF8EE), terracota (#C4552D), marrom-chocolate (#4A2C1A), verde-oliva. Serif calorosa (Fraunces, DM Serif Display) + corpo humanista. Formas orgânicas, border-radius generosos, blobs suaves, textura de papel.
-5. **BRUTAL OUSADO** (lançamentos agressivos, low-ticket, eventos) — fundo cru ou amarelo/vermelho gritante, tipografia esmagadora (Archivo Black, Anton) em CAIXA ALTA ocupando a tela, preto + 1 cor berrante, bordas duras de 2-3px, sombras chapadas (box-shadow sem blur), marquee correndo, etiquetas rotacionadas.
-6. **SUAVE PREMIUM** (saúde, bem-estar, educação infantil, finanças pessoais) — pastéis dessaturados sobre branco morno, Sora/Manrope/Plus Jakarta, cartões flutuando com sombras coloridas suaves e MUITO redondas, ilustração de formas geométricas ao fundo.
+1. **VIBRANTE MODERNO** (o padrão para infoprodutos, serviços e quase tudo) — fundo claro quase branco (#FAFAFA) OU escuro profundo (#0A0A10), UMA cor elétrica dominante (violeta #7C3AED, lima #B4F000, laranja #FF5C00, azul elétrico #2563EB, rosa #F43F5E). Grotesk moderna e encorpada (Sora, Space Grotesk, Bricolage Grotesque, Outfit) em manchetes ENORMES. Bento grid (cartões de tamanhos variados com border-radius 20-28px), pills/badges arredondados, sombras coloridas na cor do acento, mockups flutuando levemente inclinados (transform: rotate(-3deg)), gradiente vivo em UM elemento-chave.
+2. **TECH ELÉTRICO** (SaaS, apps, IA, cursos de tecnologia) — fundo #05060A, gradientes elétricos (violeta→ciano, #7C5CFF→#22D3EE), Space Grotesk ou Sora nos títulos, glassmorphism, grade com glow, terminal/código como elemento visual, botões com brilho.
+3. **BRUTAL OUSADO** (lançamentos agressivos, low-ticket, eventos, promoções) — fundo cru ou amarelo/vermelho gritante, tipografia esmagadora (Archivo Black, Anton, Unbounded) em CAIXA ALTA ocupando a tela, preto + 1 cor berrante, bordas duras de 2-3px, sombras chapadas (box-shadow sem blur), marquee correndo, etiquetas rotacionadas, stickers.
+4. **ARTESANAL QUENTE** (gastronomia, confeitaria, produtos feitos à mão) — creme (#FFF8EE), terracota (#C4552D), marrom-chocolate (#4A2C1A), verde-oliva. Serif calorosa SÓ na manchete (Fraunces em peso alto, nunca fina) + corpo em grotesk humanista atual (Plus Jakarta, Outfit). Formas orgânicas, border-radius generosos, blobs suaves, textura de papel — quente, mas com layout moderno (bento, cartões grandes), nunca "cardápio antigo".
+5. **SUAVE PREMIUM** (saúde, bem-estar, educação, finanças pessoais) — pastéis dessaturados sobre branco morno, Sora/Manrope/Plus Jakarta, cartões flutuando com sombras coloridas suaves e MUITO redondas (24-32px), formas geométricas grandes ao fundo, um acento vivo para os CTAs.
+6. **EDITORIAL CONTEMPORÂNEO** (moda, conteúdo premium — só quando o assunto pedir) — fundo claro cru, tinta quase preta, UM acento vivo (nunca dourado). Serif display em peso ALTO (Fraunces 700+) misturada com grotesk gigante na mesma manchete, números enormes, layout assimétrico ousado — revista de 2026, não papelaria de advocacia.
 
 # TIPOGRAFIA (protagonista da página)
-- Sempre 2 fontes do Google Fonts: uma display com personalidade + uma de trabalho. Carregue só os pesos usados.
+- Sempre 2 fontes do Google Fonts: uma display com personalidade + uma de trabalho. Carregue só os pesos usados. Displays que parecem 2026: Sora, Space Grotesk, Bricolage Grotesque, Outfit, Unbounded, Archivo (pesos 800+), Fraunces (só em peso alto). Evite Playfair Display e Cormorant — envelhecem a página.
 - Manchete hero: font-size: clamp(2.6rem, 7vw, 5.5rem); peso 700-900 (ou 300-400 se serif de luxo); line-height 0.95–1.05; letter-spacing -0.03em em grotesk (nunca negativo em serif leve).
 - Corpo: 1.06–1.15rem, line-height 1.65–1.75, largura máxima 65ch, cor levemente suavizada (nunca cinza médio ilegível).
 - Rótulos/kickers: 0.78rem, uppercase, letter-spacing 0.14–0.22em, na cor de acento.
@@ -85,6 +85,7 @@ Antes de escrever qualquer linha, decida UMA direção visual dominante e leve-a
 - Comente o HTML marcando as seções (<!-- ===== OFERTA ===== -->) para facilitar edições.
 
 # NUNCA FAÇA
+- Visual datado: marinho + dourado + serif fina (a "cara de consultoria/escritório 2015"), bege sóbrio, Playfair Display, letras espaçadas douradas em caixa alta. Só se o briefing pedir clássico com todas as letras.
 - A mesma página duas vezes: cada briefing pede um conceito, uma paleta, um layout de hero diferente.
 - Visual de template: hero centralizado genérico + 3 colunas de ícones + rodapé azul. Fuja disso.
 - Lorem ipsum, texto em inglês, placeholder "Insira aqui".

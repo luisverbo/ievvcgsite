@@ -185,13 +185,6 @@ export default function Construtor({
     }
   }
 
-  function abrirEmNovaAba() {
-    if (!html) return;
-    const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-    window.open(url, "_blank");
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  }
-
   async function voltarPara(versaoId: string) {
     const res = await restaurarVersao(site.id, versaoId);
     if (res && "html" in res && res.html) {
@@ -232,7 +225,9 @@ export default function Construtor({
   }
 
   return (
-    <div className="fixed inset-0 flex flex-col bg-ink">
+    // Mesmo truque do editor de blocos: ocupa a tela abaixo do menu do painel
+    // (56px), em vez de fixed — que ficava escondido atrás do menu.
+    <div className="flex h-[calc(100vh-56px)] flex-col bg-ink">
       {/* ------------------------------- topo ------------------------------ */}
       <header className="flex flex-none items-center gap-3 border-b border-white/10 bg-ink-2 px-4 py-2.5">
         <Link
@@ -311,14 +306,16 @@ export default function Construtor({
             Métricas
           </Link>
         )}
-        <button
-          onClick={abrirEmNovaAba}
-          disabled={!html}
-          title="Abrir em nova aba"
-          className="rounded-lg border border-white/15 p-1.5 text-paper-dim transition hover:border-white/30 hover:text-paper disabled:opacity-40"
-        >
-          <IconExternal size={15} />
-        </button>
+        {html ? (
+          <a
+            href={`/app/admin/ia/${site.id}/ver`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-paper-dim transition hover:border-white/30 hover:text-paper"
+          >
+            <IconExternal size={14} /> Ver na web
+          </a>
+        ) : null}
         <button
           onClick={() => {
             const novo = !publicado;
