@@ -3,26 +3,14 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+
 // Integração com a Anthropic (Claude) para o construtor de páginas com IA.
 // A chave fica em config_sistema (colada pelo dono no painel Admin) com
 // fallback para a env ANTHROPIC_API_KEY. NUNCA vai para o navegador.
 
-export const MODELOS_IA: Record<string, { rotulo: string; nota: string }> = {
-  "claude-fable-5": {
-    rotulo: "Claude Fable 5",
-    nota: "melhor design, o mais capaz (~US$0,30–0,80 por página)",
-  },
-  "claude-opus-5": {
-    rotulo: "Claude Opus 5",
-    nota: "metade do preço, ótimo para ajustes (~US$0,15–0,40)",
-  },
-};
+import { modeloValido } from "./modelos";
 
-export const MODELO_PADRAO = "claude-fable-5";
-
-export function modeloValido(m: string | null | undefined) {
-  return m && MODELOS_IA[m] ? m : MODELO_PADRAO;
-}
+export { MODELOS_IA, MODELO_PADRAO, modeloValido } from "./modelos";
 
 export async function getAnthropicKey(): Promise<string | null> {
   const admin = createAdminClient();

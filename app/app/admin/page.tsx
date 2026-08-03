@@ -81,9 +81,12 @@ export default async function AdminPage() {
               liberdade total de layout, efeitos e animações. Aceita imagem e PDF de referência.
             </p>
           </div>
-          <span className="rounded-full border border-white/15 px-3 py-1 text-xs font-bold text-paper-dim">
-            só para o dono
-          </span>
+          <Link
+            href="/app/admin/ia"
+            className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2"
+          >
+            Abrir construtor
+          </Link>
         </div>
         <label className="mb-1.5 block text-sm font-medium text-paper-dim">
           Chave da API da Anthropic
