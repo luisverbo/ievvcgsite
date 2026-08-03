@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { alterarPlano, ehAdmin } from "./actions";
 import CriarLanding from "./CriarLanding";
+import ChaveAnthropic from "./ChaveAnthropic";
+import { getAnthropicKey } from "@/lib/ia/anthropic";
 import { cardClass } from "@/components/painel/ui";
 
 // Painel do dono do sistema: visão de todas as contas + troca de plano.
@@ -15,12 +17,13 @@ export default async function AdminPage() {
 
   const admin = createAdminClient();
 
-  const [{ data: orgsRaw }, { data: sitesRaw }, { data: membrosRaw }, usersRes] =
+  const [{ data: orgsRaw }, { data: sitesRaw }, { data: membrosRaw }, usersRes, chaveIA] =
     await Promise.all([
       admin.from("organizacoes").select("id, nome, plano, created_at").order("created_at"),
       admin.from("sites").select("org_id, publicado"),
       admin.from("membros").select("org_id, user_id"),
       admin.auth.admin.listUsers({ perPage: 1000 }),
+      getAnthropicKey(),
     ]);
 
   const orgs = (orgsRaw as OrgRow[] | null) ?? [];
@@ -67,6 +70,29 @@ export default async function AdminPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className={cardClass}>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="mb-1 text-lg font-bold">Construtor de páginas com IA ✨</h2>
+            <p className="text-sm text-paper-dim">
+              Descreva a página no chat e o Claude escreve o site inteiro — sem blocos, com
+              liberdade total de layout, efeitos e animações. Aceita imagem e PDF de referência.
+            </p>
+          </div>
+          <span className="rounded-full border border-white/15 px-3 py-1 text-xs font-bold text-paper-dim">
+            só para o dono
+          </span>
+        </div>
+        <label className="mb-1.5 block text-sm font-medium text-paper-dim">
+          Chave da API da Anthropic
+        </label>
+        <ChaveAnthropic temChave={Boolean(chaveIA)} />
+        <p className="mt-2 text-xs text-paper-dim">
+          Pegue em console.anthropic.com → API Keys. Fica guardada só no servidor e nunca aparece
+          no navegador.
+        </p>
       </div>
 
       <div className={cardClass}>

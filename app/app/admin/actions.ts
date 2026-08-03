@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { semearBlocosComConfig } from "@/lib/painel/seed";
 import { LANDING_PAGINAS, LANDING_TEMA } from "@/lib/templates/paginapro-landing";
+import { salvarAnthropicKey } from "@/lib/ia/anthropic";
 
 // Só o email definido em ADMIN_EMAIL pode usar as ações de dono do sistema.
 export async function ehAdmin(): Promise<boolean> {
@@ -24,6 +25,21 @@ export async function alterarPlano(orgId: string, novoPlano: "free" | "pro") {
   const admin = createAdminClient();
   await admin.from("organizacoes").update({ plano: novoPlano }).eq("id", orgId);
   revalidatePath("/app/admin");
+}
+
+/* ---------------------------- chave da Anthropic --------------------------- */
+export type ChaveIAState = { ok?: boolean; error?: string } | undefined;
+
+export async function salvarChaveAnthropic(
+  _prev: ChaveIAState,
+  formData: FormData,
+): Promise<ChaveIAState> {
+  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  const valor = String(formData.get("anthropic_key") ?? "").trim();
+  if (!valor.startsWith("sk-ant-")) return { error: "A chave da Anthropic começa com sk-ant-." };
+  await salvarAnthropicKey(valor);
+  revalidatePath("/app/admin");
+  return { ok: true };
 }
 
 export type LandingState = { error?: string } | undefined;
