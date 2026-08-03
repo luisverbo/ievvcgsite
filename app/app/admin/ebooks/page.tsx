@@ -3,10 +3,13 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ehAdmin } from "../actions";
 import { getOpenAIKey } from "@/lib/ebooks/openai";
+import { getAnthropicKey } from "@/lib/ia/anthropic";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import NovoEbook from "./NovoEbook";
 import ChaveForm from "./ChaveForm";
 import { excluirEbook, type EbookRow } from "./actions";
+import { contarPaginas } from "@/lib/ebooks/parse";
+import { listarImagensHtml } from "@/lib/ia/html-imagens";
 import { cardClass } from "@/components/painel/ui";
 
 export const maxDuration = 300;
@@ -18,7 +21,7 @@ export default async function EbooksPage() {
   const org = await getMinhaOrg();
   if (!org) notFound();
 
-  const chave = await getOpenAIKey();
+  const [chave, chaveIA] = await Promise.all([getOpenAIKey(), getAnthropicKey()]);
   const supabase = await createClient();
   const { data } = await supabase
     .from("ebooks")
@@ -35,14 +38,16 @@ export default async function EbooksPage() {
         </Link>
         <h1 className="mt-2 text-2xl font-extrabold">Ebooks IA 📖</h1>
         <p className="mt-1 text-sm text-paper-dim">
-          Descreva o tema, escolha o formato e o número de páginas — a IA escreve o conteúdo e cria
-          as imagens, no estilo revista digital.
+          Descreva o tema e a Claude escreve <b className="text-paper">e diagrama</b> o ebook
+          inteiro — cada página com layout próprio, no capricho de revista de banca. As imagens
+          entram só onde agregam, e só depois que você aprovar.
         </p>
       </div>
 
       <div className={cardClass}>
-        <h2 className="mb-1 text-lg font-bold">🔑 Chave da OpenAI</h2>
+        <h2 className="mb-1 text-lg font-bold">🔑 Chave da OpenAI (só para as imagens)</h2>
         <p className="mb-4 text-sm text-paper-dim">
+          O texto e o design vêm da Claude (chave no painel admin); esta aqui gera as fotos.{" "}
           {chave
             ? `Chave configurada (termina em …${chave.slice(-4)}). Cole outra para substituir.`
             : "Cole sua chave (começa com sk-). Ela fica guardada no servidor e nunca aparece no navegador."}
@@ -52,7 +57,8 @@ export default async function EbooksPage() {
 
       <div className={cardClass}>
         <h2 className="mb-4 text-lg font-bold">✨ Criar novo ebook</h2>
-        <NovoEbook temChave={Boolean(chave)} />
+        {/* Quem escreve é a Claude: é a chave dela que libera o formulário. */}
+        <NovoEbook temChave={Boolean(chaveIA)} />
       </div>
 
       <div>
@@ -66,7 +72,12 @@ export default async function EbooksPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {ebooks.map((e) => {
-              const capa = e.paginas[0]?.imagem_url;
+              // A miniatura é a primeira imagem já gerada — nos ebooks da
+              // Claude ela vem do HTML, não do JSON de páginas.
+              const capa =
+                e.motor === "claude"
+                  ? listarImagensHtml(e.html ?? "").find((i) => i.gerada)?.src
+                  : e.paginas[0]?.imagem_url;
               return (
                 <div
                   key={e.id}
@@ -86,7 +97,9 @@ export default async function EbooksPage() {
                         {e.titulo}
                       </Link>
                       <span className="text-xs text-paper-dim">
-                        {FORMATOS[e.formato]} · {e.paginas.length} págs ·{" "}
+                        {FORMATOS[e.formato]} ·{" "}
+                        {e.motor === "claude" ? contarPaginas(e.html ?? "") : e.paginas.length} págs
+                        ·{" "}
                         {e.status === "pronto" ? "✅ Pronto" : e.status === "gerando" ? "⏳ Gerando" : "⚠️ Erro"}
                       </span>
                     </div>

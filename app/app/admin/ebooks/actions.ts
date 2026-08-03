@@ -15,6 +15,9 @@ import {
   type PaginaEbook,
   type QualidadeImagem,
 } from "@/lib/ebooks/openai";
+import { modeloValido } from "@/lib/ia/modelos";
+import { gerarImagemLanding, subirImagemIA } from "@/lib/ia/imagens";
+import { listarImagensHtml, trocarImagemHtml } from "@/lib/ia/html-imagens";
 
 export type EbookRow = {
   id: string;
@@ -29,6 +32,12 @@ export type EbookRow = {
   status: "gerando" | "pronto" | "erro";
   paginas: PaginaEbook[];
   created_at: string;
+  // Motor novo (Claude escreve o HTML diagramado). Ebooks antigos ficam em
+  // 'openai' e continuam abrindo no leitor de sempre.
+  motor?: "openai" | "claude";
+  html?: string | null;
+  modelo_ia?: string | null;
+  paginas_alvo?: number;
 };
 
 /* ------------------------------ chave OpenAI ------------------------------ */
@@ -95,6 +104,108 @@ export async function criarEbook(formData: FormData): Promise<CriarEbookResult> 
 
   if (error || !data) return { error: error?.message ?? "Falha ao salvar o ebook." };
   return { ebookId: (data as { id: string }).id, totalPaginas: conteudo.paginas.length };
+}
+
+/* ------------------------- ebook escrito pela Claude ---------------------- */
+export type NovoEbookIAResult = { ebookId?: string; error?: string };
+
+// Só cria o registro; quem escreve é a rota /api/ia/ebook (em streaming).
+export async function criarEbookIA(formData: FormData): Promise<NovoEbookIAResult> {
+  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const tema = String(formData.get("tema") ?? "").trim();
+  if (tema.length < 10) return { error: "Descreva melhor o tema do ebook (mínimo 10 caracteres)." };
+
+  const formato = (String(formData.get("formato") ?? "a4") as FormatoEbook) || "a4";
+  const numPaginas = Math.min(40, Math.max(4, Number(formData.get("paginas")) || 12));
+  const qualidade: QualidadeImagem =
+    String(formData.get("qualidade_imagem")) === "alta" ? "alta" : "media";
+  const modeloIA = modeloValido(String(formData.get("modelo_ia") ?? ""));
+
+  // Título provisório: a capa que a IA escrever manda no visual; este nome só
+  // organiza a lista até o autor renomear.
+  const titulo = tema.slice(0, 60);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("ebooks")
+    .insert({
+      org_id: org.id,
+      titulo,
+      tema,
+      formato,
+      estilo: String(formData.get("estilo") ?? "fotografico"),
+      motor: "claude",
+      modelo_ia: modeloIA,
+      paginas_alvo: numPaginas,
+      qualidade_imagem: qualidade,
+      status: "gerando",
+      paginas: [],
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) return { error: error?.message ?? "Falha ao criar o ebook." };
+  return { ebookId: (data as { id: string }).id };
+}
+
+export type ImagemEbookIAResult = { html?: string; url?: string; error?: string };
+
+// Gera uma imagem marcada com data-ia-prompt no HTML do ebook.
+export async function gerarImagemEbookIA(
+  ebookId: string,
+  indice: number,
+  opcoes?: { prompt?: string },
+): Promise<ImagemEbookIAResult> {
+  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  const key = await getOpenAIKey();
+  if (!key) return { error: "Configure sua chave da OpenAI (campo no topo desta página)." };
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("ebooks")
+    .select("id, org_id, html, qualidade_imagem")
+    .eq("id", ebookId)
+    .maybeSingle();
+  const ebook = data as {
+    id: string;
+    org_id: string;
+    html: string | null;
+    qualidade_imagem?: QualidadeImagem;
+  } | null;
+  if (!ebook?.html) return { error: "Ebook não encontrado." };
+
+  const alvo = listarImagensHtml(ebook.html)[indice];
+  if (!alvo) return { error: `Imagem ${indice + 1} não existe mais nesta versão.` };
+  const prompt = opcoes?.prompt?.trim() || alvo.prompt;
+  if (!prompt) return { error: "Esta imagem está sem descrição." };
+
+  try {
+    const buf = await gerarImagemLanding(
+      key,
+      prompt,
+      alvo.orientacao,
+      ebook.qualidade_imagem ?? "media",
+    );
+    const url = await subirImagemIA(ebook.org_id, ebook.id, `pg-${indice}-${Date.now()}.png`, buf);
+    const html = trocarImagemHtml(ebook.html, indice, url, opcoes?.prompt?.trim() || undefined);
+    await supabase.from("ebooks").update({ html }).eq("id", ebookId);
+    return { html, url };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Falha ao gerar a imagem." };
+  }
+}
+
+export async function renomearEbook(ebookId: string, titulo: string) {
+  if (!(await ehAdmin())) return;
+  const supabase = await createClient();
+  await supabase
+    .from("ebooks")
+    .update({ titulo: titulo.trim().slice(0, 120) || "Ebook" })
+    .eq("id", ebookId);
+  revalidatePath("/app/admin/ebooks");
 }
 
 /* --------------------------- imagens (uma a uma) -------------------------- */

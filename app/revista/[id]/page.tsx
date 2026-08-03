@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import LeitorRevista from "@/components/ebook/LeitorRevista";
+import LeitorHtml from "@/components/ebook/LeitorHtml";
 import type { EbookRow } from "@/app/app/admin/ebooks/actions";
 
 // Visualização pública da revista digital: qualquer pessoa com o link folheia
@@ -34,11 +35,19 @@ export default async function RevistaPublicaPage({
   return (
     <div className="min-h-screen bg-ink px-4 py-8 sm:px-8">
       <div className="mx-auto max-w-5xl">
-        <div className="mb-6 text-center">
-          <h1 className="font-display text-2xl font-extrabold">{ebook.titulo}</h1>
-          {ebook.subtitulo && <p className="mt-1 text-sm text-paper-dim">{ebook.subtitulo}</p>}
-        </div>
-        <LeitorRevista ebook={ebook} admin={false} />
+        {/* Ebooks da Claude já trazem a capa diagramada — título repetido em
+            cima só atrapalharia a leitura. */}
+        {ebook.motor !== "claude" && (
+          <div className="mb-6 text-center">
+            <h1 className="font-display text-2xl font-extrabold">{ebook.titulo}</h1>
+            {ebook.subtitulo && <p className="mt-1 text-sm text-paper-dim">{ebook.subtitulo}</p>}
+          </div>
+        )}
+        {ebook.motor === "claude" ? (
+          <LeitorHtml ebook={ebook} admin={false} />
+        ) : (
+          <LeitorRevista ebook={ebook} admin={false} />
+        )}
       </div>
     </div>
   );

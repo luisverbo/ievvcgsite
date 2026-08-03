@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ehAdmin } from "../../actions";
 import type { EbookRow } from "../actions";
 import LeitorRevista from "@/components/ebook/LeitorRevista";
+import LeitorHtml from "@/components/ebook/LeitorHtml";
 
 export const maxDuration = 300;
 
@@ -25,7 +26,11 @@ export default async function EbookPage({ params }: { params: Promise<{ id: stri
         <h1 className="mt-2 text-2xl font-extrabold">{ebook.titulo}</h1>
         {ebook.subtitulo && <p className="mt-1 text-sm text-paper-dim">{ebook.subtitulo}</p>}
       </div>
-      <LeitorRevista ebook={ebook} admin />
+      {ebook.motor === "claude" ? (
+        <LeitorHtml ebook={ebook} admin />
+      ) : (
+        <LeitorRevista ebook={ebook} admin />
+      )}
     </div>
   );
 }
