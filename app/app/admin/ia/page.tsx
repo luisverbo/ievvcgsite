@@ -176,6 +176,15 @@ export default async function PaginasIAPage() {
                       )}
                     </span>
                     <span className="flex flex-none items-center gap-1">
+                      {p.html && (
+                        <a
+                          href={`/app/admin/ia/${p.id}/baixar`}
+                          title="Baixar o site pronto (HTML + imagens)"
+                          className="rounded-lg px-2 py-1 text-sm text-paper-dim transition hover:bg-white/10 hover:text-paper"
+                        >
+                          ⬇
+                        </a>
+                      )}
                       {p.publicado && (
                         <Link
                           href={`/app/sites/${p.id}/metricas`}

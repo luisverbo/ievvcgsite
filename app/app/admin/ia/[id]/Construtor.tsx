@@ -359,14 +359,23 @@ export default function Construtor({
           </Link>
         )}
         {html ? (
-          <a
-            href={`/app/admin/ia/${site.id}/ver`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-paper-dim transition hover:border-white/30 hover:text-paper"
-          >
-            <IconExternal size={14} /> Ver na web
-          </a>
+          <>
+            <a
+              href={`/app/admin/ia/${site.id}/ver`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-paper-dim transition hover:border-white/30 hover:text-paper"
+            >
+              <IconExternal size={14} /> Ver na web
+            </a>
+            <a
+              href={`/app/admin/ia/${site.id}/baixar`}
+              title="Baixar o site pronto (HTML + imagens) para hospedar em qualquer lugar"
+              className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-paper-dim transition hover:border-white/30 hover:text-paper"
+            >
+              ⬇ Baixar .zip
+            </a>
+          </>
         ) : null}
         <button
           onClick={alternarPublicacao}
