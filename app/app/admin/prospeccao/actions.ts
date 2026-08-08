@@ -10,6 +10,7 @@ import { buscarEmpresas, localizar } from "@/lib/prospeccao/overpass";
 import { analisarSite } from "@/lib/prospeccao/site";
 import { calcularPotencial, ehEnderecoSocial } from "@/lib/prospeccao/score";
 import { acharNicho } from "@/lib/prospeccao/nichos";
+import { briefingDoNicho } from "@/lib/prospeccao/briefings";
 import type { ProspectoRow, StatusProspecto } from "@/lib/prospeccao/tipos";
 
 export type BuscaState = { ok?: string; error?: string } | undefined;
@@ -125,6 +126,8 @@ export async function gerarSiteParaProspecto(id: string) {
       org_id: org.id,
       titulo: p.nome,
       slug: `${slugify(p.nome) || "site"}-${Math.random().toString(36).slice(2, 6)}`,
+      // Vínculo de volta: abrindo o site você sabe de qual empresa ele é.
+      prospecto_id: p.id,
     })
     .select("id")
     .single();
@@ -134,15 +137,27 @@ export async function gerarSiteParaProspecto(id: string) {
   await supabase.from("prospeccao").update({ site_ia_id: siteId }).eq("id", id);
 
   const ramo = acharNicho(p.nicho_busca ?? "")?.rotulo ?? p.categoria ?? "negócio local";
-  const pedido = [
-    `Crie uma landing page de alta conversão para "${p.nome}", ${ramo.toLowerCase()}${p.local_busca ? ` em ${p.local_busca}` : ""}.`,
-    p.endereco ? `Endereço: ${p.endereco}.` : "",
-    p.telefone ? `Telefone/WhatsApp: ${p.telefone}.` : "",
-    p.instagram ? `Instagram: ${p.instagram}.` : "",
-    "Objetivo: fazer o cliente entrar em contato pelo WhatsApp. Use um visual moderno e confiável, com prova social e chamada clara para agendar.",
+  const dados = [
+    p.endereco ? `Endereço: ${p.endereco}` : "",
+    p.telefone ? `Telefone/WhatsApp: ${p.telefone}` : "",
+    p.instagram ? `Instagram: ${p.instagram}` : "",
   ]
     .filter(Boolean)
-    .join(" ");
+    .join("\n");
+
+  // O briefing do nicho é o que faz o site sair com cara de dentista, e não
+  // com cara de página genérica bonita.
+  const pedido = `Crie uma landing page de alta conversão para "${p.nome}", ${ramo.toLowerCase()}${
+    p.local_busca ? ` em ${p.local_busca}` : ""
+  }.
+
+DADOS REAIS DA EMPRESA (use estes, não invente):
+${dados || "(sem dados de contato — deixe os campos marcados para eu preencher)"}
+
+${briefingDoNicho(p.nicho_busca)}
+
+OBJETIVO: fazer o visitante chamar no WhatsApp. Todo botão principal deve levar ao WhatsApp do número acima (link https://wa.me/55DDDNUMERO com uma mensagem pronta).
+Se faltar alguma informação (preços, nome da equipe, depoimentos), escreva um exemplo plausível e me avise no final o que devo trocar.`;
 
   redirect(`/app/admin/ia/${siteId}?pedido=${encodeURIComponent(pedido)}`);
 }

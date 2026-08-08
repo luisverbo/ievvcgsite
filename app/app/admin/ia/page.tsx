@@ -44,6 +44,19 @@ export default async function PaginasIAPage() {
     .order("updated_at", { ascending: false });
   const paginas = (data as SiteIA[] | null) ?? [];
 
+  // Nome da empresa de cada página que veio da prospecção.
+  const idsProspecto = paginas.map((p) => p.prospecto_id).filter(Boolean) as string[];
+  const empresaPorId = new Map<string, string>();
+  if (idsProspecto.length) {
+    const { data: emps } = await supabase
+      .from("prospeccao")
+      .select("id, nome")
+      .in("id", idsProspecto);
+    for (const e of (emps as { id: string; nome: string }[] | null) ?? []) {
+      empresaPorId.set(e.id, e.nome);
+    }
+  }
+
   // Visitas e cliques dos últimos 30 dias. As páginas de IA gravam os eventos
   // com site_id = id da própria página, então basta agrupar por ele.
   const { data: eventos } = await supabase
@@ -213,6 +226,14 @@ export default async function PaginasIAPage() {
                   </div>
 
                   <p className="border-t border-white/8 px-4 py-2 text-[11px] text-paper-dim">
+                    {p.prospecto_id && empresaPorId.get(p.prospecto_id) && (
+                      <>
+                        <span className="font-bold text-brand-2">
+                          🎯 {empresaPorId.get(p.prospecto_id)}
+                        </span>{" "}
+                        ·{" "}
+                      </>
+                    )}
                     {MODELOS_IA[p.modelo]?.rotulo ?? p.modelo} · atualizada em{" "}
                     {new Date(p.updated_at).toLocaleDateString("pt-BR")}
                   </p>

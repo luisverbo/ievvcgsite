@@ -24,6 +24,18 @@ import {
   IconPlus,
 } from "@/components/painel/icons";
 
+// Empresa da prospecção que originou este site.
+export type EmpresaVinculada = {
+  id: string;
+  nome: string;
+  telefone: string | null;
+  endereco: string | null;
+  instagram: string | null;
+  pontuacao: number;
+  nicho_busca: string | null;
+  local_busca: string | null;
+} | null;
+
 type AnexoLocal = { tipo: "imagem" | "pdf"; nome: string; media_type: string; data: string };
 type Bolha = { papel: "user" | "assistant" | "erro"; conteudo: string; anexos?: { nome: string }[] };
 
@@ -46,6 +58,7 @@ export default function Construtor({
   temChave,
   urlPublica,
   pedidoInicial = "",
+  empresa = null,
 }: {
   site: SiteIA;
   mensagensIniciais: MensagemRow[];
@@ -53,6 +66,7 @@ export default function Construtor({
   temChave: boolean;
   urlPublica: string;
   pedidoInicial?: string;
+  empresa?: EmpresaVinculada;
 }) {
   const [html, setHtml] = useState(site.html);
   const [modelo, setModelo] = useState(site.modelo);
@@ -93,6 +107,13 @@ export default function Construtor({
   const fimChat = useRef<HTMLDivElement>(null);
   const tickerRef = useRef<HTMLPreElement>(null);
   const inputArquivo = useRef<HTMLInputElement>(null);
+
+  // WhatsApp da empresa (só celular tem): atalho para mandar a prévia pronta.
+  const zapEmpresa = useMemo(() => {
+    const d = empresa?.telefone?.replace(/\D/g, "") ?? "";
+    if (!/9\d{8}$/.test(d)) return null;
+    return `https://wa.me/${d.startsWith("55") ? d : `55${d}`}`;
+  }, [empresa]);
 
   useEffect(() => {
     fimChat.current?.scrollIntoView({ behavior: "smooth" });
@@ -394,6 +415,34 @@ export default function Construtor({
           {publicando ? "Salvando…" : publicado ? "No ar — despublicar" : "Publicar"}
         </button>
       </header>
+
+      {/* Cliente deste site: mantém o contato à mão enquanto você constrói. */}
+      {empresa && (
+        <div className="flex flex-none flex-wrap items-center gap-x-3 gap-y-1 border-b border-brand-2/25 bg-brand/10 px-4 py-2 text-xs">
+          <span className="font-bold text-brand-2">🎯 Cliente: {empresa.nome}</span>
+          {empresa.telefone && <span className="text-paper">📞 {empresa.telefone}</span>}
+          {empresa.endereco && (
+            <span className="min-w-0 truncate text-paper-dim">📍 {empresa.endereco}</span>
+          )}
+          <span className="text-paper-dim">potencial {empresa.pontuacao}</span>
+          {zapEmpresa && (
+            <a
+              href={zapEmpresa}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md border border-ok/40 px-2 py-0.5 font-bold text-ok transition hover:bg-ok/10"
+            >
+              WhatsApp
+            </a>
+          )}
+          <Link
+            href="/app/admin/prospeccao"
+            className="ml-auto text-paper-dim underline transition hover:text-paper"
+          >
+            ver na prospecção
+          </Link>
+        </div>
+      )}
 
       {/* Endereço público: só aparece quando a página está mesmo no ar. */}
       {publicado && (

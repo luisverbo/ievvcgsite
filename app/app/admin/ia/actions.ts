@@ -19,6 +19,7 @@ export type SiteIA = {
   html: string;
   modelo: string;
   publicado: boolean;
+  prospecto_id: string | null;
   facebook_pixel_id: string | null;
   codigo_head: string | null;
   created_at: string;
