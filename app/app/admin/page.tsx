@@ -28,6 +28,7 @@ export default async function AdminPage() {
     chaveOpenAI,
     { count: totalPaginasIA },
     { count: totalEbooks },
+    { count: totalProspectos },
   ] = await Promise.all([
     admin.from("organizacoes").select("id, nome, plano, created_at").order("created_at"),
     admin.from("sites").select("org_id, publicado"),
@@ -37,6 +38,7 @@ export default async function AdminPage() {
     getOpenAIKey(),
     admin.from("sites_ia").select("id", { count: "exact", head: true }),
     admin.from("ebooks").select("id", { count: "exact", head: true }),
+    admin.from("prospeccao").select("id", { count: "exact", head: true }),
   ]);
 
   const orgs = (orgsRaw as OrgRow[] | null) ?? [];
@@ -85,6 +87,18 @@ export default async function AdminPage() {
       gradiente: "linear-gradient(135deg,#e8843c,#f5b76b)",
       pronto: Boolean(chaveIA),
     },
+    {
+      href: "/app/admin/prospeccao",
+      emoji: "🎯",
+      titulo: "Prospecção",
+      texto:
+        "Encontra empresas por nicho e região e dá uma nota de potencial: quem não tem site pontua alto. Da lista você gera a página com um clique.",
+      cta: "Buscar clientes",
+      contagem: totalProspectos ?? 0,
+      unidade: (totalProspectos ?? 0) === 1 ? "empresa na lista" : "empresas na lista",
+      gradiente: "linear-gradient(135deg,#2fbf8f,#7ee0bd)",
+      pronto: true, // busca gratuita, não depende de chave
+    },
   ];
 
   return (
@@ -117,7 +131,7 @@ export default async function AdminPage() {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-paper-dim">
           Ferramentas de IA
         </h2>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {ferramentas.map((f) => (
             <Link
               key={f.href}

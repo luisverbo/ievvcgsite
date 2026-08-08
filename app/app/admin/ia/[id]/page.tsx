@@ -10,9 +10,17 @@ import type { MensagemRow, SiteIA, VersaoRow } from "../actions";
 // mais de um minuto por foto.
 export const maxDuration = 300;
 
-export default async function ConstrutorPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ConstrutorPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  // ?pedido=... chega da prospecção, com o briefing da empresa já montado.
+  searchParams: Promise<{ pedido?: string }>;
+}) {
   if (!(await ehAdmin())) notFound();
   const { id } = await params;
+  const { pedido } = await searchParams;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
 
   const supabase = await createClient();
@@ -49,6 +57,7 @@ export default async function ConstrutorPage({ params }: { params: Promise<{ id:
       versoesIniciais={(versoes as VersaoRow[] | null) ?? []}
       temChave={Boolean(chave)}
       urlPublica={urlPublica}
+      pedidoInicial={pedido?.slice(0, 2000) ?? ""}
     />
   );
 }

@@ -45,12 +45,14 @@ export default function Construtor({
   versoesIniciais,
   temChave,
   urlPublica,
+  pedidoInicial = "",
 }: {
   site: SiteIA;
   mensagensIniciais: MensagemRow[];
   versoesIniciais: VersaoRow[];
   temChave: boolean;
   urlPublica: string;
+  pedidoInicial?: string;
 }) {
   const [html, setHtml] = useState(site.html);
   const [modelo, setModelo] = useState(site.modelo);
@@ -81,7 +83,9 @@ export default function Construtor({
       anexos: m.anexos,
     })),
   );
-  const [texto, setTexto] = useState("");
+  // Vem preenchido quando você chega da prospecção ("gerar site para esta
+  // empresa") — é só revisar e mandar.
+  const [texto, setTexto] = useState(pedidoInicial);
   const [anexos, setAnexos] = useState<AnexoLocal[]>([]);
   const [gerando, setGerando] = useState(false);
   const [ticker, setTicker] = useState(""); // o código chegando ao vivo
