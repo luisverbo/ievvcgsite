@@ -1,6 +1,8 @@
-import "server-only";
-
 import type { AnaliseSite } from "./score";
+
+// Sem o guard "server-only" de propósito: este módulo é compartilhado com o
+// agente local (agente/prospectar.ts), que roda no Node do seu computador.
+// Ele só faz fetch e não guarda segredo nenhum.
 
 // Olhada rápida no site da empresa — só o suficiente para saber se é um site
 // vivo e moderno (pula o prospect) ou um site velho/quebrado (continua sendo

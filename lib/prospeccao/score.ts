@@ -86,6 +86,26 @@ export function classificarSituacao(
  * mudar o resto do cálculo.
  */
 export function pontosVitalidade(e: EmpresaEncontrada): { pontos: number; motivos: string[] } {
+  // Caminho bom: avaliações do Google. Volume mostra movimento real, e nota
+  // alta mostra que o dono cuida da reputação — quem cuida, compra site.
+  if (typeof e.avaliacoes === "number") {
+    const n = e.avaliacoes;
+    let pontos = n >= 150 ? 90 : n >= 50 ? 75 : n >= 10 ? 55 : n >= 1 ? 30 : 10;
+
+    const nota = e.notaMedia;
+    if (typeof nota === "number") {
+      if (nota >= 4.5) pontos += 10;
+      else if (nota >= 4.0) pontos += 5;
+      else if (nota < 3.5) pontos -= 10; // reputação ruim: costuma ser negócio desleixado
+    }
+    pontos = Math.max(5, Math.min(100, pontos));
+
+    const motivos: string[] = [];
+    if (n === 0) motivos.push("nenhuma avaliação no Google");
+    else motivos.push(`${n} avaliações${nota ? ` · nota ${nota.toFixed(1)}` : ""}`);
+    return { pontos, motivos };
+  }
+
   const sinais: [boolean, string][] = [
     [Boolean(e.telefone), "telefone cadastrado"],
     [Boolean(e.endereco), "endereço completo"],
@@ -142,8 +162,15 @@ export function calcularPotencial(
   }
   if (situacao === "site_moderno") motivos.push("Já tem site moderno — provavelmente não vale o telefonema");
 
-  if (vit.motivos.length >= 4) motivos.push(`Cadastro bem cuidado (${vit.motivos.slice(0, 3).join(", ")})`);
-  else if (vit.motivos.length <= 1) motivos.push("Cadastro quase vazio — pode ser negócio inativo");
+  if (typeof empresa.avaliacoes === "number") {
+    if (empresa.avaliacoes >= 50) motivos.push(`Negócio movimentado: ${vit.motivos[0]}`);
+    else if (empresa.avaliacoes === 0) motivos.push("Sem avaliações no Google — pode estar parado");
+    else motivos.push(`Poucas avaliações: ${vit.motivos[0]}`);
+  } else if (vit.motivos.length >= 4) {
+    motivos.push(`Cadastro bem cuidado (${vit.motivos.slice(0, 3).join(", ")})`);
+  } else if (vit.motivos.length <= 1) {
+    motivos.push("Cadastro quase vazio — pode ser negócio inativo");
+  }
 
   if (eixos.contato === 100) motivos.push("Telefone celular: provavelmente WhatsApp");
   else if (eixos.contato <= 10) motivos.push("Sem telefone — contato só presencial");

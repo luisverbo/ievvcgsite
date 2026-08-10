@@ -40,3 +40,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agente local (roda na maquina do dono)
+agente/node_modules
+agente/.env
+agente/.perfil-navegador
+agente/diagnostico

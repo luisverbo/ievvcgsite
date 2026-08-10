@@ -161,6 +161,13 @@ export default async function ProspeccaoPage({
 
                   {p.endereco && <p className="mt-0.5 text-xs text-paper-dim">📍 {p.endereco}</p>}
 
+                  {p.avaliacoes !== null && (
+                    <p className="mt-0.5 text-xs text-paper-dim">
+                      ⭐ {p.nota_media ? `${p.nota_media} · ` : ""}
+                      {p.avaliacoes} {p.avaliacoes === 1 ? "avaliação" : "avaliações"} no Google
+                    </p>
+                  )}
+
                   <ul className="mt-2 flex flex-col gap-0.5">
                     {p.motivos.slice(0, 3).map((m, i) => (
                       <li key={i} className="text-xs text-paper-dim">
@@ -179,6 +186,16 @@ export default async function ProspeccaoPage({
                         className="text-brand-2 hover:underline"
                       >
                         Instagram ↗
+                      </a>
+                    )}
+                    {p.fonte_url && (
+                      <a
+                        href={p.fonte_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-paper-dim hover:underline"
+                      >
+                        Ver no Maps ↗
                       </a>
                     )}
                     {p.website && (
@@ -266,11 +283,11 @@ export default async function ProspeccaoPage({
       )}
 
       <p className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-paper-dim">
-        ℹ️ A busca usa o <b className="text-paper">OpenStreetMap</b>, que é gratuito e livre de
-        bloqueios, mas tem menos cadastros que o Google — em cidade grande vai bem, em cidade
-        pequena pode vir pouca coisa. O eixo de <b className="text-paper">vitalidade</b> hoje mede o
-        quanto o cadastro está preenchido; quando ligarmos o agente do Google, ele passa a usar
-        avaliações e recência, que é um sinal bem mais forte.
+        ℹ️ A busca daqui usa o <b className="text-paper">OpenStreetMap</b> — gratuito e sem
+        bloqueio, porém com menos cadastros. Para resultados do{" "}
+        <b className="text-paper">Google Maps</b>, com avaliações e nota, rode o agente local no seu
+        computador: <code className="text-paper">cd agente && npm run prospectar -- --nicho=dentista
+        --local=&quot;Barra da Tijuca, RJ&quot;</code>. As empresas caem nesta mesma lista.
       </p>
     </div>
   );

@@ -21,10 +21,14 @@ export type EmpresaEncontrada = {
   facebook?: string;
   lat?: number;
   lon?: number;
-  // Sinais de cadastro preenchido — proxy de "negócio ativo" enquanto não
-  // temos as avaliações do Google.
+  // Sinais de cadastro preenchido — proxy de "negócio ativo" quando a fonte
+  // não tem avaliações (caso do OpenStreetMap).
   temHorario: boolean;
   temEmail: boolean;
+  // Só o Google traz: é o sinal mais forte de vitalidade que existe.
+  avaliacoes?: number;
+  notaMedia?: number;
+  fonteUrl?: string;
 };
 
 export type Eixos = {
@@ -60,6 +64,9 @@ export type ProspectoRow = {
   eixos: Eixos;
   motivos: string[];
   status: StatusProspecto;
+  avaliacoes: number | null;
+  nota_media: number | null;
+  fonte_url: string | null;
   anotacao: string | null;
   site_ia_id: string | null;
   created_at: string;
