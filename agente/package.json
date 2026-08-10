@@ -6,7 +6,8 @@
   "description": "Agente local de prospeccao: roda no seu computador, com seu IP.",
   "scripts": {
     "prospectar": "node --env-file-if-exists=.env --import tsx prospectar.ts",
-    "instalar-navegador": "playwright install chromium"
+    "instalar-navegador": "playwright install chromium",
+    "servico": "node --env-file-if-exists=.env --import tsx servico.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",

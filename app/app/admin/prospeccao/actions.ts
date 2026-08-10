@@ -91,6 +91,66 @@ export async function buscarProspectos(
   };
 }
 
+/* ---------------------- fila do agente (Google Maps) ---------------------- */
+// O painel só enfileira: quem executa é o agente rodando na VPS ou no seu
+// computador. Ele consulta esta fila — nunca recebe conexão de fora.
+export async function enfileirarBuscaGoogle(
+  _prev: BuscaState,
+  formData: FormData,
+): Promise<BuscaState> {
+  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const nicho = String(formData.get("nicho") ?? "").trim();
+  const local = String(formData.get("local") ?? "").trim();
+  const limite = Math.min(60, Math.max(5, Number(formData.get("limite")) || 20));
+  if (!acharNicho(nicho)) return { error: "Escolha um nicho da lista." };
+  if (local.length < 3) return { error: "Diga a cidade ou o bairro." };
+
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("prospeccao_tarefas")
+    .select("id", { count: "exact", head: true })
+    .eq("org_id", org.id)
+    .in("status", ["pendente", "rodando"]);
+  if ((count ?? 0) >= 5) {
+    return { error: "Já há 5 buscas na fila. Espere elas terminarem." };
+  }
+
+  const { error } = await supabase
+    .from("prospeccao_tarefas")
+    .insert({ org_id: org.id, nicho, local, limite });
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/admin/prospeccao");
+  return {
+    ok: "Busca na fila. O agente vai executar em instantes — acompanhe aqui embaixo.",
+  };
+}
+
+export async function cancelarTarefa(id: string) {
+  if (!(await ehAdmin())) return;
+  const supabase = await createClient();
+  // Só cancela o que ainda não começou: parar no meio deixaria dado pela metade.
+  await supabase
+    .from("prospeccao_tarefas")
+    .update({ status: "cancelada", concluida_em: new Date().toISOString() })
+    .eq("id", id)
+    .eq("status", "pendente");
+  revalidatePath("/app/admin/prospeccao");
+}
+
+export async function limparTarefas() {
+  if (!(await ehAdmin())) return;
+  const supabase = await createClient();
+  await supabase
+    .from("prospeccao_tarefas")
+    .delete()
+    .in("status", ["concluida", "erro", "cancelada"]);
+  revalidatePath("/app/admin/prospeccao");
+}
+
 export async function mudarStatus(id: string, status: StatusProspecto) {
   if (!(await ehAdmin())) return;
   const supabase = await createClient();

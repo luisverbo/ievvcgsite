@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { ehAdmin } from "../actions";
 import Busca from "./Busca";
+import Fila from "./Fila";
 import { excluirProspecto, gerarSiteParaProspecto, mudarStatus } from "./actions";
 import {
   faixa,
@@ -11,6 +12,7 @@ import {
   ROTULO_STATUS,
   type ProspectoRow,
   type StatusProspecto,
+  type TarefaRow,
 } from "@/lib/prospeccao/tipos";
 import { cardClass } from "@/components/painel/ui";
 import { IconTrash } from "@/components/painel/icons";
@@ -24,6 +26,14 @@ const FILTROS: { chave: string; rotulo: string }[] = [
   { chave: "respondeu", rotulo: "Responderam" },
   { chave: "fechou", rotulo: "Fechados" },
 ];
+
+// Fora do componente: o corpo do render precisa ser puro (regra do React).
+function houveAgenteRecente(tarefas: TarefaRow[]) {
+  const umaHoraAtras = new Date(Date.now() - 3_600_000).toISOString();
+  return tarefas.some(
+    (t) => t.agente && t.created_at > umaHoraAtras && t.status !== "pendente",
+  );
+}
 
 // Só o WhatsApp de celular vale link direto; fixo não tem.
 function linkWhatsapp(telefone: string | null) {
@@ -55,6 +65,18 @@ export default async function ProspeccaoPage({
   if (filtro !== "todos") q = q.eq("status", filtro);
   const { data } = await q;
   const lista = (data as ProspectoRow[] | null) ?? [];
+
+  const { data: tarefasRaw } = await supabase
+    .from("prospeccao_tarefas")
+    .select("*")
+    .eq("org_id", org.id)
+    .order("created_at", { ascending: false })
+    .limit(12);
+  const tarefas = (tarefasRaw as TarefaRow[] | null) ?? [];
+
+  // "Agente ativo" = alguém pegou tarefa na última hora. Serve só para avisar
+  // que a busca do Google vai ficar parada se o agente não estiver ligado.
+  const agenteAtivo = houveAgenteRecente(tarefas);
 
   const { data: todosRaw } = await supabase
     .from("prospeccao")
@@ -98,8 +120,10 @@ export default async function ProspeccaoPage({
 
       <div className={cardClass}>
         <h2 className="mb-4 text-lg font-bold">🔎 Buscar empresas</h2>
-        <Busca />
+        <Busca agenteAtivo={agenteAtivo} />
       </div>
+
+      <Fila tarefas={tarefas} />
 
       {todos.length > 0 && (
         <div className="flex flex-wrap gap-1 rounded-lg border border-white/10 bg-ink-2 p-1">

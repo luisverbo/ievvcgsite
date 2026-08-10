@@ -95,3 +95,28 @@ export function faixa(pontuacao: number) {
   if (pontuacao >= 50) return { rotulo: "Vale tentar", cor: "brand-2", emoji: "🟡" };
   return { rotulo: "Baixa prioridade", cor: "paper-dim", emoji: "🔴" };
 }
+
+/* -------------------------- fila de tarefas do agente --------------------- */
+export type StatusTarefa = "pendente" | "rodando" | "concluida" | "erro" | "cancelada";
+
+export type TarefaRow = {
+  id: string;
+  nicho: string;
+  local: string;
+  limite: number;
+  status: StatusTarefa;
+  progresso: number;
+  total: number;
+  gravadas: number;
+  erro: string | null;
+  agente: string | null;
+  created_at: string;
+};
+
+export const ROTULO_TAREFA: Record<StatusTarefa, string> = {
+  pendente: "Na fila",
+  rodando: "Buscando…",
+  concluida: "Concluída",
+  erro: "Falhou",
+  cancelada: "Cancelada",
+};

@@ -1,18 +1,25 @@
 "use client";
 
 import { useActionState } from "react";
-import { buscarProspectos, type BuscaState } from "./actions";
+import { buscarProspectos, enfileirarBuscaGoogle, type BuscaState } from "./actions";
 import { NICHOS } from "@/lib/prospeccao/nichos";
 import { inputClass, labelClass, fieldClass } from "@/components/painel/ui";
 
-export default function Busca() {
-  const [state, formAction, pending] = useActionState<BuscaState, FormData>(
+export default function Busca({ agenteAtivo }: { agenteAtivo: boolean }) {
+  const [osm, acaoOsm, pendenteOsm] = useActionState<BuscaState, FormData>(
     buscarProspectos,
     undefined,
   );
+  const [google, acaoGoogle, pendenteGoogle] = useActionState<BuscaState, FormData>(
+    enfileirarBuscaGoogle,
+    undefined,
+  );
+
+  const pendente = pendenteOsm || pendenteGoogle;
+  const estado = osm ?? google;
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
         <div className={fieldClass}>
           <label className={labelClass} htmlFor="nicho">
@@ -34,7 +41,6 @@ export default function Busca() {
           <input
             id="local"
             name="local"
-            defaultValue=""
             placeholder="Barra da Tijuca, Rio de Janeiro"
             className={inputClass}
             required
@@ -57,35 +63,60 @@ export default function Busca() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-lg bg-brand px-6 py-3 font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
-        >
-          {pending ? "Buscando…" : "🔎 Buscar empresas"}
-        </button>
-        <span className="text-xs text-paper-dim">
-          Busca no OpenStreetMap — gratuito e sem limite de uso.
-        </span>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          <p className="mb-1 font-bold">🗺️ Google Maps</p>
+          <p className="mb-3 text-xs text-paper-dim">
+            Resultado completo, com avaliações e nota. Roda no agente e leva alguns minutos.
+          </p>
+          <button
+            type="submit"
+            formAction={acaoGoogle}
+            disabled={pendente}
+            className="w-full rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+          >
+            {pendenteGoogle ? "Enfileirando…" : "Buscar no Google"}
+          </button>
+          {!agenteAtivo && (
+            <p className="mt-2 text-[11px] text-paper-dim">
+              ⚠️ Nenhum agente pegou tarefa na última hora. A busca fica na fila até você ligar o
+              agente (<code>npm run servico</code>).
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          <p className="mb-1 font-bold">🧭 OpenStreetMap</p>
+          <p className="mb-3 text-xs text-paper-dim">
+            Na hora, aqui mesmo. Gratuito e sem bloqueio, mas com menos cadastros e sem avaliações.
+          </p>
+          <button
+            type="submit"
+            formAction={acaoOsm}
+            disabled={pendente}
+            className="w-full rounded-lg border border-white/15 px-5 py-2.5 text-sm font-bold text-paper transition hover:border-white/40 disabled:opacity-60"
+          >
+            {pendenteOsm ? "Buscando…" : "Buscar agora"}
+          </button>
+        </div>
       </div>
 
-      {pending && (
+      {pendenteOsm && (
         <p className="text-sm text-brand-2">
           Procurando empresas e conferindo os sites de cada uma… leva alguns segundos.
         </p>
       )}
-      {state?.error && (
+      {estado?.error && (
         <p
           role="alert"
           className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger"
         >
-          {state.error}
+          {estado.error}
         </p>
       )}
-      {state?.ok && (
+      {estado?.ok && (
         <p className="rounded-lg border border-ok/40 bg-ok/10 px-4 py-3 text-sm text-ok">
-          ✅ {state.ok}
+          ✅ {estado.ok}
         </p>
       )}
     </form>

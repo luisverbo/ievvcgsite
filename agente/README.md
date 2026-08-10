@@ -1,68 +1,150 @@
-# Agente local de prospecção
+# Agente de prospecção
 
-Roda **no seu computador**, não na Vercel. Ele abre um navegador de verdade
-com o seu IP de casa, pesquisa as empresas e grava direto no seu Supabase —
-depois é só abrir `/app/admin/prospeccao` no painel e a lista está lá.
+Busca empresas no Google Maps com um navegador de verdade e grava no seu
+Supabase. O painel só **enfileira** a busca; quem executa é este agente.
 
-Por que local: servidor de nuvem tem IP de datacenter, e o Google bloqueia
-esses IPs quase de imediato. Do seu computador, a busca é indistinguível de
-uma pesquisa comum.
+```
+[Painel]  → cria a tarefa
+              ↓
+      [Supabase: prospeccao_tarefas]
+              ↑
+[Agente]  → pega a tarefa → busca → grava → marca pronta
+```
 
-## Instalação (uma vez só)
+O agente **nunca recebe conexão de fora** — ele só consulta o banco. Por isso
+o mesmo código roda na VPS ou no seu computador, sem abrir porta, sem IP fixo
+e sem domínio.
+
+---
+
+## Instalar na VPS (Ubuntu)
+
+Requisitos: Ubuntu 22.04+, 2GB de RAM livres, acesso root.
+
+```bash
+# 1. Node 22
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+apt-get install -y nodejs git
+
+# 2. O projeto
+cd /opt
+git clone https://github.com/luisverbo/ievvcgsite.git
+cd ievvcgsite
+git checkout claude/paginapro
+
+# 3. O agente + navegador (o --with-deps instala as bibliotecas do sistema)
+cd agente
+npm install
+npx playwright install --with-deps chromium
+
+# 4. As credenciais
+cp .env.example .env
+nano .env      # cole a URL e a service_role do Supabase
+```
+
+Teste antes de deixar rodando sozinho:
+
+```bash
+npm run prospectar -- --nicho=dentista --local="Barra da Tijuca, RJ" --limite=5 --headless
+```
+
+Deu certo? Então deixe o serviço no ar permanentemente:
+
+```bash
+cat >/etc/systemd/system/paginapro-agente.service <<'UNIT'
+[Unit]
+Description=Agente de prospeccao do PaginaPro
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/ievvcgsite/agente
+ExecStart=/usr/bin/npm run servico
+Restart=always
+RestartSec=15
+User=root
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now paginapro-agente
+systemctl status paginapro-agente        # deve aparecer "active (running)"
+journalctl -u paginapro-agente -f        # acompanhar o que ele está fazendo
+```
+
+Pronto: o botão **Buscar no Google** do painel passa a funcionar, inclusive do
+celular. Para atualizar depois: `cd /opt/ievvcgsite && git pull && systemctl
+restart paginapro-agente`.
+
+---
+
+## Rodar no seu computador
+
+Mesmo código, sem systemd:
 
 ```bash
 cd agente
 npm install
 npm run instalar-navegador
-cp .env.example .env
+cp .env.example .env     # preencha
+npm run servico
 ```
 
-Depois abra o `.env` e preencha os dois valores (estão no painel do Supabase,
-em **Project Settings → API**):
+Enquanto essa janela estiver aberta, o botão do painel funciona. Para ver o
+navegador trabalhando, coloque `AGENTE_HEADLESS=false` no `.env`.
 
-```
-NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGci...
-```
+> **Plano B:** se o Google começar a bloquear a VPS, pare o serviço lá
+> (`systemctl stop paginapro-agente`) e rode `npm run servico` no seu
+> computador. O painel continua igual — só mudou quem atende a fila.
 
-> A `service_role` dá acesso total ao banco. Ela fica só no seu computador —
-> o `.env` está no `.gitignore` e nunca vai para o GitHub.
+---
 
-## Usando
+## Busca avulsa pelo terminal
+
+Sem passar pela fila, útil para testar:
 
 ```bash
-npm run prospectar -- --nicho=dentista --local="Barra da Tijuca, RJ" --limite=20
+npm run prospectar -- --nicho=dentista --local="Barra da Tijuca, RJ" --limite=10
 ```
-
-Uma janela do navegador abre e você acompanha o trabalho. Ao final, as
-empresas aparecem no painel já com a nota de potencial.
-
-### Opções
 
 | Opção | O que faz |
 |---|---|
-| `--nicho=` | obrigatório — veja a lista rodando sem argumentos |
+| `--nicho=` | obrigatório — rode sem argumentos para ver a lista |
 | `--local=` | obrigatório — bairro e cidade, entre aspas |
-| `--limite=` | quantas empresas buscar (padrão 20, máximo 120) |
-| `--headless` | roda sem abrir janela |
-| `--pausa=2500` | milissegundos entre uma empresa e outra (padrão 1800) |
-| `--debug` | salva print e HTML em `diagnostico/` quando algo falha |
+| `--limite=` | quantas buscar (padrão 20, máximo 120) |
+| `--headless` | sem abrir janela (obrigatório em VPS sem tela) |
+| `--pausa=2500` | milissegundos entre empresas (padrão 1800) |
+| `--debug` | salva print e HTML em `diagnostico/` quando falha |
+
+## Variáveis do `.env`
+
+| Variável | Para que serve |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | endereço do seu Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | chave de acesso ao banco (só no servidor!) |
+| `AGENTE_NOME` | nome que aparece no painel (padrão: hostname) |
+| `AGENTE_PAUSA_MS` | pausa entre empresas (padrão 2500) |
+| `AGENTE_INTERVALO_MS` | de quanto em quanto tempo checa a fila (padrão 8000) |
+| `AGENTE_HEADLESS` | `false` mostra o navegador (padrão: oculto) |
+
+---
 
 ## Cuidados
 
-- **Vá com calma.** Rodar centenas de buscas seguidas queima seu IP. Prefira
-  lotes de 20 a 40 por vez, com intervalo entre eles. O `--pausa` existe para
-  isso — aumente se começar a dar bloqueio.
-- **O agente nunca burla proteção.** Se aparecer CAPTCHA, pedido de login ou
-  aviso de tráfego incomum, ele avisa e para. Se isso acontecer, espere alguns
-  minutos e tente de novo com um limite menor.
+- **Vá com calma.** Lotes de 20 a 40 por vez, com intervalo entre eles. IP de
+  VPS é de datacenter, e o Google desconfia mais dele que de uma conexão
+  residencial — se começar a bloquear, aumente `AGENTE_PAUSA_MS` e reduza o
+  limite por busca.
+- **O agente nunca burla proteção.** Ao ver CAPTCHA, pedido de login ou aviso
+  de tráfego incomum, ele registra o motivo no painel, descansa e para. Se
+  isso virar rotina, é sinal de que o volume está alto demais.
 - **Raspar o Google Maps vai contra os termos de uso deles.** Não é crime, mas
-  é violação contratual e o bloqueio é a consequência prática. A busca por
-  OpenStreetMap, no painel, não tem essa restrição — use as duas conforme o
-  caso.
+  é violação contratual, e o bloqueio é a consequência prática. A busca por
+  OpenStreetMap, no painel, não tem essa restrição.
 - **Os seletores podem quebrar.** O Google muda o HTML sem aviso. Quando isso
-  acontecer, rode com `--debug` e mande os arquivos de `diagnostico/` para
-  corrigirmos.
+  acontecer, rode com `--debug` e mande os arquivos de `diagnostico/`.
 
 ## As duas buscas convivem
 
