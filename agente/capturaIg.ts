@@ -6,7 +6,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { capturarInstagram, baixarFoto } from "./instagram.ts";
-import { usuarioInstagramDe } from "../lib/prospeccao/instagram.ts";
+import { usuarioInstagramDe, type StatusIG } from "../lib/prospeccao/instagram.ts";
+
+export type ResultadoCaptura = { ok: boolean; resumo: string; status?: StatusIG };
 
 const agora = () => new Date().toISOString();
 
@@ -23,7 +25,7 @@ export async function capturarInstagramDoProspecto(
   prospectoId: string,
   headless: boolean,
   log: (m: string) => void,
-): Promise<{ ok: boolean; resumo: string }> {
+): Promise<ResultadoCaptura> {
   const { data } = await supabase
     .from("prospeccao")
     .select("id, org_id, nome, instagram, website")
@@ -42,7 +44,7 @@ export async function capturarInstagramDoProspecto(
         ig_capturado_em: agora(),
       })
       .eq("id", p.id);
-    return { ok: false, resumo: "sem Instagram cadastrado" };
+    return { ok: false, resumo: "sem Instagram cadastrado", status: "nao_encontrado" };
   }
 
   log(`abrindo instagram.com/${usuario}`);
@@ -53,7 +55,7 @@ export async function capturarInstagramDoProspecto(
       .from("prospeccao")
       .update({ ig_status: r.status, ig_erro: r.erro ?? null, ig_capturado_em: agora() })
       .eq("id", p.id);
-    return { ok: false, resumo: r.erro ?? r.status };
+    return { ok: false, resumo: r.erro ?? r.status, status: r.status };
   }
 
   // Baixa as fotos agora: os links do Instagram expiram em poucas horas.
@@ -87,5 +89,9 @@ export async function capturarInstagramDoProspecto(
     .eq("id", p.id);
 
   log(`${fotos.length} fotos salvas de @${usuario}`);
-  return { ok: true, resumo: `${fotos.length} fotos · ${r.dados.seguidores ?? "?"} seguidores` };
+  return {
+    ok: true,
+    resumo: `${fotos.length} fotos · ${r.dados.seguidores ?? "?"} seguidores`,
+    status: "ok",
+  };
 }

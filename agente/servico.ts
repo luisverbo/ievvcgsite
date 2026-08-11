@@ -23,6 +23,22 @@ const PAUSA_MS = Math.max(800, Number(process.env.AGENTE_PAUSA_MS) || 2500);
 // deixa você assistir o navegador trabalhando.
 const HEADLESS = process.env.AGENTE_HEADLESS !== "false";
 
+/*
+ * Ritmo do Instagram.
+ *
+ * Leitura anônima aguenta pouca coisa: uma rajada de dez perfis em dois
+ * minutos derruba o acesso na hora. Então o agente espera de 1,5 a 4 minutos
+ * entre um perfil e outro, e se levar o bloqueio fica três horas sem tocar em
+ * tarefa de Instagram — as buscas do Google continuam normalmente nesse tempo.
+ */
+const IG_PAUSA_MIN_S = 90;
+const IG_PAUSA_MAX_S = 240;
+const IG_CASTIGO_MS = 3 * 3_600_000;
+let igLiberadoEm = 0;
+
+const igEmDescanso = () => Date.now() < igLiberadoEm;
+const faltaIg = () => Math.ceil((igLiberadoEm - Date.now()) / 60_000);
+
 type Tarefa = {
   id: string;
   org_id: string;
@@ -49,12 +65,16 @@ const supabase = createClient(url, chave, { auth: { persistSession: false } });
 // Pega uma tarefa da fila. O filtro status='pendente' no UPDATE garante que
 // dois agentes rodando ao mesmo tempo nunca peguem a mesma tarefa.
 async function pegarTarefa(): Promise<Tarefa | null> {
-  const { data: fila } = await supabase
+  let consulta = supabase
     .from("prospeccao_tarefas")
     .select("id, org_id, tipo, nicho, local, limite, prospecto_id")
-    .eq("status", "pendente")
-    .order("created_at")
-    .limit(1);
+    .eq("status", "pendente");
+
+  // Durante o descanso do Instagram a tarefa fica na fila esperando, em vez de
+  // ser executada e falhar. Ela sai sozinha quando o tempo passar.
+  if (igEmDescanso()) consulta = consulta.neq("tipo", "instagram");
+
+  const { data: fila } = await consulta.order("created_at").limit(1);
 
   const candidata = (fila as Tarefa[] | null)?.[0];
   if (!candidata) return null;
@@ -81,11 +101,26 @@ async function executar(t: Tarefa) {
       HEADLESS,
       (m) => log(`   ${m}`),
     );
+
+    if (r.status === "bloqueado") {
+      // Insistir depois de um bloqueio só piora: o Instagram estende a
+      // restrição. Melhor sumir por umas horas.
+      igLiberadoEm = Date.now() + IG_CASTIGO_MS;
+      log(`⛔ Instagram bloqueou — pausando captura por ${IG_CASTIGO_MS / 3_600_000}h`);
+    } else {
+      const s = IG_PAUSA_MIN_S + Math.random() * (IG_PAUSA_MAX_S - IG_PAUSA_MIN_S);
+      igLiberadoEm = Date.now() + s * 1000;
+    }
+
     await supabase
       .from("prospeccao_tarefas")
       .update({
         status: r.ok ? "concluida" : "erro",
-        erro: r.ok ? null : r.resumo,
+        erro: r.ok
+          ? null
+          : r.status === "bloqueado"
+            ? `${r.resumo} As próximas capturas ficam esperando na fila por ${IG_CASTIGO_MS / 3_600_000} horas.`
+            : r.resumo,
         progresso: r.ok ? 1 : 0,
         total: 1,
         concluida_em: agora(),
@@ -173,7 +208,11 @@ async function main() {
           log(`⚠️  abordagem: ${(e as Error).message}`);
         }
         if (ocioso) {
-          log("sem tarefas — aguardando");
+          log(
+            igEmDescanso()
+              ? `sem tarefas — Instagram descansando por mais ${faltaIg()} min`
+              : "sem tarefas — aguardando",
+          );
           ocioso = false;
         }
         await espera(INTERVALO_MS);

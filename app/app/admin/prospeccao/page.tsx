@@ -20,7 +20,7 @@ import {
   type TarefaRow,
 } from "@/lib/prospeccao/tipos";
 import { acharNicho } from "@/lib/prospeccao/nichos";
-import { usuarioInstagramDe } from "@/lib/prospeccao/instagram";
+import { usuarioInstagramDe, IG_FILA_MAX, IG_LIMITE_DIA } from "@/lib/prospeccao/instagram";
 import { cardClass } from "@/components/painel/ui";
 import { IconTrash } from "@/components/painel/icons";
 
@@ -113,6 +113,31 @@ export default async function ProspeccaoPage({
   // "Agente ativo" = alguém pegou tarefa na última hora. Serve só para avisar
   // que a busca do Google vai ficar parada se o agente não estiver ligado.
   const agenteAtivo = houveAgenteRecente(tarefas);
+
+  /*
+   * Quanto de Instagram já foi pedido — uma na fila por vez e um teto no dia.
+   * O Instagram bloqueia por rajada, não por total: dez de uma vez derruba o
+   * acesso, dez espalhados no dia passa. Ver o motivo no lugar do botão é
+   * melhor que clicar e a captura falhar.
+   */
+  const inicioDia = new Date();
+  inicioDia.setHours(0, 0, 0, 0);
+  const [{ count: igNaFila }, { count: igHoje }] = await Promise.all([
+    supabase
+      .from("prospeccao_tarefas")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", org.id)
+      .eq("tipo", "instagram")
+      .in("status", ["pendente", "rodando"]),
+    supabase
+      .from("prospeccao_tarefas")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", org.id)
+      .eq("tipo", "instagram")
+      .gte("created_at", inicioDia.toISOString()),
+  ]);
+  const igOcupado = (igNaFila ?? 0) >= IG_FILA_MAX;
+  const igNoLimite = (igHoje ?? 0) >= IG_LIMITE_DIA;
 
   const { data: todosRaw } = await supabase
     .from("prospeccao")
@@ -238,6 +263,11 @@ export default async function ProspeccaoPage({
           {lista.map((p) => {
             const fx = faixa(p.pontuacao);
             const zap = linkWhatsapp(p.telefone);
+            // Bloqueio e erro são temporários: cabe tentar de novo. Perfil
+            // privado ou inexistente não muda, então ali o botão some de vez.
+            const igTentavel =
+              !!usuarioInstagramDe(p) &&
+              (!p.ig_capturado_em || p.ig_status === "bloqueado" || p.ig_status === "erro");
             return (
               <div
                 key={p.id}
@@ -360,17 +390,29 @@ export default async function ProspeccaoPage({
                       WhatsApp
                     </a>
                   )}
-                  {usuarioInstagramDe(p) && !p.ig_capturado_em && (
-                    <form action={capturarInstagram.bind(null, p.id)}>
-                      <button
-                        type="submit"
-                        title="O agente lê a bio e baixa as fotos, para usar no site"
-                        className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold text-paper-dim transition hover:border-brand-2 hover:text-brand-2"
+                  {igTentavel &&
+                    (igOcupado || igNoLimite ? (
+                      <span
+                        title={
+                          igOcupado
+                            ? "O agente lê um perfil por vez, com alguns minutos de intervalo — é o que evita o bloqueio do Instagram."
+                            : `Teto de ${IG_LIMITE_DIA} perfis por dia, para não queimar o acesso. Amanhã libera.`
+                        }
+                        className="rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-paper-dim/60"
                       >
-                        📸 Buscar Instagram
-                      </button>
-                    </form>
-                  )}
+                        {igOcupado ? "📸 aguarde a vez" : "📸 limite do dia"}
+                      </span>
+                    ) : (
+                      <form action={capturarInstagram.bind(null, p.id)}>
+                        <button
+                          type="submit"
+                          title="O agente lê a bio e baixa as fotos, para usar no site"
+                          className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold text-paper-dim transition hover:border-brand-2 hover:text-brand-2"
+                        >
+                          📸 {p.ig_capturado_em ? "Tentar de novo" : "Buscar Instagram"}
+                        </button>
+                      </form>
+                    ))}
                   {p.site_ia_id ? (
                     <Link
                       href={`/app/admin/ia/${p.site_ia_id}`}

@@ -1,9 +1,11 @@
 /*
  * Captura o perfil público de uma empresa no Instagram.
  *
- * Sem login, de propósito: no volume real (só as empresas que responderam,
- * 2 a 5 por dia) o modo anônimo basta, e assim nenhuma conta sua fica
- * exposta a bloqueio.
+ * Por padrão roda anônimo, sem conta nenhuma. Isso funciona bem de conexão
+ * residencial, mas de VPS (IP de datacenter) o Instagram costuma exigir login
+ * já nas primeiras leituras. Para esse caso existe a sessão importada: você
+ * cola em INSTAGRAM_SESSIONID o cookie de uma conta SUA que já está logada no
+ * navegador. Nada de senha aqui — só o cookie, e só no .env da VPS.
  *
  * As fotos são BAIXADAS, não referenciadas: as URLs do Instagram são
  * assinadas e expiram em poucas horas: guardar o link não serviria de nada.
@@ -18,6 +20,9 @@ import { numeroIG, type DadosIG, type StatusIG } from "../lib/prospeccao/instagr
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const PERFIL_IG = path.join(AQUI, ".perfil-instagram");
 const MAX_FOTOS = 9;
+
+const SESSAO = (process.env.INSTAGRAM_SESSIONID || "").trim();
+const USUARIO_SESSAO = (process.env.INSTAGRAM_DS_USER_ID || "").trim();
 
 export type ResultadoIG = { status: StatusIG; dados?: DadosIG; erro?: string };
 
@@ -48,6 +53,34 @@ export async function capturarInstagram(
       viewport: { width: 1280, height: 900 },
       args: ["--disable-dev-shm-usage", "--no-sandbox", "--disable-gpu"],
     });
+    // Sessão importada: entra como a sua conta, sem passar senha para o robô.
+    if (SESSAO) {
+      await ctx.addCookies([
+        {
+          name: "sessionid",
+          value: SESSAO,
+          domain: ".instagram.com",
+          path: "/",
+          httpOnly: true,
+          secure: true,
+          sameSite: "Lax",
+        },
+        ...(USUARIO_SESSAO
+          ? [
+              {
+                name: "ds_user_id",
+                value: USUARIO_SESSAO,
+                domain: ".instagram.com",
+                path: "/",
+                secure: true,
+                sameSite: "Lax" as const,
+              },
+            ]
+          : []),
+      ]);
+      log("usando a sessão do .env");
+    }
+
     const page = ctx.pages()[0] ?? (await ctx.newPage());
 
     const resposta = await page.goto(`https://www.instagram.com/${usuario}/`, {
@@ -65,7 +98,9 @@ export async function capturarInstagram(
     if (url.includes("/accounts/login") || url.includes("challenge")) {
       return {
         status: "bloqueado",
-        erro: "O Instagram pediu login. Espere algumas horas antes de tentar de novo.",
+        erro: SESSAO
+          ? "O Instagram recusou a sessão salva (o cookie expirou ou a conta caiu em verificação). Gere um INSTAGRAM_SESSIONID novo no agente/.env."
+          : "O Instagram exigiu login para ver este perfil. Isso é comum quando o agente roda em VPS. Configure INSTAGRAM_SESSIONID no agente/.env para ler com uma conta sua.",
       };
     }
 

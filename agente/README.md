@@ -128,6 +128,43 @@ npm run prospectar -- --nicho=dentista --local="Barra da Tijuca, RJ" --limite=10
 | `AGENTE_PAUSA_MS` | pausa entre empresas (padrão 2500) |
 | `AGENTE_INTERVALO_MS` | de quanto em quanto tempo checa a fila (padrão 8000) |
 | `AGENTE_HEADLESS` | `false` mostra o navegador (padrão: oculto) |
+| `INSTAGRAM_SESSIONID` | opcional — cookie de uma conta sua, para ler perfis (veja abaixo) |
+| `INSTAGRAM_DS_USER_ID` | opcional — acompanha o cookie acima |
+
+---
+
+## Captura de Instagram
+
+O agente lê a bio, o número de seguidores e as fotos do perfil da empresa, e
+as fotos entram no site gerado. Sai muito melhor que imagem de IA: o cliente
+reconhece a própria loja na tela.
+
+**Ritmo.** Um perfil por vez, com 1,5 a 4 minutos de intervalo, no máximo 15
+por dia. Não é exagero de cautela: o Instagram bloqueia por *rajada*. Dez
+perfis em dois minutos derruba o acesso na hora; os mesmos dez espalhados no
+dia passam sem problema. Levando bloqueio, o agente fica três horas sem tocar
+em tarefa de Instagram — as buscas do Google seguem normalmente nesse tempo,
+e as capturas ficam esperando na fila.
+
+**Se vier "O Instagram exigiu login".** De conexão residencial a leitura
+anônima costuma bastar. De VPS não: o IP é de datacenter e o Instagram
+desconfia bem mais. Aí a saída é ler com uma conta sua:
+
+```bash
+# no Chrome, logado no Instagram com uma conta SECUNDÁRIA:
+# F12 → Application → Cookies → https://www.instagram.com
+# copie o valor de "sessionid" e o de "ds_user_id"
+
+nano /opt/ievvcgsite/agente/.env
+# INSTAGRAM_SESSIONID=...
+# INSTAGRAM_DS_USER_ID=...
+
+systemctl restart paginapro-agente
+```
+
+Só o cookie, nunca a senha. O cookie expira sozinho (semanas), e aí é só
+repetir. Use uma conta secundária: a conta que lê perfis em ritmo de robô é a
+que pode cair em verificação, e você não quer isso no seu perfil principal.
 
 ---
 

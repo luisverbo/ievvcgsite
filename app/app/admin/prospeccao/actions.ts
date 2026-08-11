@@ -11,7 +11,7 @@ import { analisarSite } from "@/lib/prospeccao/site";
 import { calcularPotencial, ehEnderecoSocial } from "@/lib/prospeccao/score";
 import { acharNicho } from "@/lib/prospeccao/nichos";
 import { briefingDoNicho } from "@/lib/prospeccao/briefings";
-import { resumoParaBriefing } from "@/lib/prospeccao/instagram";
+import { resumoParaBriefing, IG_FILA_MAX, IG_LIMITE_DIA } from "@/lib/prospeccao/instagram";
 import type { ProspectoRow, StatusProspecto } from "@/lib/prospeccao/tipos";
 
 export type BuscaState = { ok?: string; error?: string } | undefined;
@@ -158,6 +158,31 @@ export async function capturarInstagram(id: string) {
   const org = await getMinhaOrg();
   if (!org) return;
   const supabase = await createClient();
+
+  /*
+   * Trava de ritmo. Na primeira vez foram dez capturas em dois minutos e o
+   * Instagram cortou o acesso em todas — o botão não pode deixar isso
+   * acontecer de novo. O painel esconde o botão quando o limite chega, e esta
+   * checagem é a garantia de verdade (o formulário pode ser reenviado).
+   */
+  const { count: naFila } = await supabase
+    .from("prospeccao_tarefas")
+    .select("id", { count: "exact", head: true })
+    .eq("org_id", org.id)
+    .eq("tipo", "instagram")
+    .in("status", ["pendente", "rodando"]);
+  if ((naFila ?? 0) >= IG_FILA_MAX) return;
+
+  const inicioDia = new Date();
+  inicioDia.setHours(0, 0, 0, 0);
+  const { count: hoje } = await supabase
+    .from("prospeccao_tarefas")
+    .select("id", { count: "exact", head: true })
+    .eq("org_id", org.id)
+    .eq("tipo", "instagram")
+    .gte("created_at", inicioDia.toISOString());
+  if ((hoje ?? 0) >= IG_LIMITE_DIA) return;
+
   await supabase.from("prospeccao_tarefas").insert({
     org_id: org.id,
     tipo: "instagram",

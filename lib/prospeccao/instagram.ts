@@ -13,6 +13,17 @@ export type DadosIG = {
 export type StatusIG = "ok" | "privado" | "nao_encontrado" | "bloqueado" | "erro";
 
 /*
+ * Ritmo da captura.
+ *
+ * O Instagram não bloqueia por quantidade absoluta, e sim por rajada: dez
+ * perfis em dois minutos derruba o acesso na hora, os mesmos dez espaçados ao
+ * longo do dia passam batido. Por isso é uma tarefa por vez na fila (o agente
+ * ainda espera de 1,5 a 4 minutos entre uma e outra) e um teto por dia.
+ */
+export const IG_FILA_MAX = 1;
+export const IG_LIMITE_DIA = 15;
+
+/*
  * Extrai o @usuario de qualquer forma que o endereço venha.
  *
  * O que chega do Google Maps e do OSM é bem variado: link completo, link de
