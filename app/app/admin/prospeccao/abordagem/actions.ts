@@ -14,6 +14,7 @@ import type { ProspectoRow } from "@/lib/prospeccao/tipos";
 
 export type ConfigAbordagem = {
   org_id: string;
+  remetente_nome: string | null;
   modelo_mensagem: string | null;
   limite_diario: number;
   intervalo_min_s: number;
@@ -46,6 +47,9 @@ export async function salvarConfig(
   const org = await getMinhaOrg();
   if (!org) return { error: "Organização não encontrada." };
 
+  const remetente = String(formData.get("remetente_nome") ?? "").trim().slice(0, 60);
+  if (remetente.length < 2) return { error: "Escreva seu nome — é ele que assina a mensagem." };
+
   const modelo = String(formData.get("modelo_mensagem") ?? "").trim();
   if (modelo.length < 30) return { error: "A mensagem está curta demais." };
   if (!modelo.includes("{empresa}")) {
@@ -60,6 +64,7 @@ export async function salvarConfig(
   const { error } = await supabase.from("prospeccao_config").upsert(
     {
       org_id: org.id,
+      remetente_nome: remetente,
       modelo_mensagem: modelo,
       limite_diario: limite,
       intervalo_min_s: min,
@@ -95,11 +100,17 @@ export async function prepararAbordagem(
 
   const supabase = await createClient();
   const [{ data: cfgRaw }, { data: prospRaw }] = await Promise.all([
-    supabase.from("prospeccao_config").select("modelo_mensagem").eq("org_id", org.id).maybeSingle(),
+    supabase
+      .from("prospeccao_config")
+      .select("modelo_mensagem, remetente_nome")
+      .eq("org_id", org.id)
+      .maybeSingle(),
     supabase.from("prospeccao").select("*").eq("org_id", org.id).in("id", ids),
   ]);
 
-  const modelo = (cfgRaw as { modelo_mensagem: string | null } | null)?.modelo_mensagem || MODELO_PADRAO;
+  const cfg = cfgRaw as { modelo_mensagem: string | null; remetente_nome: string | null } | null;
+  const modelo = cfg?.modelo_mensagem || MODELO_PADRAO;
+  const remetente = cfg?.remetente_nome ?? "";
   const prospectos = (prospRaw as ProspectoRow[] | null) ?? [];
 
   const linhas: Record<string, unknown>[] = [];
@@ -117,7 +128,7 @@ export async function prepararAbordagem(
       telefone,
       // A chave do sorteio é o id da empresa: a prévia do painel mostra
       // exatamente o texto que vai ser enviado.
-      texto: montarMensagem(modelo, p as DadosEmpresa, p.id),
+      texto: montarMensagem(modelo, p as DadosEmpresa, p.id, remetente),
       modo,
       status: "pendente",
     });

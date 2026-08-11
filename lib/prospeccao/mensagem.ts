@@ -14,13 +14,17 @@
 
 import { acharNicho } from "./nichos";
 
-export const MODELO_PADRAO = `[Oi|Olá|Opa]! Tudo bem?
+export const MODELO_PADRAO = `[Olá|Oi]{contato}! Tudo bem?
 
-[Vi a|Encontrei a|Passei pela] {empresa} [aqui no|no] Google{prova}.
+Meu nome é {meunome}. [Encontrei|Achei] a {empresa} pesquisando empresas{regiao} e vi que vocês têm uma presença interessante na região.
 
-[Só que|Mas] não achei o site de vocês. [Eu trabalho com|Eu faço] criação de site para {ramo}, e [montei|preparei|fiz] um modelo pensando [na|especificamente na] {empresa}.
+[Eu trabalho com|Trabalho com] criação de sites para empresas e estou fazendo um projeto de sites personalizados para negócios locais.
 
-Posso te mandar [pra você dar uma olhada|para você ver como ficou]? Sem compromisso.`;
+Acabei criando, por iniciativa própria, uma versão de como poderia ser o site da {empresa}, já pensando em apresentar os serviços e transformar as visitas em contatos pelo WhatsApp.
+
+Não tem compromisso nenhum. Fiz como demonstração mesmo.
+
+Posso te mandar o link [para você ver como ficou|para você dar uma olhada]?`;
 
 export type DadosEmpresa = {
   nome: string;
@@ -85,15 +89,39 @@ export function ramoDe(e: DadosEmpresa): string {
   return e.categoria?.toLowerCase() || "negócios locais";
 }
 
+/*
+ * Nome de quem atende, para tratar a pessoa e não a empresa.
+ *
+ * O Google Maps não traz o nome do dono, então só extraímos quando a própria
+ * placa diz ("Dra. Juliana Fernandes"). Chutar o nome a partir do nome da
+ * empresa daria "Olá, Clínica!" — pior do que não usar nome nenhum.
+ */
+export function contatoDe(nome: string): string {
+  const m = /^(Dr|Dra|Dr\.|Dra\.)\s+([A-ZÁÂÃÉÊÍÓÔÕÚÇ][a-záâãéêíóôõúç]+)/.exec(nome.trim());
+  if (!m) return "";
+  const titulo = m[1].replace(/\.?$/, ".");
+  return `, ${titulo} ${m[2]}`;
+}
+
+// "aqui da Barra da Tijuca" — some quando não sabemos onde a empresa fica.
+function regiaoDe(e: DadosEmpresa): string {
+  const bairro = bairroDe(e);
+  return bairro ? ` aqui da ${bairro}` : "";
+}
+
 export function montarMensagem(
   modelo: string,
   empresa: DadosEmpresa,
   chave: string,
+  remetente = "",
 ): string {
   const valores: Record<string, string> = {
     empresa: empresa.nome,
     ramo: ramoDe(empresa),
     bairro: bairroDe(empresa),
+    regiao: regiaoDe(empresa),
+    contato: contatoDe(empresa.nome),
+    meunome: remetente,
     avaliacoes: String(empresa.avaliacoes ?? ""),
     nota: empresa.nota_media ? String(empresa.nota_media).replace(".", ",") : "",
     prova: provaDe(empresa),

@@ -33,6 +33,7 @@ export default async function AbordagemPage() {
 
   const config: ConfigAbordagem = (cfgRaw as ConfigAbordagem | null) ?? {
     org_id: org.id,
+    remetente_nome: null,
     modelo_mensagem: null,
     limite_diario: 20,
     intervalo_min_s: 45,

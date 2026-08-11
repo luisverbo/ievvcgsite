@@ -163,10 +163,27 @@ export default function Painel({
           <code className="text-paper">{"{ramo}"}</code>,{" "}
           <code className="text-paper">{"{bairro}"}</code>,{" "}
           <code className="text-paper">{"{prova}"}</code> (frase de avaliações, some sozinha se a
-          empresa tiver poucas). Para variar o texto,{" "}
+          empresa tiver poucas), <code className="text-paper">{"{regiao}"}</code>,{" "}
+          <code className="text-paper">{"{meunome}"}</code> e{" "}
+          <code className="text-paper">{"{contato}"}</code> (vira “, Dra. Juliana” quando o nome da
+          pessoa está na placa; fica vazio quando não dá para saber, em vez de inventar). Para
+          variar o texto,{" "}
           <code className="text-paper">[Oi|Olá|Opa]</code> sorteia uma opção a cada envio — é o que
           evita a mensagem parecer disparo.
         </p>
+        <div className="mb-3">
+          <label className={labelClass} htmlFor="remetente_nome">
+            Seu nome (assina a mensagem)
+          </label>
+          <input
+            id="remetente_nome"
+            name="remetente_nome"
+            defaultValue={config.remetente_nome ?? ""}
+            placeholder="Luis"
+            className={`${inputClass} w-full sm:w-64`}
+          />
+        </div>
+
         <textarea
           name="modelo_mensagem"
           defaultValue={config.modelo_mensagem || MODELO_PADRAO}
