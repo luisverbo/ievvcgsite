@@ -110,7 +110,15 @@ export async function prepararAbordagem(
 
   const cfg = cfgRaw as { modelo_mensagem: string | null; remetente_nome: string | null } | null;
   const modelo = cfg?.modelo_mensagem || MODELO_PADRAO;
-  const remetente = cfg?.remetente_nome ?? "";
+  const remetente = (cfg?.remetente_nome ?? "").trim();
+
+  // Sem o nome, a mensagem sairia com "Meu nome é." — melhor barrar aqui do
+  // que mandar texto quebrado para o cliente.
+  if (modelo.includes("{meunome}") && remetente.length < 2) {
+    return {
+      error: 'Preencha "Seu nome" aí em cima e salve — sem ele a mensagem sai com "Meu nome é." e nada mais.',
+    };
+  }
   const prospectos = (prospRaw as ProspectoRow[] | null) ?? [];
 
   const linhas: Record<string, unknown>[] = [];

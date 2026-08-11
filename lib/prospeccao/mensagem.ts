@@ -90,6 +90,30 @@ export function ramoDe(e: DadosEmpresa): string {
 }
 
 /*
+ * Limpa o nome que vem do Google Maps.
+ *
+ * Muita empresa enche o cadastro de palavra-chave para aparecer na busca:
+ * "Dentista no Recreio dos Bandeirantes | Dra. Carolina Kede". Escrever isso
+ * numa mensagem entrega na hora que foi robô que montou.
+ *
+ * Regra: entre os pedaços separados por | ou –, fica o que traz o nome de uma
+ * pessoa (Dr./Dra.); não havendo, fica o primeiro, que costuma ser a marca.
+ */
+export function limparNomeEmpresa(bruto: string): string {
+  const partes = bruto
+    .split(/\s*[|–—]\s*|\s+-\s+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (partes.length === 0) return bruto.trim();
+
+  const comPessoa = partes.find((p) => /^(Dr|Dra)\.?\s+[A-ZÁÂÃÉÊÍÓÔÕÚÇ]/.test(p));
+  const escolhida = comPessoa ?? partes[0];
+
+  // Tira sobras de localização no fim ("... Barra da Tijuca RJ").
+  return escolhida.replace(/[,\s]+(RJ|SP|MG|BA|RS|PR|SC|GO|PE|CE|DF)$/i, "").trim();
+}
+
+/*
  * Nome de quem atende, para tratar a pessoa e não a empresa.
  *
  * O Google Maps não traz o nome do dono, então só extraímos quando a própria
@@ -97,16 +121,24 @@ export function ramoDe(e: DadosEmpresa): string {
  * empresa daria "Olá, Clínica!" — pior do que não usar nome nenhum.
  */
 export function contatoDe(nome: string): string {
-  const m = /^(Dr|Dra|Dr\.|Dra\.)\s+([A-ZÁÂÃÉÊÍÓÔÕÚÇ][a-záâãéêíóôõúç]+)/.exec(nome.trim());
+  const m = /^(Dr|Dra|Dr\.|Dra\.)\s+([A-ZÁÂÃÉÊÍÓÔÕÚÇ][a-záâãéêíóôõúç]+)/.exec(
+    limparNomeEmpresa(nome),
+  );
   if (!m) return "";
   const titulo = m[1].replace(/\.?$/, ".");
   return `, ${titulo} ${m[2]}`;
 }
 
-// "aqui da Barra da Tijuca" — some quando não sabemos onde a empresa fica.
+/*
+ * "aqui em Recreio dos Bandeirantes".
+ *
+ * Usamos "em" e não "da/do" de propósito: o artigo muda com o bairro ("da
+ * Barra", "do Recreio", "de Copacabana") e errar isso entrega o robô. "em"
+ * funciona com todos.
+ */
 function regiaoDe(e: DadosEmpresa): string {
   const bairro = bairroDe(e);
-  return bairro ? ` aqui da ${bairro}` : "";
+  return bairro ? ` aqui em ${bairro}` : "";
 }
 
 export function montarMensagem(
@@ -115,12 +147,13 @@ export function montarMensagem(
   chave: string,
   remetente = "",
 ): string {
+  const nome = limparNomeEmpresa(empresa.nome);
   const valores: Record<string, string> = {
-    empresa: empresa.nome,
+    empresa: nome,
     ramo: ramoDe(empresa),
     bairro: bairroDe(empresa),
     regiao: regiaoDe(empresa),
-    contato: contatoDe(empresa.nome),
+    contato: contatoDe(nome),
     meunome: remetente,
     avaliacoes: String(empresa.avaliacoes ?? ""),
     nota: empresa.nota_media ? String(empresa.nota_media).replace(".", ",") : "",
