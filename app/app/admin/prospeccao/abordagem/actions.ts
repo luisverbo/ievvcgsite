@@ -209,3 +209,29 @@ export async function conectarWhatsapp() {
   );
   revalidatePath("/app/admin/prospeccao/abordagem");
 }
+
+/*
+ * Desconecta o WhatsApp para você entrar com outro número.
+ *
+ * Não basta mudar o status: o agente guarda a sessão num perfil de navegador,
+ * e sem apagá-lo o WhatsApp entraria de novo com o mesmo número. Por isso a
+ * bandeira — quem apaga o perfil é o agente.
+ */
+export async function desconectarWhatsapp() {
+  if (!(await ehAdmin())) return;
+  const org = await getMinhaOrg();
+  if (!org) return;
+  const supabase = await createClient();
+  await supabase.from("prospeccao_config").upsert(
+    {
+      org_id: org.id,
+      desconectar_pedido: true,
+      whatsapp_status: "desconectado",
+      whatsapp_qr: null,
+      whatsapp_mensagem: "Desconectando… aguarde alguns segundos.",
+      whatsapp_em: new Date().toISOString(),
+    },
+    { onConflict: "org_id" },
+  );
+  revalidatePath("/app/admin/prospeccao/abordagem");
+}

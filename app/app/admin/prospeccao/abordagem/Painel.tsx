@@ -8,6 +8,7 @@ import {
   marcarEnviada,
   prepararAbordagem,
   conectarWhatsapp,
+  desconectarWhatsapp,
   salvarConfig,
   type ConfigAbordagem,
   type EstadoAbordagem,
@@ -102,18 +103,29 @@ export default function Painel({
               <p className="mt-0.5 text-sm text-paper-dim">{config.whatsapp_mensagem}</p>
             )}
           </div>
-          <form action={conectarWhatsapp}>
-            <button
-              type="submit"
-              className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${
-                config.whatsapp_status === "conectado"
-                  ? "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
-                  : "bg-brand text-white hover:bg-brand-2"
-              }`}
-            >
-              {config.whatsapp_status === "conectado" ? "Reconectar" : "Conectar WhatsApp"}
-            </button>
-          </form>
+          <div className="flex flex-wrap items-center gap-2">
+            <form action={conectarWhatsapp}>
+              <button
+                type="submit"
+                className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${
+                  config.whatsapp_status === "conectado"
+                    ? "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
+                    : "bg-brand text-white hover:bg-brand-2"
+                }`}
+              >
+                {config.whatsapp_status === "conectado" ? "Reconectar" : "Conectar WhatsApp"}
+              </button>
+            </form>
+            <form action={desconectarWhatsapp}>
+              <button
+                type="submit"
+                title="Apaga a sessão para você entrar com outro número"
+                className="rounded-lg border border-white/15 px-4 py-2.5 text-sm font-bold text-paper-dim transition hover:border-danger hover:text-danger"
+              >
+                Desconectar
+              </button>
+            </form>
+          </div>
         </div>
 
         {conectando && !config.whatsapp_qr && (
@@ -126,7 +138,11 @@ export default function Painel({
         {config.whatsapp_qr && config.whatsapp_status !== "conectado" && (
           <div className="mt-4 flex flex-col items-center gap-2 rounded-xl bg-white p-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={config.whatsapp_qr} alt="QR do WhatsApp" className="h-56 w-56" />
+            <img
+              src={config.whatsapp_qr}
+              alt="QR do WhatsApp"
+              className="max-h-[420px] w-auto max-w-full rounded"
+            />
             <p className="text-center text-xs text-black">
               WhatsApp no celular → <b>Aparelhos conectados</b> → <b>Conectar aparelho</b>
             </p>

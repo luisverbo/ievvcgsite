@@ -16,7 +16,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
-const PERFIL_ZAP = path.join(AQUI, ".perfil-whatsapp");
+export const PERFIL_ZAP = path.join(AQUI, ".perfil-whatsapp");
 
 export type EstadoZap = "desconectado" | "aguardando_qr" | "conectado" | "erro";
 
@@ -66,39 +66,60 @@ async function acharQr(page: Page) {
  */
 export async function aguardarConexao(
   page: Page,
-  aoQr: (dataUri: string) => Promise<void>,
+  aoQr: (dataUri: string, ehTelaInteira: boolean) => Promise<void>,
   aoEstado: (estado: EstadoZap, msg?: string) => Promise<void>,
-  limiteMs = 180_000,
+  log: (m: string) => void = () => {},
+  limiteMs = 240_000,
 ): Promise<boolean> {
   const ate = Date.now() + limiteMs;
-  let ultimoQr = "";
+  let ultimo = "";
+  let voltas = 0;
 
   while (Date.now() < ate) {
+    voltas++;
+
     if (await estaConectado(page)) {
       await aoEstado("conectado", "WhatsApp conectado.");
       return true;
     }
 
     const qr = await acharQr(page);
+    let png: Buffer | null = null;
+    let telaInteira = false;
+
     if (qr) {
-      try {
-        const png = await qr.screenshot({ timeout: 5000 });
-        const dataUri = `data:image/png;base64,${png.toString("base64")}`;
-        // O QR do WhatsApp muda sozinho a cada ~20s; só reenvia se mudou.
-        if (dataUri !== ultimoQr) {
-          ultimoQr = dataUri;
-          await aoQr(dataUri);
-          await aoEstado("aguardando_qr", "Leia o QR com o WhatsApp do celular.");
-        }
-      } catch {
-        /* o QR sumiu enquanto tirávamos a foto: tenta de novo na próxima volta */
+      png = await qr.screenshot({ timeout: 5000 }).catch(() => null);
+    }
+    // Sem canvas reconhecido, manda a tela inteira: assim você vê na hora o
+    // que o WhatsApp está mostrando (QR num layout novo, aviso, erro) em vez
+    // de ficar olhando para uma tela vazia.
+    if (!png && voltas >= 3) {
+      png = await page.screenshot({ timeout: 8000 }).catch(() => null);
+      telaInteira = true;
+    }
+
+    if (png) {
+      const dataUri = `data:image/png;base64,${png.toString("base64")}`;
+      // O QR muda sozinho a cada ~20s; só republica quando muda de verdade.
+      if (dataUri !== ultimo) {
+        ultimo = dataUri;
+        await aoQr(dataUri, telaInteira);
+        await aoEstado(
+          "aguardando_qr",
+          telaInteira
+            ? "Não reconheci o QR na página — abaixo está a tela do WhatsApp. Se o QR aparecer nela, pode ler assim mesmo."
+            : "Leia o QR com o WhatsApp do celular.",
+        );
       }
     }
 
+    if (voltas % 5 === 0) {
+      log(`aguardando leitura do QR… (${page.url().slice(0, 60)}, canvas: ${qr ? "sim" : "não"})`);
+    }
     await espera(3000);
   }
 
-  await aoEstado("erro", "Ninguém leu o QR a tempo. Peça a reconexão e tente de novo.");
+  await aoEstado("erro", "Ninguém leu o QR a tempo. Clique em Conectar de novo.");
   return false;
 }
 

@@ -8,7 +8,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Page } from "playwright";
 
-import { abrirWhatsapp, aguardarConexao, enviarMensagem, type EstadoZap } from "./whatsapp.ts";
+import fs from "node:fs/promises";
+
+import {
+  abrirWhatsapp,
+  aguardarConexao,
+  enviarMensagem,
+  PERFIL_ZAP,
+  type EstadoZap,
+} from "./whatsapp.ts";
 
 type Config = {
   org_id: string;
@@ -70,6 +78,37 @@ export async function rodarAbordagem(
   headless: boolean,
   log: (m: string) => void,
 ): Promise<void> {
+  // Pedido de desconexão vem primeiro: apaga a sessão para poder entrar com
+  // outro número.
+  const { data: sairRaw } = await supabase
+    .from("prospeccao_config")
+    .select("org_id")
+    .eq("desconectar_pedido", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (sairRaw) {
+    const orgSaida = (sairRaw as { org_id: string }).org_id;
+    log("desconectando o WhatsApp e apagando a sessão…");
+    if (sessao) {
+      await sessao.fechar().catch(() => {});
+      sessao = null;
+    }
+    // Sem apagar o perfil, o WhatsApp entraria de novo com o mesmo número.
+    await fs.rm(PERFIL_ZAP, { recursive: true, force: true }).catch(() => {});
+    await supabase
+      .from("prospeccao_config")
+      .update({
+        desconectar_pedido: false,
+        whatsapp_status: "desconectado",
+        whatsapp_qr: null,
+        whatsapp_mensagem: "Desconectado. Clique em Conectar para entrar com outro número.",
+        whatsapp_em: agora(),
+      })
+      .eq("org_id", orgSaida);
+    return;
+  }
+
   // Duas razões para abrir o WhatsApp: o painel pediu conexão (status
   // 'aguardando_qr') ou existe mensagem esperando na fila.
   const { data: pedidoRaw } = await supabase
@@ -131,13 +170,20 @@ export async function rodarAbordagem(
 
     const conectou = await aguardarConexao(
       page,
-      async (qr) => {
-        log("QR gerado — leia no painel, em Prospecção › Abordagem");
-        await gravarEstado(supabase, cfg.org_id, "aguardando_qr", "Leia o QR com o celular.", qr);
+      async (qr, telaInteira) => {
+        log(
+          telaInteira
+            ? "não reconheci o QR — mandei a tela do WhatsApp para o painel"
+            : "QR gerado — leia no painel, em Prospecção › Abordagem",
+        );
+        await supabase
+          .from("prospeccao_config")
+          .upsert({ org_id: cfg.org_id, whatsapp_qr: qr }, { onConflict: "org_id" });
       },
       async (estado, msg) => {
         await gravarEstado(supabase, cfg.org_id, estado, msg, estado === "conectado" ? null : undefined);
       },
+      log,
     );
 
     if (!conectou) {
