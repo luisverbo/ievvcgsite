@@ -185,8 +185,14 @@ export async function limparEnviadas() {
   revalidatePath("/app/admin/prospeccao/abordagem");
 }
 
-// Zera a sessão para reconectar o WhatsApp (novo QR no painel).
-export async function reconectarWhatsapp() {
+/*
+ * Pede ao agente que abra o WhatsApp e mostre o QR.
+ *
+ * O status 'aguardando_qr' é o próprio recado: o agente vê isso na fila e
+ * abre a sessão mesmo sem ter mensagem para enviar. Antes este botão só
+ * limpava o estado e não acontecia nada — o agente nunca era acionado.
+ */
+export async function conectarWhatsapp() {
   if (!(await ehAdmin())) return;
   const org = await getMinhaOrg();
   if (!org) return;
@@ -194,9 +200,9 @@ export async function reconectarWhatsapp() {
   await supabase.from("prospeccao_config").upsert(
     {
       org_id: org.id,
-      whatsapp_status: "desconectado",
+      whatsapp_status: "aguardando_qr",
       whatsapp_qr: null,
-      whatsapp_mensagem: "Reconexão pedida pelo painel.",
+      whatsapp_mensagem: "Pedido enviado ao agente. O QR aparece aqui em alguns segundos…",
       whatsapp_em: new Date().toISOString(),
     },
     { onConflict: "org_id" },

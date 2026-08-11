@@ -7,7 +7,7 @@ import {
   limparEnviadas,
   marcarEnviada,
   prepararAbordagem,
-  reconectarWhatsapp,
+  conectarWhatsapp,
   salvarConfig,
   type ConfigAbordagem,
   type EstadoAbordagem,
@@ -55,11 +55,14 @@ export default function Painel({
 
   // Enquanto houver fila automática, acompanha o envio sem precisar recarregar.
   const temFilaAuto = pendentes.some((m) => m.modo === "auto");
+  // Também durante a conexão: o QR chega do agente e só aparece se a página
+  // recarregar sozinha (e ele muda a cada ~20s).
+  const conectando = config.whatsapp_status === "aguardando_qr";
   useEffect(() => {
-    if (!temFilaAuto) return;
-    const id = window.setInterval(() => router.refresh(), 10_000);
+    if (!temFilaAuto && !conectando) return;
+    const id = window.setInterval(() => router.refresh(), conectando ? 4000 : 10_000);
     return () => window.clearInterval(id);
-  }, [temFilaAuto, router]);
+  }, [temFilaAuto, conectando, router]);
 
   function alternar(id: string) {
     setMarcados((s) => {
@@ -99,15 +102,26 @@ export default function Painel({
               <p className="mt-0.5 text-sm text-paper-dim">{config.whatsapp_mensagem}</p>
             )}
           </div>
-          <form action={reconectarWhatsapp}>
+          <form action={conectarWhatsapp}>
             <button
               type="submit"
-              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-bold text-paper-dim transition hover:border-white/40 hover:text-paper"
+              className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${
+                config.whatsapp_status === "conectado"
+                  ? "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
+                  : "bg-brand text-white hover:bg-brand-2"
+              }`}
             >
-              Reconectar
+              {config.whatsapp_status === "conectado" ? "Reconectar" : "Conectar WhatsApp"}
             </button>
           </form>
         </div>
+
+        {conectando && !config.whatsapp_qr && (
+          <p className="mt-4 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-brand-2">
+            Aguardando o agente abrir o WhatsApp… o QR aparece aqui em alguns segundos. Se não
+            aparecer em 1 minuto, confira se o serviço está no ar na VPS.
+          </p>
+        )}
 
         {config.whatsapp_qr && config.whatsapp_status !== "conectado" && (
           <div className="mt-4 flex flex-col items-center gap-2 rounded-xl bg-white p-4">

@@ -70,6 +70,16 @@ export async function rodarAbordagem(
   headless: boolean,
   log: (m: string) => void,
 ): Promise<void> {
+  // Duas razões para abrir o WhatsApp: o painel pediu conexão (status
+  // 'aguardando_qr') ou existe mensagem esperando na fila.
+  const { data: pedidoRaw } = await supabase
+    .from("prospeccao_config")
+    .select("org_id, limite_diario, intervalo_min_s, intervalo_max_s, whatsapp_status")
+    .eq("whatsapp_status", "aguardando_qr")
+    .limit(1)
+    .maybeSingle();
+  const pedido = pedidoRaw as Config | null;
+
   const { data: pendRaw } = await supabase
     .from("prospeccao_mensagens")
     .select("id, org_id, prospecto_id, telefone, texto")
@@ -77,25 +87,38 @@ export async function rodarAbordagem(
     .eq("modo", "auto")
     .order("created_at")
     .limit(1);
-
   const primeira = (pendRaw as Pendente[] | null)?.[0];
-  if (!primeira) return; // nada a enviar
 
-  const { data: cfgRaw } = await supabase
-    .from("prospeccao_config")
-    .select("org_id, limite_diario, intervalo_min_s, intervalo_max_s, whatsapp_status")
-    .eq("org_id", primeira.org_id)
-    .maybeSingle();
-  const cfg = (cfgRaw as Config | null) ?? {
-    org_id: primeira.org_id,
-    limite_diario: 20,
-    intervalo_min_s: 45,
-    intervalo_max_s: 150,
-    whatsapp_status: "desconectado",
-  };
+  const orgId = pedido?.org_id ?? primeira?.org_id;
+  if (!orgId) return; // nada a conectar nem a enviar
+
+  let cfg = pedido;
+  if (!cfg) {
+    const { data: cfgRaw } = await supabase
+      .from("prospeccao_config")
+      .select("org_id, limite_diario, intervalo_min_s, intervalo_max_s, whatsapp_status")
+      .eq("org_id", orgId)
+      .maybeSingle();
+    cfg = (cfgRaw as Config | null) ?? {
+      org_id: orgId,
+      limite_diario: 20,
+      intervalo_min_s: 45,
+      intervalo_max_s: 150,
+      whatsapp_status: "desconectado",
+    };
+  }
+
+  // Só um pedido de conexão, com a sessão já de pé: nada a fazer além de
+  // confirmar no painel.
+  if (pedido && sessao && !primeira) {
+    await gravarEstado(supabase, cfg.org_id, "conectado", "WhatsApp já está conectado.", null);
+    return;
+  }
 
   const jaHoje = await enviadasHoje(supabase, cfg.org_id);
-  if (jaHoje >= cfg.limite_diario) {
+  // O limite só bloqueia envio; um pedido de conexão passa, senão você não
+  // conseguiria reconectar depois de bater a cota do dia.
+  if (!pedido && jaHoje >= cfg.limite_diario) {
     log(`limite diário atingido (${jaHoje}/${cfg.limite_diario}) — abordagem pausada até amanhã`);
     return;
   }
@@ -122,7 +145,13 @@ export async function rodarAbordagem(
       sessao = null;
       return;
     }
+  } else if (pedido) {
+    // Sessão já estava aberta quando o painel pediu conexão.
+    await gravarEstado(supabase, cfg.org_id, "conectado", "WhatsApp conectado.", null);
   }
+
+  // Era só para conectar — sem mensagem na fila, o trabalho acaba aqui.
+  if (!primeira) return;
 
   const page = sessao.page;
   let enviadas = jaHoje;
