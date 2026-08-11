@@ -48,6 +48,13 @@ export default function Painel({
   );
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
 
+  // Controlados para a tela mostrar, ao vivo, quanto tempo o envio vai levar —
+  // é o que traduz "45 a 150 segundos" em algo que dá para decidir.
+  const [limite, setLimite] = useState(config.limite_diario);
+  const [minS, setMinS] = useState(config.intervalo_min_s);
+  const [maxS, setMaxS] = useState(config.intervalo_max_s);
+  const duracaoTotal = duracao(limite * ((minS + maxS) / 2));
+
   const pendentes = mensagens.filter((m) => m.status === "pendente");
   const semi = pendentes.filter((m) => m.modo === "semi");
   const enviadasHoje = mensagens.filter(
@@ -191,38 +198,75 @@ export default function Painel({
           className={`${inputClass} w-full resize-y font-mono text-xs`}
         />
 
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <div>
-            <label className={labelClass}>Limite por dia</label>
+        <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          <h3 className="font-bold">Ritmo do envio automático</h3>
+          <p className="mt-1 text-xs text-paper-dim">
+            Estes números só valem no modo automático. São eles que fazem o agente parecer uma
+            pessoa mandando mensagem, e não um robô disparando.
+          </p>
+
+          <div className="mt-4">
+            <label className={labelClass} htmlFor="limite_diario">
+              Quantas mensagens por dia, no máximo
+            </label>
             <input
+              id="limite_diario"
               name="limite_diario"
               type="number"
               min={1}
               max={200}
-              defaultValue={config.limite_diario}
-              className={`${inputClass} w-full`}
+              value={limite}
+              onChange={(e) => setLimite(Number(e.target.value))}
+              className={`${inputClass} mt-1 w-28`}
             />
+            <p className="mt-1 text-xs text-paper-dim">
+              Ao chegar nesse número o agente para sozinho e só volta no dia seguinte. Comece
+              baixo: 15 a 20 nos primeiros dias.
+            </p>
           </div>
-          <div>
-            <label className={labelClass}>Intervalo mínimo (s)</label>
-            <input
-              name="intervalo_min_s"
-              type="number"
-              min={20}
-              defaultValue={config.intervalo_min_s}
-              className={`${inputClass} w-full`}
-            />
+
+          <div className="mt-4">
+            <label className={labelClass}>Espera entre uma mensagem e a próxima</label>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <span className="text-sm text-paper-dim">de</span>
+              <input
+                name="intervalo_min_s"
+                type="number"
+                min={20}
+                value={minS}
+                onChange={(e) => setMinS(Number(e.target.value))}
+                className={`${inputClass} w-24`}
+              />
+              <span className="text-sm text-paper-dim">até</span>
+              <input
+                name="intervalo_max_s"
+                type="number"
+                min={30}
+                value={maxS}
+                onChange={(e) => setMaxS(Number(e.target.value))}
+                className={`${inputClass} w-24`}
+              />
+              <span className="text-sm text-paper-dim">
+                <b className="text-paper">segundos</b> ({emMinutos(minS)} a {emMinutos(maxS)})
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-paper-dim">
+              A cada envio o agente sorteia um tempo diferente entre esses dois. Intervalo fixo
+              (sempre 60s, por exemplo) é assinatura de robô — ninguém manda mensagem em tempo
+              cravado.
+            </p>
           </div>
-          <div>
-            <label className={labelClass}>Intervalo máximo (s)</label>
-            <input
-              name="intervalo_max_s"
-              type="number"
-              min={30}
-              defaultValue={config.intervalo_max_s}
-              className={`${inputClass} w-full`}
-            />
-          </div>
+
+          <p className="mt-4 rounded-lg border border-brand-2/30 bg-brand/10 px-3 py-2.5 text-sm">
+            📊 Do jeito que está: <b className="text-paper">{limite} mensagens</b> por dia, uma a
+            cada <b className="text-paper">{emMinutos(Math.round((minS + maxS) / 2))}</b> em média.
+            Vão levar cerca de <b className="text-paper">{duracaoTotal}</b> para todas saírem.
+            {minS < 30 && (
+              <span className="mt-1 block text-danger">
+                ⚠️ Menos de 30 segundos é arriscado — é aí que o WhatsApp costuma bloquear.
+              </span>
+            )}
+          </p>
         </div>
 
         <button
@@ -403,4 +447,23 @@ function hojeInicio() {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   return d.toISOString();
+}
+
+// "45" -> "45 segundos"; "150" -> "2min30"
+function emMinutos(segundos: number) {
+  if (!Number.isFinite(segundos) || segundos <= 0) return "—";
+  if (segundos < 60) return `${segundos} segundos`;
+  const min = Math.floor(segundos / 60);
+  const resto = segundos % 60;
+  return resto === 0 ? `${min}min` : `${min}min${String(resto).padStart(2, "0")}`;
+}
+
+// Tempo total do lote, em linguagem de gente.
+function duracao(segundos: number) {
+  if (!Number.isFinite(segundos) || segundos <= 0) return "—";
+  const min = Math.round(segundos / 60);
+  if (min < 60) return `${min} minutos`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m === 0 ? `${h} hora${h > 1 ? "s" : ""}` : `${h}h${String(m).padStart(2, "0")}`;
 }
