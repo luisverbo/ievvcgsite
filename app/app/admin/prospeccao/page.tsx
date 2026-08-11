@@ -20,6 +20,7 @@ import {
   type TarefaRow,
 } from "@/lib/prospeccao/tipos";
 import { acharNicho } from "@/lib/prospeccao/nichos";
+import { usuarioInstagramDe } from "@/lib/prospeccao/instagram";
 import { cardClass } from "@/components/painel/ui";
 import { IconTrash } from "@/components/painel/icons";
 
@@ -359,7 +360,7 @@ export default async function ProspeccaoPage({
                       WhatsApp
                     </a>
                   )}
-                  {p.instagram && !p.ig_capturado_em && (
+                  {usuarioInstagramDe(p) && !p.ig_capturado_em && (
                     <form action={capturarInstagram.bind(null, p.id)}>
                       <button
                         type="submit"

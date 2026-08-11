@@ -6,11 +6,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { capturarInstagram, baixarFoto } from "./instagram.ts";
-import { usuarioInstagram } from "../lib/prospeccao/instagram.ts";
+import { usuarioInstagramDe } from "../lib/prospeccao/instagram.ts";
 
 const agora = () => new Date().toISOString();
 
-type Prospecto = { id: string; org_id: string; nome: string; instagram: string | null };
+type Prospecto = {
+  id: string;
+  org_id: string;
+  nome: string;
+  instagram: string | null;
+  website: string | null;
+};
 
 export async function capturarInstagramDoProspecto(
   supabase: SupabaseClient,
@@ -20,13 +26,13 @@ export async function capturarInstagramDoProspecto(
 ): Promise<{ ok: boolean; resumo: string }> {
   const { data } = await supabase
     .from("prospeccao")
-    .select("id, org_id, nome, instagram")
+    .select("id, org_id, nome, instagram, website")
     .eq("id", prospectoId)
     .maybeSingle();
   const p = data as Prospecto | null;
   if (!p) return { ok: false, resumo: "Empresa não encontrada." };
 
-  const usuario = usuarioInstagram(p.instagram);
+  const usuario = usuarioInstagramDe(p);
   if (!usuario) {
     await supabase
       .from("prospeccao")

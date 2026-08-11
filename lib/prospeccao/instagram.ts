@@ -40,6 +40,20 @@ export function usuarioInstagram(bruto: string | null | undefined): string | nul
   return /^[A-Za-z0-9._]{1,30}$/.test(primeiro) ? primeiro.toLowerCase() : null;
 }
 
+/*
+ * Acha o Instagram da empresa em qualquer campo onde ele possa estar.
+ *
+ * Muita empresa cadastra o Instagram COMO site no Google Meu Negócio — não
+ * tem site próprio, então põe o perfil ali. Olhar só o campo "instagram"
+ * deixaria essas de fora, que são justamente as melhores oportunidades.
+ */
+export function usuarioInstagramDe(p: {
+  instagram?: string | null;
+  website?: string | null;
+}): string | null {
+  return usuarioInstagram(p.instagram) ?? usuarioInstagram(p.website);
+}
+
 // "12,5 mil" / "1.234" / "3.2M" -> número
 export function numeroIG(texto: string | undefined | null): number | undefined {
   if (!texto) return undefined;
