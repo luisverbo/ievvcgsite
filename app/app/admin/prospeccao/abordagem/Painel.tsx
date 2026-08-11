@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   cancelarMensagem,
@@ -16,6 +16,7 @@ import {
 } from "./actions";
 import { MODELO_PADRAO } from "@/lib/prospeccao/mensagem";
 import { faixa, type ProspectoRow } from "@/lib/prospeccao/tipos";
+import { acharNicho } from "@/lib/prospeccao/nichos";
 import { inputClass, labelClass, cardClass } from "@/components/painel/ui";
 
 const ROTULO_MSG: Record<string, string> = {
@@ -54,6 +55,38 @@ export default function Painel({
   const [minS, setMinS] = useState(config.intervalo_min_s);
   const [maxS, setMaxS] = useState(config.intervalo_max_s);
   const duracaoTotal = duracao(limite * ((minS + maxS) / 2));
+
+  /*
+   * Cada busca feita (nicho + local) vira um grupo. Sem isto, dentista,
+   * advogado e psicólogo ficam no mesmo balaio e não dá para abordar só um
+   * ramo de cada vez — que é como a venda realmente acontece.
+   */
+  const [pesquisa, setPesquisa] = useState("todas");
+  const pesquisas = useMemo(() => {
+    const mapa = new Map<string, { chave: string; rotulo: string; total: number }>();
+    for (const c of candidatos) {
+      const chave = `${c.nicho_busca ?? ""}|${c.local_busca ?? ""}`;
+      const atual = mapa.get(chave);
+      if (atual) atual.total++;
+      else {
+        const nicho = acharNicho(c.nicho_busca ?? "")?.rotulo ?? c.nicho_busca ?? "Sem nicho";
+        mapa.set(chave, {
+          chave,
+          rotulo: c.local_busca ? `${nicho} · ${c.local_busca}` : nicho,
+          total: 1,
+        });
+      }
+    }
+    return [...mapa.values()].sort((a, b) => b.total - a.total);
+  }, [candidatos]);
+
+  const visiveis = useMemo(
+    () =>
+      pesquisa === "todas"
+        ? candidatos
+        : candidatos.filter((c) => `${c.nicho_busca ?? ""}|${c.local_busca ?? ""}` === pesquisa),
+    [candidatos, pesquisa],
+  );
 
   const pendentes = mensagens.filter((m) => m.status === "pendente");
   const semi = pendentes.filter((m) => m.modo === "semi");
@@ -288,13 +321,64 @@ export default function Painel({
           menor.
         </p>
 
+        {pesquisas.length > 1 && (
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPesquisa("todas")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                pesquisa === "todas"
+                  ? "bg-brand text-white"
+                  : "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
+              }`}
+            >
+              Todas ({candidatos.length})
+            </button>
+            {pesquisas.map((p) => (
+              <button
+                key={p.chave}
+                type="button"
+                onClick={() => setPesquisa(p.chave)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  pesquisa === p.chave
+                    ? "bg-brand text-white"
+                    : "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
+                }`}
+              >
+                {p.rotulo} ({p.total})
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="mb-2 flex flex-wrap items-center gap-3 text-xs">
+          <button
+            type="button"
+            onClick={() => setMarcados(new Set(visiveis.map((c) => c.id)))}
+            className="font-bold text-brand-2 underline transition hover:text-paper"
+          >
+            Marcar as {visiveis.length} desta lista
+          </button>
+          {marcados.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setMarcados(new Set())}
+              className="text-paper-dim underline transition hover:text-paper"
+            >
+              limpar seleção
+            </button>
+          )}
+        </div>
+
         <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
-          {candidatos.length === 0 && (
+          {visiveis.length === 0 && (
             <p className="text-sm text-paper-dim">
-              Nenhuma empresa disponível. Faça uma busca na aba Prospecção primeiro.
+              {candidatos.length === 0
+                ? "Nenhuma empresa disponível. Faça uma busca na aba Prospecção primeiro."
+                : "Nenhuma empresa nesta pesquisa — todas já foram abordadas."}
             </p>
           )}
-          {candidatos.map((p) => {
+          {visiveis.map((p) => {
             const fx = faixa(p.pontuacao);
             return (
               <label

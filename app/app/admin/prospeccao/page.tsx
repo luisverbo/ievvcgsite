@@ -14,6 +14,7 @@ import {
   type StatusProspecto,
   type TarefaRow,
 } from "@/lib/prospeccao/tipos";
+import { acharNicho } from "@/lib/prospeccao/nichos";
 import { cardClass } from "@/components/painel/ui";
 import { IconTrash } from "@/components/painel/icons";
 
@@ -47,13 +48,16 @@ function linkWhatsapp(telefone: string | null) {
 export default async function ProspeccaoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ f?: string }>;
+  searchParams: Promise<{ f?: string; b?: string }>;
 }) {
   if (!(await ehAdmin())) notFound();
   const org = await getMinhaOrg();
   if (!org) notFound();
-  const { f } = await searchParams;
+  const { f, b } = await searchParams;
   const filtro = FILTROS.some((x) => x.chave === f) ? f! : "todos";
+  // b = a busca que originou as empresas (nicho|local), para separar dentista
+  // de advogado em vez de misturar tudo numa lista só.
+  const busca = b ?? "todas";
 
   const supabase = await createClient();
   let q = supabase
@@ -63,8 +67,34 @@ export default async function ProspeccaoPage({
     .order("pontuacao", { ascending: false })
     .limit(300);
   if (filtro !== "todos") q = q.eq("status", filtro);
+  if (busca !== "todas") {
+    const [nicho, local] = busca.split("|");
+    q = q.eq("nicho_busca", nicho).eq("local_busca", local);
+  }
   const { data } = await q;
   const lista = (data as ProspectoRow[] | null) ?? [];
+
+  // Todas as pesquisas já feitas, para montar os atalhos.
+  const { data: buscasRaw } = await supabase
+    .from("prospeccao")
+    .select("nicho_busca, local_busca")
+    .eq("org_id", org.id)
+    .limit(2000);
+  const contagem = new Map<string, { chave: string; rotulo: string; total: number }>();
+  for (const p of (buscasRaw as { nicho_busca: string | null; local_busca: string | null }[] | null) ?? []) {
+    const chave = `${p.nicho_busca ?? ""}|${p.local_busca ?? ""}`;
+    const atual = contagem.get(chave);
+    if (atual) atual.total++;
+    else {
+      const nicho = acharNicho(p.nicho_busca ?? "")?.rotulo ?? p.nicho_busca ?? "Sem nicho";
+      contagem.set(chave, {
+        chave,
+        rotulo: p.local_busca ? `${nicho} · ${p.local_busca}` : nicho,
+        total: 1,
+      });
+    }
+  }
+  const pesquisas = [...contagem.values()].sort((a, b2) => b2.total - a.total);
 
   const { data: tarefasRaw } = await supabase
     .from("prospeccao_tarefas")
@@ -140,12 +170,45 @@ export default async function ProspeccaoPage({
         </Link>
       )}
 
+      {pesquisas.length > 1 && (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-paper-dim">
+            Por pesquisa
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            <Link
+              href={`/app/admin/prospeccao?f=${filtro}`}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                busca === "todas"
+                  ? "bg-brand text-white"
+                  : "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
+              }`}
+            >
+              Todas ({todos.length})
+            </Link>
+            {pesquisas.map((p) => (
+              <Link
+                key={p.chave}
+                href={`/app/admin/prospeccao?f=${filtro}&b=${encodeURIComponent(p.chave)}`}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  busca === p.chave
+                    ? "bg-brand text-white"
+                    : "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
+                }`}
+              >
+                {p.rotulo} ({p.total})
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       {todos.length > 0 && (
         <div className="flex flex-wrap gap-1 rounded-lg border border-white/10 bg-ink-2 p-1">
           {FILTROS.map((x) => (
             <Link
               key={x.chave}
-              href={`/app/admin/prospeccao?f=${x.chave}`}
+              href={`/app/admin/prospeccao?f=${x.chave}${busca !== "todas" ? `&b=${encodeURIComponent(busca)}` : ""}`}
               className={`rounded-md px-3 py-1.5 text-sm font-bold transition ${
                 filtro === x.chave
                   ? "bg-brand text-white"
