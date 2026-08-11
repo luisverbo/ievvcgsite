@@ -27,12 +27,40 @@ export type SessaoZap = {
 
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/*
+ * O Chromium do Playwright é o Chrome 151, mas em modo oculto ele se
+ * identifica como "HeadlessChrome" — e o WhatsApp Web lê isso como navegador
+ * desconhecido, recusando com "funciona no Google Chrome 100 ou posterior".
+ *
+ * Corrigir esse rótulo não é disfarce: é declarar a versão real do motor que
+ * está rodando. Descobrimos a versão do navegador instalado em vez de fixar
+ * um número, para não envelhecer a cada atualização.
+ */
+let userAgentCache: string | null = null;
+
+async function userAgentDeNavegador(): Promise<string> {
+  if (userAgentCache) return userAgentCache;
+  const browser = await chromium.launch({
+    headless: true,
+    args: ["--disable-dev-shm-usage", "--no-sandbox", "--disable-gpu"],
+  });
+  try {
+    const page = await browser.newPage();
+    const bruto = await page.evaluate(() => navigator.userAgent);
+    userAgentCache = bruto.replace("HeadlessChrome", "Chrome");
+  } finally {
+    await browser.close().catch(() => {});
+  }
+  return userAgentCache!;
+}
+
 export async function abrirWhatsapp(headless: boolean): Promise<SessaoZap> {
   const ctx = await chromium.launchPersistentContext(PERFIL_ZAP, {
     headless,
     locale: "pt-BR",
     timezoneId: "America/Sao_Paulo",
     viewport: { width: 1280, height: 900 },
+    userAgent: await userAgentDeNavegador(),
     args: ["--disable-dev-shm-usage", "--no-sandbox", "--disable-gpu"],
   });
   const page = ctx.pages()[0] ?? (await ctx.newPage());
@@ -81,6 +109,19 @@ export async function aguardarConexao(
     if (await estaConectado(page)) {
       await aoEstado("conectado", "WhatsApp conectado.");
       return true;
+    }
+
+    // Falha conhecida: o WhatsApp recusa o navegador. Melhor avisar na hora do
+    // que ficar minutos esperando um QR que nunca vai aparecer.
+    if ((await page.getByText(/funciona no Google Chrome|works on Google Chrome/i).count()) > 0) {
+      const png = await page.screenshot({ timeout: 8000 }).catch(() => null);
+      if (png) await aoQr(`data:image/png;base64,${png.toString("base64")}`, true);
+      await aoEstado(
+        "erro",
+        "O WhatsApp recusou o navegador do agente. Atualize o agente na VPS (git pull + restart) e tente de novo.",
+      );
+      log("WhatsApp recusou o navegador — versão do agente desatualizada?");
+      return false;
     }
 
     const qr = await acharQr(page);
