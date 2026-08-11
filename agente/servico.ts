@@ -14,6 +14,7 @@ import os from "node:os";
 import { coletarDoGoogle } from "./coletor.ts";
 import { pontuarEGravar } from "./gravar.ts";
 import { rodarAbordagem } from "./abordagem.ts";
+import { capturarInstagramDoProspecto } from "./capturaIg.ts";
 
 const AGENTE = process.env.AGENTE_NOME || os.hostname();
 const INTERVALO_MS = Math.max(3000, Number(process.env.AGENTE_INTERVALO_MS) || 8000);
@@ -25,9 +26,11 @@ const HEADLESS = process.env.AGENTE_HEADLESS !== "false";
 type Tarefa = {
   id: string;
   org_id: string;
-  nicho: string;
-  local: string;
+  tipo: string;
+  nicho: string | null;
+  local: string | null;
   limite: number;
+  prospecto_id: string | null;
 };
 
 const agora = () => new Date().toISOString();
@@ -48,7 +51,7 @@ const supabase = createClient(url, chave, { auth: { persistSession: false } });
 async function pegarTarefa(): Promise<Tarefa | null> {
   const { data: fila } = await supabase
     .from("prospeccao_tarefas")
-    .select("id, org_id, nicho, local, limite")
+    .select("id, org_id, tipo, nicho, local, limite, prospecto_id")
     .eq("status", "pendente")
     .order("created_at")
     .limit(1);
@@ -61,16 +64,41 @@ async function pegarTarefa(): Promise<Tarefa | null> {
     .update({ status: "rodando", agente: AGENTE, iniciada_em: agora() })
     .eq("id", candidata.id)
     .eq("status", "pendente")
-    .select("id, org_id, nicho, local, limite");
+    .select("id, org_id, tipo, nicho, local, limite, prospecto_id");
 
   return (presa as Tarefa[] | null)?.[0] ?? null;
 }
 
 async function executar(t: Tarefa) {
+  // Captura de Instagram é uma tarefa curta e de uma empresa só; a busca é o
+  // trabalho longo. Separadas aqui para não misturar os dois fluxos.
+  if (t.tipo === "instagram") {
+    if (!t.prospecto_id) throw new Error("Tarefa de Instagram sem empresa.");
+    log(`▶ tarefa ${t.id.slice(0, 8)} — Instagram`);
+    const r = await capturarInstagramDoProspecto(
+      supabase,
+      t.prospecto_id,
+      HEADLESS,
+      (m) => log(`   ${m}`),
+    );
+    await supabase
+      .from("prospeccao_tarefas")
+      .update({
+        status: r.ok ? "concluida" : "erro",
+        erro: r.ok ? null : r.resumo,
+        progresso: r.ok ? 1 : 0,
+        total: 1,
+        concluida_em: agora(),
+      })
+      .eq("id", t.id);
+    log(r.ok ? `✅ ${r.resumo}` : `⚠️  ${r.resumo}`);
+    return;
+  }
+
   log(`▶ tarefa ${t.id.slice(0, 8)} — ${t.nicho} em "${t.local}" (até ${t.limite})`);
 
   let ultimoProgresso = 0;
-  const resultado = await coletarDoGoogle(t.nicho, t.local, t.limite, {
+  const resultado = await coletarDoGoogle(t.nicho!, t.local!, t.limite, {
     headless: HEADLESS,
     pausaMs: PAUSA_MS,
     log: (m) => log(`   ${m}`),
@@ -104,8 +132,8 @@ async function executar(t: Tarefa) {
   const resumo = await pontuarEGravar(
     supabase,
     t.org_id,
-    t.nicho,
-    t.local,
+    t.nicho!,
+    t.local!,
     resultado.empresas,
     (m) => log(`   ${m}`),
   );

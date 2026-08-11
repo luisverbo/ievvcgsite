@@ -51,7 +51,9 @@ export default function Fila({ tarefas }: { tarefas: TarefaRow[] }) {
             <div key={t.id} className="rounded-lg border border-white/10 px-3 py-2.5">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                 <span className="font-bold text-paper">
-                  {acharNicho(t.nicho)?.rotulo ?? t.nicho} · {t.local}
+                  {t.tipo === "instagram"
+                    ? "📸 Instagram"
+                    : `${acharNicho(t.nicho ?? "")?.rotulo ?? t.nicho} · ${t.local}`}
                 </span>
                 <span className={`font-bold ${COR[t.status]}`}>{ROTULO_TAREFA[t.status]}</span>
                 {t.status === "rodando" && t.total > 0 && (

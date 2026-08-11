@@ -67,6 +67,13 @@ export type ProspectoRow = {
   avaliacoes: number | null;
   nota_media: number | null;
   fonte_url: string | null;
+  ig_nome: string | null;
+  ig_bio: string | null;
+  ig_seguidores: number | null;
+  ig_fotos: { url: string; legenda?: string }[];
+  ig_status: "ok" | "privado" | "nao_encontrado" | "bloqueado" | "erro" | null;
+  ig_erro: string | null;
+  ig_capturado_em: string | null;
   anotacao: string | null;
   site_ia_id: string | null;
   created_at: string;
@@ -101,8 +108,9 @@ export type StatusTarefa = "pendente" | "rodando" | "concluida" | "erro" | "canc
 
 export type TarefaRow = {
   id: string;
-  nicho: string;
-  local: string;
+  tipo?: string;
+  nicho: string | null;
+  local: string | null;
   limite: number;
   status: StatusTarefa;
   progresso: number;

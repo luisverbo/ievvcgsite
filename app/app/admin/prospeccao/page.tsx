@@ -5,7 +5,12 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { ehAdmin } from "../actions";
 import Busca from "./Busca";
 import Fila from "./Fila";
-import { excluirProspecto, gerarSiteParaProspecto, mudarStatus } from "./actions";
+import {
+  capturarInstagram,
+  excluirProspecto,
+  gerarSiteParaProspecto,
+  mudarStatus,
+} from "./actions";
 import {
   faixa,
   ROTULO_SITUACAO,
@@ -270,6 +275,35 @@ export default async function ProspeccaoPage({
                     </p>
                   )}
 
+                  {p.ig_status === "ok" && (
+                    <div className="mt-2 rounded-lg border border-brand-2/30 bg-brand/10 p-2">
+                      <p className="text-xs font-bold text-brand-2">
+                        📸 Instagram capturado
+                        {p.ig_seguidores ? ` · ${p.ig_seguidores.toLocaleString("pt-BR")} seguidores` : ""}
+                        {p.ig_fotos.length ? ` · ${p.ig_fotos.length} fotos` : ""}
+                      </p>
+                      {p.ig_bio && (
+                        <p className="mt-0.5 line-clamp-2 text-xs text-paper-dim">{p.ig_bio}</p>
+                      )}
+                      {p.ig_fotos.length > 0 && (
+                        <div className="mt-1.5 flex gap-1 overflow-x-auto">
+                          {p.ig_fotos.slice(0, 6).map((f, i) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={i}
+                              src={f.url}
+                              alt=""
+                              className="h-12 w-12 flex-none rounded object-cover"
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {p.ig_status && p.ig_status !== "ok" && (
+                    <p className="mt-2 text-xs text-danger">📸 {p.ig_erro ?? p.ig_status}</p>
+                  )}
+
                   <ul className="mt-2 flex flex-col gap-0.5">
                     {p.motivos.slice(0, 3).map((m, i) => (
                       <li key={i} className="text-xs text-paper-dim">
@@ -324,6 +358,17 @@ export default async function ProspeccaoPage({
                     >
                       WhatsApp
                     </a>
+                  )}
+                  {p.instagram && !p.ig_capturado_em && (
+                    <form action={capturarInstagram.bind(null, p.id)}>
+                      <button
+                        type="submit"
+                        title="O agente lê a bio e baixa as fotos, para usar no site"
+                        className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold text-paper-dim transition hover:border-brand-2 hover:text-brand-2"
+                      >
+                        📸 Buscar Instagram
+                      </button>
+                    </form>
                   )}
                   {p.site_ia_id ? (
                     <Link

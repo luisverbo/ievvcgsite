@@ -11,6 +11,7 @@ import { analisarSite } from "@/lib/prospeccao/site";
 import { calcularPotencial, ehEnderecoSocial } from "@/lib/prospeccao/score";
 import { acharNicho } from "@/lib/prospeccao/nichos";
 import { briefingDoNicho } from "@/lib/prospeccao/briefings";
+import { resumoParaBriefing } from "@/lib/prospeccao/instagram";
 import type { ProspectoRow, StatusProspecto } from "@/lib/prospeccao/tipos";
 
 export type BuscaState = { ok?: string; error?: string } | undefined;
@@ -151,6 +152,23 @@ export async function limparTarefas() {
   revalidatePath("/app/admin/prospeccao");
 }
 
+// Enfileira a leitura do Instagram desta empresa para o agente fazer.
+export async function capturarInstagram(id: string) {
+  if (!(await ehAdmin())) return;
+  const org = await getMinhaOrg();
+  if (!org) return;
+  const supabase = await createClient();
+  await supabase.from("prospeccao_tarefas").insert({
+    org_id: org.id,
+    tipo: "instagram",
+    prospecto_id: id,
+    nicho: null,
+    local: null,
+    limite: 1,
+  });
+  revalidatePath("/app/admin/prospeccao");
+}
+
 export async function mudarStatus(id: string, status: StatusProspecto) {
   if (!(await ehAdmin())) return;
   const supabase = await createClient();
@@ -197,6 +215,24 @@ export async function gerarSiteParaProspecto(id: string) {
   await supabase.from("prospeccao").update({ site_ia_id: siteId }).eq("id", id);
 
   const ramo = acharNicho(p.nicho_busca ?? "")?.rotulo ?? p.categoria ?? "negócio local";
+
+  /*
+   * Fotos reais do Instagram valem muito mais que imagem gerada: a pessoa
+   * reconhece a própria loja na tela, e não custa nada. Quando existem, a IA
+   * é instruída a usá-las em vez de pedir geração.
+   */
+  const fotos = Array.isArray(p.ig_fotos) ? p.ig_fotos : [];
+  const blocoIg = [
+    resumoParaBriefing(p),
+    fotos.length
+      ? `FOTOS REAIS DA EMPRESA (use estas nas <img src="...">, NÃO peça geração de imagem para elas):\n${fotos
+          .map((f, i) => `${i + 1}. ${f.url}${f.legenda ? ` — ${f.legenda}` : ""}`)
+          .join("\n")}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
   const dados = [
     p.endereco ? `Endereço: ${p.endereco}` : "",
     p.telefone ? `Telefone/WhatsApp: ${p.telefone}` : "",
@@ -214,7 +250,7 @@ export async function gerarSiteParaProspecto(id: string) {
 DADOS REAIS DA EMPRESA (use estes, não invente):
 ${dados || "(sem dados de contato — deixe os campos marcados para eu preencher)"}
 
-${briefingDoNicho(p.nicho_busca)}
+${blocoIg ? `${blocoIg}\n\n` : ""}${briefingDoNicho(p.nicho_busca)}
 
 OBJETIVO: fazer o visitante chamar no WhatsApp. Todo botão principal deve levar ao WhatsApp do número acima (link https://wa.me/55DDDNUMERO com uma mensagem pronta).
 Se faltar alguma informação (preços, nome da equipe, depoimentos), escreva um exemplo plausível e me avise no final o que devo trocar.`;
