@@ -13,6 +13,7 @@ import os from "node:os";
 
 import { coletarDoGoogle } from "./coletor.ts";
 import { pontuarEGravar } from "./gravar.ts";
+import { rodarAbordagem } from "./abordagem.ts";
 
 const AGENTE = process.env.AGENTE_NOME || os.hostname();
 const INTERVALO_MS = Math.max(3000, Number(process.env.AGENTE_INTERVALO_MS) || 8000);
@@ -136,6 +137,13 @@ async function main() {
     try {
       const tarefa = await pegarTarefa();
       if (!tarefa) {
+        // Sem busca para fazer, o agente cuida da fila de abordagem — assim
+        // as duas coisas convivem sem disputar o navegador.
+        try {
+          await rodarAbordagem(supabase, HEADLESS, (m) => log(`   ${m}`));
+        } catch (e) {
+          log(`⚠️  abordagem: ${(e as Error).message}`);
+        }
         if (ocioso) {
           log("sem tarefas — aguardando");
           ocioso = false;

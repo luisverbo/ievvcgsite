@@ -126,6 +126,21 @@ export default async function ProspeccaoPage({
       <Fila tarefas={tarefas} />
 
       {todos.length > 0 && (
+        <Link
+          href="/app/admin/prospeccao/abordagem"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-2/40 bg-brand/10 px-5 py-4 transition hover:border-brand-2"
+        >
+          <span>
+            <b className="text-paper">💬 Abordar no WhatsApp</b>
+            <span className="ml-2 text-sm text-paper-dim">
+              manda a primeira mensagem — manual ou automático
+            </span>
+          </span>
+          <span className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white">Abrir →</span>
+        </Link>
+      )}
+
+      {todos.length > 0 && (
         <div className="flex flex-wrap gap-1 rounded-lg border border-white/10 bg-ink-2 p-1">
           {FILTROS.map((x) => (
             <Link
