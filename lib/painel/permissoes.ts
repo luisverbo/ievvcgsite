@@ -2,6 +2,8 @@ import "server-only";
 
 import { getMinhaOrg } from "./queries";
 import { ehAdmin } from "./admin";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { situacaoDaAssinatura, type AssinaturaRow } from "@/lib/pagamentos/estado";
 
 /*
  * Quem pode usar o quê.
@@ -52,9 +54,38 @@ export function planoLibera(plano: string | null | undefined, recurso: Recurso):
 /*
  * Checagem do usuário logado. O dono do sistema passa em tudo — sem isso você
  * teria que se colocar num plano para usar o próprio produto.
+ *
+ * Assinatura suspensa cai para o plano grátis. Não é o mesmo que perder a
+ * conta: o painel abre, os dados continuam lá e voltar é pagar. Durante a
+ * tolerância de 7 dias nada muda — quem está atrasado continua com tudo.
  */
 export async function podeUsar(recurso: Recurso): Promise<boolean> {
   if (await ehAdmin()) return true;
   const org = await getMinhaOrg();
-  return planoLibera(org?.plano, recurso);
+  if (!org) return false;
+  return planoLibera(await planoVigente(org.id, org.plano), recurso);
+}
+
+/*
+ * O plano que vale AGORA, já considerando a assinatura.
+ *
+ * O campo `plano` da organização diz o que foi contratado; a assinatura diz se
+ * está pago. Quem manda no acesso é o segundo.
+ */
+export async function planoVigente(orgId: string, planoContratado: string): Promise<string> {
+  if (planoContratado === "free") return "free";
+
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("assinaturas")
+    .select("plano, pago_ate, status, falhou_em")
+    .eq("org_id", orgId)
+    .maybeSingle();
+
+  const assinatura = data as AssinaturaRow | null;
+  // Sem linha de assinatura = plano liberado na mão por você, no Admin.
+  // Nesse caso o contratado vale — senão você não conseguiria dar cortesia.
+  if (!assinatura) return planoContratado;
+
+  return situacaoDaAssinatura(assinatura).liberado ? planoContratado : "free";
 }

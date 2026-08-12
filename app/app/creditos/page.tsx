@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { getExtrato } from "./actions";
+import { comprarCreditoCartao } from "../assinatura/actions";
+import PixCredito from "./PixCredito";
 import FormChave from "./FormChave";
 import { emDolar, paginasRestantes, PACOTES, COTACAO_VENDA } from "@/lib/creditos/precos";
 import { cardClass } from "@/components/painel/ui";
@@ -25,7 +27,12 @@ type OrgCreditos = {
   openai_key_final: string | null;
 };
 
-export default async function CreditosPage() {
+export default async function CreditosPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ok?: string; erro?: string; cancelado?: string }>;
+}) {
+  const { ok, erro } = await searchParams;
   const orgBase = await getMinhaOrg();
   if (!orgBase) notFound();
 
@@ -59,6 +66,18 @@ export default async function CreditosPage() {
           <b className="text-paper">colar a sua própria chave</b> e pagar direto à Anthropic.
         </p>
       </div>
+
+      {ok && (
+        <p role="status" className="rounded-lg border border-ok/40 bg-ok/10 px-4 py-3 text-sm text-ok">
+          ✓ Pagamento confirmado. O crédito entra em segundos — atualize a página se ainda não
+          apareceu.
+        </p>
+      )}
+      {erro && (
+        <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
+          {erro}
+        </p>
+      )}
 
       {/* saldo */}
       <div className={cardClass}>
@@ -103,14 +122,15 @@ export default async function CreditosPage() {
               <p className="mt-3 text-lg font-bold text-brand-2">
                 R$ {p.preco.toLocaleString("pt-BR")}
               </p>
-              <button
-                type="button"
-                disabled
-                title="O pagamento entra na próxima atualização"
-                className="mt-2 w-full rounded-lg border border-white/15 px-3 py-2 text-xs font-bold text-paper-dim/60"
-              >
-                em breve
-              </button>
+              <form action={comprarCreditoCartao.bind(null, p.dolares)}>
+                <button
+                  type="submit"
+                  className="mt-2 w-full rounded-lg bg-brand px-3 py-2 text-xs font-bold text-white transition hover:bg-brand-2"
+                >
+                  Pagar no cartão
+                </button>
+              </form>
+              <PixCredito dolares={p.dolares} preco={p.preco} />
             </div>
           ))}
         </div>
