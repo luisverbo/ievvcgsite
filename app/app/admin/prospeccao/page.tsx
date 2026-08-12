@@ -415,7 +415,7 @@ export default async function ProspeccaoPage({
                     ))}
                   {p.site_ia_id ? (
                     <Link
-                      href={`/app/admin/ia/${p.site_ia_id}`}
+                      href={`/app/ia/${p.site_ia_id}`}
                       className="rounded-lg border border-brand-2/50 px-3 py-2 text-xs font-bold text-brand-2 transition hover:bg-brand/10"
                     >
                       Ver site

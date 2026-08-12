@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { ehAdmin } from "../../../actions";
+import { podeUsar } from "@/lib/painel/permissoes";
 
 // Prévia do rascunho em tela cheia, no navegador mesmo — sem precisar
 // publicar. Exige sessão de admin (a rota vive sob /app, então o proxy já
@@ -14,7 +14,7 @@ function aviso(texto: string, status: number) {
 }
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
-  if (!(await ehAdmin())) {
+  if (!(await podeUsar("construtor"))) {
     return aviso("Você precisa estar logado como dono do sistema para ver a prévia.", 403);
   }
   const { id } = await ctx.params;

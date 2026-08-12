@@ -7,12 +7,15 @@ import ChaveAnthropic from "./ChaveAnthropic";
 import ChaveForm from "./ebooks/ChaveForm";
 import { getAnthropicKey } from "@/lib/ia/anthropic";
 import { getOpenAIKey } from "@/lib/ebooks/openai";
+import { PLANOS } from "@/lib/painel/permissoes";
+import { emDolar } from "@/lib/creditos/precos";
 import { cardClass } from "@/components/painel/ui";
 
 // Painel do dono do sistema: ferramentas de IA, chaves e visão das contas.
 // Acesso restrito ao email em ADMIN_EMAIL (variável de ambiente).
 
-type OrgRow = { id: string; nome: string; plano: "free" | "pro"; created_at: string };
+type Plano = "free" | "pro" | "agencia";
+type OrgRow = { id: string; nome: string; plano: Plano; created_at: string };
 
 export default async function AdminPage() {
   if (!(await ehAdmin())) notFound();
@@ -64,7 +67,7 @@ export default async function AdminPage() {
   // As duas ferramentas de IA, em destaque: é o que você abre todo dia.
   const ferramentas = [
     {
-      href: "/app/admin/ia",
+      href: "/app/ia",
       emoji: "✨",
       titulo: "Construtor de páginas",
       texto:
@@ -274,33 +277,39 @@ export default async function AdminPage() {
                       <td className="px-5 py-3.5">
                         <span
                           className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                            org.plano === "pro"
-                              ? "bg-brand/25 text-brand-2"
-                              : "bg-white/10 text-paper-dim"
+                            org.plano === "agencia"
+                              ? "bg-ok/20 text-ok"
+                              : org.plano === "pro"
+                                ? "bg-brand/25 text-brand-2"
+                                : "bg-white/10 text-paper-dim"
                           }`}
                         >
-                          {org.plano === "pro" ? "Pro" : "Grátis"}
+                          {PLANOS[org.plano]?.rotulo ?? org.plano}
                         </span>
+                        <div className="mt-0.5 text-[11px] text-paper-dim">
+                          {emDolar(PLANOS[org.plano]?.cota ?? 0)}/mês de IA
+                        </div>
                       </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <form
-                          action={alterarPlano.bind(
-                            null,
-                            org.id,
-                            org.plano === "pro" ? "free" : "pro",
-                          )}
-                        >
-                          <button
-                            type="submit"
-                            className={`rounded-lg border px-3 py-1.5 text-xs font-bold transition ${
-                              org.plano === "pro"
-                                ? "border-white/15 text-paper-dim hover:border-danger hover:text-danger"
-                                : "border-brand-2/50 text-brand-2 hover:bg-brand/10"
-                            }`}
-                          >
-                            {org.plano === "pro" ? "Rebaixar para Grátis" : "Ativar Pro"}
-                          </button>
-                        </form>
+                      <td className="px-5 py-3.5">
+                        {/* Um botão por plano: com três planos, alternar num
+                            botão só vira adivinhação de para onde ele vai. */}
+                        <div className="flex justify-end gap-1.5">
+                          {(["free", "pro", "agencia"] as Plano[]).map((alvo) => (
+                            <form key={alvo} action={alterarPlano.bind(null, org.id, alvo)}>
+                              <button
+                                type="submit"
+                                disabled={org.plano === alvo}
+                                className={`rounded-lg border px-2.5 py-1.5 text-xs font-bold transition ${
+                                  org.plano === alvo
+                                    ? "border-white/10 text-paper-dim/40"
+                                    : "border-white/15 text-paper-dim hover:border-brand-2 hover:text-brand-2"
+                                }`}
+                              >
+                                {PLANOS[alvo].rotulo}
+                              </button>
+                            </form>
+                          ))}
+                        </div>
                       </td>
                     </tr>
                   );

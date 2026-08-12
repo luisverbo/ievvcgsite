@@ -2,9 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
-import { getAnthropicKey } from "@/lib/ia/anthropic";
 import { MODELOS_IA } from "@/lib/ia/modelos";
-import { ehAdmin } from "../actions";
+import { statusDaConta } from "@/lib/creditos/conta";
+import { podeUsar } from "@/lib/painel/permissoes";
 import NovaPagina from "./NovaPagina";
 import { excluirPaginaIA, type SiteIA } from "./actions";
 import { cardClass } from "@/components/painel/ui";
@@ -32,11 +32,11 @@ function desde30Dias() {
 }
 
 export default async function PaginasIAPage() {
-  if (!(await ehAdmin())) notFound();
+  if (!(await podeUsar("construtor"))) notFound();
   const org = await getMinhaOrg();
   if (!org) notFound();
 
-  const [chave, supabase] = await Promise.all([getAnthropicKey(), createClient()]);
+  const [conta, supabase] = await Promise.all([statusDaConta(org.id), createClient()]);
   const { data } = await supabase
     .from("sites_ia")
     .select("*")
@@ -81,8 +81,8 @@ export default async function PaginasIAPage() {
   return (
     <div className="painel-wrap flex flex-col gap-6">
       <div>
-        <Link href="/app/admin" className="text-sm text-paper-dim hover:text-paper">
-          ← Admin
+        <Link href="/app" className="text-sm text-paper-dim hover:text-paper">
+          ← Painel
         </Link>
         <h1 className="mt-2 text-2xl font-extrabold">Construtor de páginas com IA ✨</h1>
         <p className="mt-1 text-sm text-paper-dim">
@@ -93,7 +93,7 @@ export default async function PaginasIAPage() {
 
       <div className={cardClass}>
         <h2 className="mb-4 text-lg font-bold">Nova página</h2>
-        <NovaPagina temChave={Boolean(chave)} />
+        <NovaPagina contaPronta={conta.pronta} aviso={conta.aviso} />
       </div>
 
       {paginas.length > 0 && (
@@ -137,7 +137,7 @@ export default async function PaginasIAPage() {
                   key={p.id}
                   className="group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-ink-2 transition hover:-translate-y-1 hover:border-brand-2/50 hover:shadow-2xl"
                 >
-                  <Link href={`/app/admin/ia/${p.id}`} className="block">
+                  <Link href={`/app/ia/${p.id}`} className="block">
                     <div
                       className="relative flex h-28 items-end p-4"
                       style={{ background: `linear-gradient(135deg, ${c1}, ${c2})` }}
@@ -191,7 +191,7 @@ export default async function PaginasIAPage() {
                     <span className="flex flex-none items-center gap-1">
                       {p.html && (
                         <a
-                          href={`/app/admin/ia/${p.id}/baixar`}
+                          href={`/app/ia/${p.id}/baixar`}
                           title="Baixar o site pronto (HTML + imagens)"
                           className="rounded-lg px-2 py-1 text-sm text-paper-dim transition hover:bg-white/10 hover:text-paper"
                         >
@@ -208,7 +208,7 @@ export default async function PaginasIAPage() {
                         </Link>
                       )}
                       <Link
-                        href={`/app/admin/ia/${p.id}`}
+                        href={`/app/ia/${p.id}`}
                         className="rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white transition hover:bg-brand-2"
                       >
                         Abrir

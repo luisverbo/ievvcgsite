@@ -23,10 +23,22 @@ export default async function PainelLayout({ children }: { children: React.React
               Meus sites
             </Link>
             <Link
-              href="/app/templates"
+              href="/app/ia"
               className="rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-white/8 hover:text-paper"
             >
+              Criar com IA ✨
+            </Link>
+            <Link
+              href="/app/templates"
+              className="hidden rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-white/8 hover:text-paper sm:block"
+            >
               Templates
+            </Link>
+            <Link
+              href="/app/creditos"
+              className="rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-white/8 hover:text-paper"
+            >
+              Créditos
             </Link>
             {user?.email &&
               user.email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase().trim() && (

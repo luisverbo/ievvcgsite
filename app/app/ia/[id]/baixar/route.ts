@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { createClient } from "@/lib/supabase/server";
-import { ehAdmin } from "../../../actions";
+import { podeUsar } from "@/lib/painel/permissoes";
 import {
   leiaMe,
   listarUrlsRemotas,
@@ -17,7 +17,7 @@ export const maxDuration = 300;
 const MAX_IMAGEM_BYTES = 15 * 1024 * 1024;
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
-  if (!(await ehAdmin())) return new Response("Não encontrado", { status: 404 });
+  if (!(await podeUsar("construtor"))) return new Response("Não encontrado", { status: 404 });
   const { id } = await ctx.params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) return new Response("Endereço inválido", { status: 400 });
 

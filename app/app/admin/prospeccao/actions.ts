@@ -280,5 +280,5 @@ ${blocoIg ? `${blocoIg}\n\n` : ""}${briefingDoNicho(p.nicho_busca)}
 OBJETIVO: fazer o visitante chamar no WhatsApp. Todo botão principal deve levar ao WhatsApp do número acima (link https://wa.me/55DDDNUMERO com uma mensagem pronta).
 Se faltar alguma informação (preços, nome da equipe, depoimentos), escreva um exemplo plausível e me avise no final o que devo trocar.`;
 
-  redirect(`/app/admin/ia/${siteId}?pedido=${encodeURIComponent(pedido)}`);
+  redirect(`/app/ia/${siteId}?pedido=${encodeURIComponent(pedido)}`);
 }

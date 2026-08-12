@@ -5,9 +5,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { slugify } from "@/lib/format";
-import { ehAdmin } from "../actions";
-import { getAnthropicKey, modeloValido } from "@/lib/ia/anthropic";
-import { getOpenAIKey } from "@/lib/ebooks/openai";
+import { podeUsar } from "@/lib/painel/permissoes";
+import { modeloValido } from "@/lib/ia/anthropic";
+import { contaDaOrg, cobrarFixo, statusDaConta } from "@/lib/creditos/conta";
+import { CUSTO_IMAGEM } from "@/lib/creditos/precos";
 import { gerarImagemLanding, subirImagemIA } from "@/lib/ia/imagens";
 import { listarImagensHtml, trocarImagemHtml } from "@/lib/ia/html-imagens";
 
@@ -42,16 +43,14 @@ export async function criarPaginaIA(
   _prev: NovaPaginaState,
   formData: FormData,
 ): Promise<NovaPaginaState> {
-  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  if (!(await podeUsar("construtor"))) return { error: "Sem permissão." };
   const org = await getMinhaOrg();
   if (!org) return { error: "Organização não encontrada." };
 
-  if (!(await getAnthropicKey())) {
-    return {
-      error:
-        "Falta a chave da Anthropic. Cole a sua no card “Construtor de páginas com IA” do painel Admin (sk-ant-…).",
-    };
-  }
+  // Melhor barrar aqui do que deixar criar a página e falhar na primeira
+  // mensagem do chat, com a tela já aberta.
+  const conta = await statusDaConta(org.id);
+  if (!conta.pronta) return { error: conta.aviso ?? "Conta de IA indisponível." };
 
   const titulo = String(formData.get("titulo") ?? "").trim();
   if (titulo.length < 3) return { error: "Dê um nome com pelo menos 3 caracteres." };
@@ -73,28 +72,28 @@ export async function criarPaginaIA(
     .single();
 
   if (error) return { error: error.message };
-  redirect(`/app/admin/ia/${(data as { id: string }).id}`);
+  redirect(`/app/ia/${(data as { id: string }).id}`);
 }
 
 export async function excluirPaginaIA(id: string) {
-  if (!(await ehAdmin())) return;
+  if (!(await podeUsar("construtor"))) return;
   const supabase = await createClient();
   await supabase.from("sites_ia").delete().eq("id", id);
-  revalidatePath("/app/admin/ia");
+  revalidatePath("/app/ia");
 }
 
 export async function trocarModelo(id: string, modelo: string) {
-  if (!(await ehAdmin())) return;
+  if (!(await podeUsar("construtor"))) return;
   const supabase = await createClient();
   await supabase
     .from("sites_ia")
     .update({ modelo: modeloValido(modelo) })
     .eq("id", id);
-  revalidatePath(`/app/admin/ia/${id}`);
+  revalidatePath(`/app/ia/${id}`);
 }
 
 export async function publicarPaginaIA(id: string, publicado: boolean) {
-  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  if (!(await podeUsar("construtor"))) return { error: "Sem permissão." };
   const supabase = await createClient();
 
   // Publicar sem HTML deixaria um endereço no ar respondendo 404.
@@ -108,15 +107,15 @@ export async function publicarPaginaIA(id: string, publicado: boolean) {
   const { error } = await supabase.from("sites_ia").update({ publicado }).eq("id", id);
   if (error) return { error: error.message };
 
-  revalidatePath(`/app/admin/ia/${id}`);
-  revalidatePath("/app/admin/ia");
+  revalidatePath(`/app/ia/${id}`);
+  revalidatePath("/app/ia");
   return { ok: true };
 }
 
 // Volta a página para uma versão anterior. A versão restaurada vira a atual;
 // as posteriores continuam guardadas (nada é apagado).
 export async function restaurarVersao(id: string, versaoId: string) {
-  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  if (!(await podeUsar("construtor"))) return { error: "Sem permissão." };
   const supabase = await createClient();
   const { data } = await supabase
     .from("sites_ia_versoes")
@@ -131,7 +130,7 @@ export async function restaurarVersao(id: string, versaoId: string) {
     .from("sites_ia")
     .update({ html, updated_at: new Date().toISOString() })
     .eq("id", id);
-  revalidatePath(`/app/admin/ia/${id}`);
+  revalidatePath(`/app/ia/${id}`);
   return { html };
 }
 
@@ -145,7 +144,7 @@ export async function salvarPixel(
   _prev: PixelState,
   formData: FormData,
 ): Promise<PixelState> {
-  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  if (!(await podeUsar("construtor"))) return { error: "Sem permissão." };
 
   // O usuário costuma colar o script inteiro; extraímos só o ID numérico.
   const bruto = String(formData.get("facebook_pixel_id") ?? "");
@@ -164,7 +163,7 @@ export async function salvarPixel(
     .eq("id", siteIaId);
   if (error) return { error: error.message };
 
-  revalidatePath(`/app/admin/ia/${siteIaId}`);
+  revalidatePath(`/app/ia/${siteIaId}`);
   return { ok: true };
 }
 
@@ -179,9 +178,7 @@ export async function gerarImagemIA(
   indice: number,
   opcoes?: { prompt?: string; qualidade?: "media" | "alta" },
 ): Promise<ImagemIAResult> {
-  if (!(await ehAdmin())) return { error: "Sem permissão." };
-  const key = await getOpenAIKey();
-  if (!key) return { error: "Configure a chave da OpenAI no painel admin (aba Ebooks)." };
+  if (!(await podeUsar("construtor"))) return { error: "Sem permissão." };
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -192,6 +189,21 @@ export async function gerarImagemIA(
   const site = data as { id: string; org_id: string; html: string } | null;
   if (!site?.html) return { error: "Página não encontrada." };
 
+  // Imagem sai na chave da OpenAI do cliente, se ele tiver; senão na nossa,
+  // descontando crédito. O texto e a imagem podem vir de contas diferentes.
+  const conta = await contaDaOrg(site.org_id);
+  if (!conta.openai) {
+    return {
+      error:
+        "Para gerar imagens você precisa colar sua chave da OpenAI em Créditos — o Claude escreve a página, mas quem desenha é a OpenAI.",
+    };
+  }
+  const qualidade = opcoes?.qualidade ?? "media";
+  if (conta.fonte === "plataforma" && conta.saldo < CUSTO_IMAGEM[qualidade]) {
+    return { error: "Crédito insuficiente para gerar esta imagem. Compre mais em Créditos." };
+  }
+  const key = conta.openai;
+
   const imagens = listarImagensHtml(site.html);
   const alvo = imagens[indice];
   if (!alvo) return { error: `Imagem ${indice + 1} não existe mais nesta versão.` };
@@ -200,7 +212,18 @@ export async function gerarImagemIA(
   if (!prompt) return { error: "Esta imagem está sem descrição (data-ia-prompt vazio)." };
 
   try {
-    const buf = await gerarImagemLanding(key, prompt, alvo.orientacao, opcoes?.qualidade ?? "media");
+    const buf = await gerarImagemLanding(key, prompt, alvo.orientacao, qualidade);
+
+    // Só depois de a imagem existir. Cobrar antes deixaria o cliente pagando
+    // por uma geração que falhou.
+    await cobrarFixo({
+      conta,
+      micro: CUSTO_IMAGEM[qualidade],
+      descricao: `Imagem ${qualidade === "alta" ? "em alta qualidade" : "da página"}`,
+      referenciaTipo: "site_ia",
+      referenciaId: site.id,
+    });
+
     // Timestamp no nome para trocar a imagem sem pegar cache antigo do CDN.
     const url = await subirImagemIA(site.org_id, site.id, `img-${indice}-${Date.now()}.png`, buf);
     const html = trocarImagemHtml(site.html, indice, url, opcoes?.prompt?.trim() || undefined);

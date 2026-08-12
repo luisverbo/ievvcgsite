@@ -103,17 +103,45 @@ export function podeGastar(conta: ContaIA): Permissao {
     return {
       ok: false,
       motivo:
-        "A IA da plataforma está indisponível no momento. Você pode usar sua própria chave da Anthropic em Configurações.",
+        "A IA da plataforma está indisponível no momento. Você pode usar a sua própria chave da Anthropic na tela de Créditos.",
     };
   }
+  // "Acabou" seria mentira para quem nunca teve — e a primeira frase que um
+  // cliente novo lê não pode ser uma acusação errada.
   if (conta.saldo < MINIMO_PARA_COMEÇAR) {
     return {
       ok: false,
       motivo:
-        "Seu crédito de IA acabou. Compre mais créditos ou use sua própria chave da Anthropic em Configurações.",
+        conta.saldo > 0
+          ? "Seu crédito de IA acabou. Compre mais créditos ou use a sua própria chave da Anthropic."
+          : "Você está sem crédito de IA. Compre créditos ou use a sua própria chave da Anthropic.",
     };
   }
   return { ok: true };
+}
+
+/*
+ * O que a tela precisa saber antes de deixar gerar.
+ *
+ * Uma pergunta só — "dá para gerar agora?" — em vez de a tela ter que saber se
+ * existe chave, de quem ela é e quanto sobrou de saldo.
+ */
+export type StatusConta = {
+  pronta: boolean;
+  aviso: string | null;
+  fonte: Fonte;
+  saldo: number;
+};
+
+export async function statusDaConta(orgId: string): Promise<StatusConta> {
+  const conta = await contaDaOrg(orgId);
+  const p = podeGastar(conta);
+  return {
+    pronta: p.ok,
+    aviso: p.ok ? null : p.motivo,
+    fonte: conta.fonte,
+    saldo: conta.saldo,
+  };
 }
 
 /* ------------------------------ depois de gastar -------------------------- */

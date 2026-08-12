@@ -5,7 +5,7 @@ import { criarPaginaIA, type NovaPaginaState } from "./actions";
 import { MODELOS_IA, MODELO_PADRAO } from "@/lib/ia/modelos";
 import { inputClass } from "@/components/painel/ui";
 
-export default function NovaPagina({ temChave }: { temChave: boolean }) {
+export default function NovaPagina({ contaPronta, aviso }: { contaPronta: boolean; aviso: string | null }) {
   const [state, formAction, pending] = useActionState<NovaPaginaState, FormData>(
     criarPaginaIA,
     undefined,
@@ -39,12 +39,11 @@ export default function NovaPagina({ temChave }: { temChave: boolean }) {
         {MODELOS_IA[MODELO_PADRAO].nota} · dá para trocar o modelo depois, a
         qualquer momento.
       </p>
-      {!temChave && (
+      {!contaPronta && (
         <p className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
-          ⚠️ Falta a <b>chave da Anthropic</b> — é ela que escreve as páginas. Cole a sua no card
-          “Construtor de páginas com IA”, aqui mesmo no{" "}
-          <a href="/app/admin" className="underline">
-            Admin 👑
+          ⚠️ {aviso}{" "}
+          <a href="/app/creditos" className="underline">
+            Ver créditos
           </a>
           .
         </p>

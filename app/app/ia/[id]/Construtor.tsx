@@ -55,7 +55,8 @@ export default function Construtor({
   site,
   mensagensIniciais,
   versoesIniciais,
-  temChave,
+  contaPronta,
+  avisoConta,
   urlPublica,
   pedidoInicial = "",
   empresa = null,
@@ -63,7 +64,8 @@ export default function Construtor({
   site: SiteIA;
   mensagensIniciais: MensagemRow[];
   versoesIniciais: VersaoRow[];
-  temChave: boolean;
+  contaPronta: boolean;
+  avisoConta: string | null;
   urlPublica: string;
   pedidoInicial?: string;
   empresa?: EmpresaVinculada;
@@ -291,7 +293,7 @@ export default function Construtor({
       {/* ------------------------------- topo ------------------------------ */}
       <header className="flex flex-none items-center gap-3 border-b border-white/10 bg-ink-2 px-4 py-2.5">
         <Link
-          href="/app/admin/ia"
+          href="/app/ia"
           className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-paper-dim transition hover:bg-white/10 hover:text-paper"
         >
           <IconBack size={15} /> Voltar
@@ -386,7 +388,7 @@ export default function Construtor({
         {html ? (
           <>
             <a
-              href={`/app/admin/ia/${site.id}/ver`}
+              href={`/app/ia/${site.id}/ver`}
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-paper-dim transition hover:border-white/30 hover:text-paper"
@@ -394,7 +396,7 @@ export default function Construtor({
               <IconExternal size={14} /> Ver na web
             </a>
             <a
-              href={`/app/admin/ia/${site.id}/baixar`}
+              href={`/app/ia/${site.id}/baixar`}
               title="Baixar o site pronto (HTML + imagens) para hospedar em qualquer lugar"
               className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-paper-dim transition hover:border-white/30 hover:text-paper"
             >
@@ -588,7 +590,7 @@ export default function Construtor({
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) enviar();
                 }}
                 rows={2}
-                disabled={gerando || !temChave}
+                disabled={gerando || !contaPronta}
                 placeholder={
                   html ? "O que você quer mudar?" : "Descreva a página que você quer criar…"
                 }
@@ -596,14 +598,14 @@ export default function Construtor({
               />
               <button
                 onClick={enviar}
-                disabled={gerando || texto.trim().length < 3 || !temChave}
+                disabled={gerando || texto.trim().length < 3 || !contaPronta}
                 className="flex-none rounded-lg bg-brand px-4 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-40"
               >
                 {gerando ? "…" : "Enviar"}
               </button>
             </div>
             <p className="mt-1.5 text-[11px] text-paper-dim">
-              {temChave ? "Ctrl+Enter envia · imagem e PDF aceitos" : "Configure a chave da Anthropic no painel admin."}
+              {contaPronta ? "Ctrl+Enter envia · imagem e PDF aceitos" : avisoConta}
             </p>
           </div>
         </aside>

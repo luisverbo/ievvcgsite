@@ -291,7 +291,7 @@ export default async function MetricasPage({
     const ia = data as { id: string; titulo: string } | null;
     if (!ia) notFound();
     site = { id: ia.id, nome: ia.titulo } as NonNullable<typeof site>;
-    voltarPara = `/app/admin/ia/${ia.id}`;
+    voltarPara = `/app/ia/${ia.id}`;
   }
 
   const m = await getMetricasSite(site.id, { desde: intervalo.desde, ate: intervalo.ate }, filtroPagina);

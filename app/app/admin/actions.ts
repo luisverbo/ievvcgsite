@@ -8,22 +8,24 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { semearBlocosComConfig } from "@/lib/painel/seed";
 import { LANDING_PAGINAS, LANDING_TEMA } from "@/lib/templates/paginapro-landing";
 import { salvarAnthropicKey } from "@/lib/ia/anthropic";
+import { ehAdmin as checarAdmin } from "@/lib/painel/admin";
+import { cotaDoPlano } from "@/lib/painel/permissoes";
 
-// Só o email definido em ADMIN_EMAIL pode usar as ações de dono do sistema.
+// Reexportado para as telas de admin que já importam daqui. A definição vive
+// em lib/painel/admin.ts — veja lá o porquê.
 export async function ehAdmin(): Promise<boolean> {
-  const adminEmail = process.env.ADMIN_EMAIL?.toLowerCase().trim();
-  if (!adminEmail) return false;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user?.email?.toLowerCase() === adminEmail;
+  return checarAdmin();
 }
 
-export async function alterarPlano(orgId: string, novoPlano: "free" | "pro") {
+export async function alterarPlano(orgId: string, novoPlano: "free" | "pro" | "agencia") {
   if (!(await ehAdmin())) return;
   const admin = createAdminClient();
-  await admin.from("organizacoes").update({ plano: novoPlano }).eq("id", orgId);
+  // A cota de IA acompanha o plano: trocar um sem o outro deixaria o cliente
+  // pagando o plano cheio e recebendo o crédito do plano velho.
+  await admin
+    .from("organizacoes")
+    .update({ plano: novoPlano, cota_mensal: cotaDoPlano(novoPlano) })
+    .eq("id", orgId);
   revalidatePath("/app/admin");
 }
 

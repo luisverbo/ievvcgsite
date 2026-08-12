@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { getAnthropicKey } from "@/lib/ia/anthropic";
-import { ehAdmin } from "../../actions";
+import { podeUsar } from "@/lib/painel/permissoes";
+import { statusDaConta } from "@/lib/creditos/conta";
 import Construtor from "./Construtor";
 import type { MensagemRow, SiteIA, VersaoRow } from "../actions";
 import type { EmpresaVinculada } from "./Construtor";
@@ -19,7 +19,7 @@ export default async function ConstrutorPage({
   // ?pedido=... chega da prospecção, com o briefing da empresa já montado.
   searchParams: Promise<{ pedido?: string }>;
 }) {
-  if (!(await ehAdmin())) notFound();
+  if (!(await podeUsar("construtor"))) notFound();
   const { id } = await params;
   const { pedido } = await searchParams;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
@@ -55,7 +55,7 @@ export default async function ConstrutorPage({
     empresa = (p as EmpresaVinculada) ?? null;
   }
 
-  const chave = await getAnthropicKey();
+  const conta = await statusDaConta(site.org_id);
 
   // Endereço público completo, para o link ser copiável e clicável.
   const h = await headers();
@@ -68,7 +68,8 @@ export default async function ConstrutorPage({
       site={site}
       mensagensIniciais={(msgs as MensagemRow[] | null) ?? []}
       versoesIniciais={(versoes as VersaoRow[] | null) ?? []}
-      temChave={Boolean(chave)}
+      contaPronta={conta.pronta}
+      avisoConta={conta.aviso}
       urlPublica={urlPublica}
       pedidoInicial={pedido?.slice(0, 4000) ?? ""}
       empresa={empresa}
