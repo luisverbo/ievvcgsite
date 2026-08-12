@@ -3,6 +3,10 @@ import type Stripe from "stripe";
 import { stripe } from "@/lib/pagamentos/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { periodoDe, fimDoPeriodo } from "@/lib/pagamentos/estado";
+import { cotaDoPlano } from "@/lib/painel/permissoes";
+
+// O plano que a assinatura de R$300 entrega.
+const PLANO_VENDIDO = "agencia";
 
 /*
  * Webhook da Stripe — é AQUI que o dinheiro vira acesso.
@@ -96,10 +100,22 @@ export async function POST(req: Request) {
           .update({
             stripe_customer_id: typeof f.customer === "string" ? f.customer : (f.customer?.id ?? null),
             stripe_subscription_id: sub ?? null,
-            plano: "agencia",
+            plano: PLANO_VENDIDO,
             updated_at: new Date().toISOString(),
           })
           .eq("org_id", orgId);
+
+        /*
+         * Promove a organização — sem isto o cliente paga e não recebe nada.
+         *
+         * Quem libera as telas é `organizacoes.plano`; a assinatura só diz se
+         * está em dia. Faltando esta parte, o pagamento entrava, a assinatura
+         * ficava ativa e o cliente continuava no plano grátis, sem crédito.
+         */
+        await admin
+          .from("organizacoes")
+          .update({ plano: PLANO_VENDIDO, cota_mensal: cotaDoPlano(PLANO_VENDIDO) })
+          .eq("id", orgId);
         break;
       }
 
