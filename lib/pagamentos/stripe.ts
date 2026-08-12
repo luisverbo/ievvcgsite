@@ -84,9 +84,15 @@ export async function checkoutAssinatura(opcoes: {
     const sessao = await s.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: process.env.STRIPE_PRICE_AGENCIA!, quantity: 1 }],
+      /*
+       * Em modo assinatura a Stripe já cria o cliente sozinha — passar
+       * `customer_creation` aqui é erro (só existe em pagamento avulso).
+       * Quando o cliente já tem cadastro, reaproveitamos o dele para o
+       * histórico de faturas não ficar espalhado em vários customers.
+       */
       ...(opcoes.customerId
         ? { customer: opcoes.customerId }
-        : { customer_email: opcoes.email, customer_creation: "always" }),
+        : { customer_email: opcoes.email }),
       client_reference_id: opcoes.orgId,
       subscription_data: { metadata: { org_id: opcoes.orgId } },
       metadata: { org_id: opcoes.orgId, tipo: "assinatura" },
