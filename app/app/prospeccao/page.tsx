@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
-import { ehAdmin } from "../actions";
+import { podeUsar } from "@/lib/painel/permissoes";
 import Busca from "./Busca";
 import Fila from "./Fila";
 import {
@@ -56,7 +56,7 @@ export default async function ProspeccaoPage({
 }: {
   searchParams: Promise<{ f?: string; b?: string }>;
 }) {
-  if (!(await ehAdmin())) notFound();
+  if (!(await podeUsar("prospeccao"))) notFound();
   const org = await getMinhaOrg();
   if (!org) notFound();
   const { f, b } = await searchParams;
@@ -155,8 +155,8 @@ export default async function ProspeccaoPage({
   return (
     <div className="painel-wrap flex flex-col gap-6">
       <div>
-        <Link href="/app/admin" className="text-sm text-paper-dim hover:text-paper">
-          ← Admin
+        <Link href="/app" className="text-sm text-paper-dim hover:text-paper">
+          ← Painel
         </Link>
         <h1 className="mt-2 font-display text-3xl font-extrabold">Prospecção 🎯</h1>
         <p className="mt-1 text-sm text-paper-dim">
@@ -179,6 +179,23 @@ export default async function ProspeccaoPage({
         </div>
       )}
 
+      <Link
+        href="/app/prospeccao/agente"
+        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-ink-2 px-5 py-4 transition hover:border-brand-2"
+      >
+        <span>
+          <b className="text-paper">🤖 Meu agente</b>
+          <span className="ml-2 text-sm text-paper-dim">
+            {agenteAtivo
+              ? "ligado — as buscas do Google saem na hora"
+              : "desligado: instale ou abra o programa no seu computador para as buscas rodarem"}
+          </span>
+        </span>
+        <span className="rounded-lg border border-white/15 px-4 py-2 text-sm font-bold text-paper">
+          {agenteAtivo ? "Ver" : "Instalar →"}
+        </span>
+      </Link>
+
       <div className={cardClass}>
         <h2 className="mb-4 text-lg font-bold">🔎 Buscar empresas</h2>
         <Busca agenteAtivo={agenteAtivo} />
@@ -188,7 +205,7 @@ export default async function ProspeccaoPage({
 
       {todos.length > 0 && (
         <Link
-          href="/app/admin/prospeccao/abordagem"
+          href="/app/prospeccao/abordagem"
           className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-2/40 bg-brand/10 px-5 py-4 transition hover:border-brand-2"
         >
           <span>
@@ -208,7 +225,7 @@ export default async function ProspeccaoPage({
           </p>
           <div className="flex flex-wrap gap-1.5">
             <Link
-              href={`/app/admin/prospeccao?f=${filtro}`}
+              href={`/app/prospeccao?f=${filtro}`}
               className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
                 busca === "todas"
                   ? "bg-brand text-white"
@@ -220,7 +237,7 @@ export default async function ProspeccaoPage({
             {pesquisas.map((p) => (
               <Link
                 key={p.chave}
-                href={`/app/admin/prospeccao?f=${filtro}&b=${encodeURIComponent(p.chave)}`}
+                href={`/app/prospeccao?f=${filtro}&b=${encodeURIComponent(p.chave)}`}
                 className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
                   busca === p.chave
                     ? "bg-brand text-white"
@@ -239,7 +256,7 @@ export default async function ProspeccaoPage({
           {FILTROS.map((x) => (
             <Link
               key={x.chave}
-              href={`/app/admin/prospeccao?f=${x.chave}${busca !== "todas" ? `&b=${encodeURIComponent(busca)}` : ""}`}
+              href={`/app/prospeccao?f=${x.chave}${busca !== "todas" ? `&b=${encodeURIComponent(busca)}` : ""}`}
               className={`rounded-md px-3 py-1.5 text-sm font-bold transition ${
                 filtro === x.chave
                   ? "bg-brand text-white"

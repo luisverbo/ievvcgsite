@@ -1,49 +1,34 @@
 /*
- * Executa uma tarefa de captura de Instagram: lê o perfil, baixa as fotos
- * para o Storage e grava tudo no registro da empresa.
+ * Executa uma tarefa de captura de Instagram: lê o perfil, baixa as fotos e
+ * manda tudo para o painel.
+ *
+ * As fotos vão em base64 na mesma requisição, e não como link: as URLs do
+ * Instagram são assinadas e expiram em poucas horas — guardar o endereço não
+ * serviria de nada. Quem grava no Storage é o servidor; o agente do cliente
+ * não tem (nem deve ter) acesso de escrita ao bucket.
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-
+import * as api from "./api.ts";
 import { capturarInstagram, baixarFoto } from "./instagram.ts";
 import { usuarioInstagramDe, type StatusIG } from "../lib/prospeccao/instagram.ts";
 
 export type ResultadoCaptura = { ok: boolean; resumo: string; status?: StatusIG };
 
-const agora = () => new Date().toISOString();
-
-type Prospecto = {
-  id: string;
-  org_id: string;
-  nome: string;
-  instagram: string | null;
-  website: string | null;
-};
-
 export async function capturarInstagramDoProspecto(
-  supabase: SupabaseClient,
   prospectoId: string,
   headless: boolean,
   log: (m: string) => void,
 ): Promise<ResultadoCaptura> {
-  const { data } = await supabase
-    .from("prospeccao")
-    .select("id, org_id, nome, instagram, website")
-    .eq("id", prospectoId)
-    .maybeSingle();
-  const p = data as Prospecto | null;
-  if (!p) return { ok: false, resumo: "Empresa não encontrada." };
+  const p = await api.prospectoIg(prospectoId);
+  if (!p) return { ok: false, resumo: "Empresa não encontrada.", status: "erro" };
 
   const usuario = usuarioInstagramDe(p);
   if (!usuario) {
-    await supabase
-      .from("prospeccao")
-      .update({
-        ig_status: "nao_encontrado",
-        ig_erro: "Esta empresa não tem Instagram cadastrado.",
-        ig_capturado_em: agora(),
-      })
-      .eq("id", p.id);
+    await api.gravarInstagram({
+      id: p.id,
+      status: "nao_encontrado",
+      erro: "Esta empresa não tem Instagram cadastrado.",
+    });
     return { ok: false, resumo: "sem Instagram cadastrado", status: "nao_encontrado" };
   }
 
@@ -51,47 +36,34 @@ export async function capturarInstagramDoProspecto(
   const r = await capturarInstagram(usuario, headless, log);
 
   if (r.status !== "ok" || !r.dados) {
-    await supabase
-      .from("prospeccao")
-      .update({ ig_status: r.status, ig_erro: r.erro ?? null, ig_capturado_em: agora() })
-      .eq("id", p.id);
+    await api.gravarInstagram({ id: p.id, status: r.status, erro: r.erro ?? null });
     return { ok: false, resumo: r.erro ?? r.status, status: r.status };
   }
 
   // Baixa as fotos agora: os links do Instagram expiram em poucas horas.
-  const fotos: { url: string; legenda?: string }[] = [];
-  for (const [i, foto] of r.dados.fotos.entries()) {
+  const fotos: { base64: string; legenda?: string }[] = [];
+  for (const foto of r.dados.fotos) {
     const buf = await baixarFoto(foto.url);
     if (!buf) continue;
-
-    const caminho = `${p.org_id}/instagram/${p.id}/${i}-${Date.now()}.jpg`;
-    const { error } = await supabase.storage
-      .from("midias")
-      .upload(caminho, buf, { contentType: "image/jpeg", upsert: true });
-    if (error) continue;
-
-    const { data: pub } = supabase.storage.from("midias").getPublicUrl(caminho);
-    fotos.push({ url: pub.publicUrl, legenda: foto.legenda });
+    fotos.push({ base64: buf.toString("base64"), legenda: foto.legenda });
   }
 
-  await supabase
-    .from("prospeccao")
-    .update({
-      ig_nome: r.dados.nome ?? null,
-      ig_bio: r.dados.bio ?? null,
-      ig_seguidores: r.dados.seguidores ?? null,
-      ig_posts: r.dados.posts ?? null,
-      ig_fotos: fotos,
-      ig_status: "ok",
-      ig_erro: fotos.length === 0 ? "Perfil lido, mas nenhuma foto pôde ser baixada." : null,
-      ig_capturado_em: agora(),
-    })
-    .eq("id", p.id);
+  const gravou = await api.gravarInstagram({
+    id: p.id,
+    status: "ok",
+    dados: {
+      nome: r.dados.nome,
+      bio: r.dados.bio,
+      seguidores: r.dados.seguidores,
+      posts: r.dados.posts,
+    },
+    fotos,
+  });
 
-  log(`${fotos.length} fotos salvas de @${usuario}`);
+  log(`${gravou.fotos} fotos salvas de @${usuario}`);
   return {
     ok: true,
-    resumo: `${fotos.length} fotos · ${r.dados.seguidores ?? "?"} seguidores`,
+    resumo: `${gravou.fotos} fotos · ${r.dados.seguidores ?? "?"} seguidores`,
     status: "ok",
   };
 }

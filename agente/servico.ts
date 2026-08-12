@@ -1,18 +1,17 @@
 /*
- * Serviço do agente: fica olhando a fila de tarefas no Supabase e executa.
+ * Serviço do agente: fica olhando a fila de tarefas e executa.
  *
- * Roda na VPS (ou no seu computador — é o mesmo código). Ele NUNCA recebe
- * conexão de fora: só consulta o banco. Por isso não precisa de porta aberta,
- * IP fixo nem domínio.
+ * Roda na sua VPS ou no seu computador — é o mesmo código. Ele NUNCA recebe
+ * conexão de fora: só pergunta ao painel se há trabalho. Por isso não precisa
+ * de porta aberta, IP fixo nem domínio.
  *
  *   npm run servico
  */
 
-import { createClient } from "@supabase/supabase-js";
 import os from "node:os";
 
+import * as api from "./api.ts";
 import { coletarDoGoogle } from "./coletor.ts";
-import { pontuarEGravar } from "./gravar.ts";
 import { rodarAbordagem } from "./abordagem.ts";
 import { capturarInstagramDoProspecto } from "./capturaIg.ts";
 
@@ -39,68 +38,24 @@ let igLiberadoEm = 0;
 const igEmDescanso = () => Date.now() < igLiberadoEm;
 const faltaIg = () => Math.ceil((igLiberadoEm - Date.now()) / 60_000);
 
-type Tarefa = {
-  id: string;
-  org_id: string;
-  tipo: string;
-  nicho: string | null;
-  local: string | null;
-  limite: number;
-  prospecto_id: string | null;
-};
-
-const agora = () => new Date().toISOString();
 const hora = () => new Date().toLocaleTimeString("pt-BR");
 const log = (msg: string) => console.log(`[${hora()}] ${msg}`);
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const chave = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!url || !chave) {
-  console.error("\n❌ Faltam NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (agente/.env)\n");
+if (!api.configurado()) {
+  console.error(`\n❌ ${api.faltaConfig()}\n`);
+  console.error("   Pegue os dois valores no painel, em Prospecção › Meu agente.\n");
   process.exit(1);
 }
-const supabase = createClient(url, chave, { auth: { persistSession: false } });
 
-// Pega uma tarefa da fila. O filtro status='pendente' no UPDATE garante que
-// dois agentes rodando ao mesmo tempo nunca peguem a mesma tarefa.
-async function pegarTarefa(): Promise<Tarefa | null> {
-  let consulta = supabase
-    .from("prospeccao_tarefas")
-    .select("id, org_id, tipo, nicho, local, limite, prospecto_id")
-    .eq("status", "pendente");
-
-  // Durante o descanso do Instagram a tarefa fica na fila esperando, em vez de
-  // ser executada e falhar. Ela sai sozinha quando o tempo passar.
-  if (igEmDescanso()) consulta = consulta.neq("tipo", "instagram");
-
-  const { data: fila } = await consulta.order("created_at").limit(1);
-
-  const candidata = (fila as Tarefa[] | null)?.[0];
-  if (!candidata) return null;
-
-  const { data: presa } = await supabase
-    .from("prospeccao_tarefas")
-    .update({ status: "rodando", agente: AGENTE, iniciada_em: agora() })
-    .eq("id", candidata.id)
-    .eq("status", "pendente")
-    .select("id, org_id, tipo, nicho, local, limite, prospecto_id");
-
-  return (presa as Tarefa[] | null)?.[0] ?? null;
-}
-
-async function executar(t: Tarefa) {
-  // Captura de Instagram é uma tarefa curta e de uma empresa só; a busca é o
+async function executar(t: api.Tarefa) {
+  // Captura de Instagram é tarefa curta, de uma empresa só; a busca é o
   // trabalho longo. Separadas aqui para não misturar os dois fluxos.
   if (t.tipo === "instagram") {
     if (!t.prospecto_id) throw new Error("Tarefa de Instagram sem empresa.");
     log(`▶ tarefa ${t.id.slice(0, 8)} — Instagram`);
-    const r = await capturarInstagramDoProspecto(
-      supabase,
-      t.prospecto_id,
-      HEADLESS,
-      (m) => log(`   ${m}`),
-    );
+
+    const r = await capturarInstagramDoProspecto(t.prospecto_id, HEADLESS, (m) => log(`   ${m}`));
 
     if (r.status === "bloqueado") {
       // Insistir depois de um bloqueio só piora: o Instagram estende a
@@ -112,20 +67,15 @@ async function executar(t: Tarefa) {
       igLiberadoEm = Date.now() + s * 1000;
     }
 
-    await supabase
-      .from("prospeccao_tarefas")
-      .update({
-        status: r.ok ? "concluida" : "erro",
-        erro: r.ok
-          ? null
-          : r.status === "bloqueado"
-            ? `${r.resumo} As próximas capturas ficam esperando na fila por ${IG_CASTIGO_MS / 3_600_000} horas.`
-            : r.resumo,
-        progresso: r.ok ? 1 : 0,
-        total: 1,
-        concluida_em: agora(),
-      })
-      .eq("id", t.id);
+    await api.fimTarefa(t.id, {
+      status: r.ok ? "concluida" : "erro",
+      erro: r.ok
+        ? null
+        : r.status === "bloqueado"
+          ? `${r.resumo} As próximas capturas ficam esperando na fila por ${IG_CASTIGO_MS / 3_600_000} horas.`
+          : r.resumo,
+      progresso: r.ok ? 1 : 0,
+    });
     log(r.ok ? `✅ ${r.resumo}` : `⚠️  ${r.resumo}`);
     return;
   }
@@ -139,52 +89,35 @@ async function executar(t: Tarefa) {
     log: (m) => log(`   ${m}`),
     aoProgredir: async (lidas, total) => {
       // Grava progresso a cada 2 empresas: dá para acompanhar no painel sem
-      // martelar o banco a cada passo.
+      // martelar o servidor a cada passo.
       if (lidas !== total && lidas - ultimoProgresso < 2) return;
       ultimoProgresso = lidas;
-      await supabase
-        .from("prospeccao_tarefas")
-        .update({ progresso: lidas, total })
-        .eq("id", t.id);
+      await api.progresso(t.id, lidas, total).catch(() => {});
     },
   });
 
   if (resultado.bloqueio && resultado.empresas.length === 0) {
-    await supabase
-      .from("prospeccao_tarefas")
-      .update({
-        status: "erro",
-        erro: `O Google mostrou ${resultado.bloqueio}. Espere alguns minutos e tente com um limite menor.`,
-        concluida_em: agora(),
-      })
-      .eq("id", t.id);
+    await api.fimTarefa(t.id, {
+      status: "erro",
+      erro: `O Google mostrou ${resultado.bloqueio}. Espere alguns minutos e tente com um limite menor.`,
+    });
     log(`⛔ bloqueio: ${resultado.bloqueio}`);
     // Descanso maior depois de bloqueio, para não insistir e piorar.
     await espera(120_000);
     return;
   }
 
-  const resumo = await pontuarEGravar(
-    supabase,
-    t.org_id,
-    t.nicho!,
-    t.local!,
-    resultado.empresas,
-    (m) => log(`   ${m}`),
-  );
+  log("   enviando para o painel…");
+  const resumo = await api.gravarEmpresas(t.nicho!, t.local!, resultado.empresas);
 
-  await supabase
-    .from("prospeccao_tarefas")
-    .update({
-      status: "concluida",
-      gravadas: resumo.gravadas,
-      progresso: resultado.empresas.length,
-      concluida_em: agora(),
-      erro: resultado.bloqueio
-        ? `Parou no meio: o Google mostrou ${resultado.bloqueio}. O que já foi coletado está salvo.`
-        : null,
-    })
-    .eq("id", t.id);
+  await api.fimTarefa(t.id, {
+    status: "concluida",
+    gravadas: resumo.gravadas,
+    progresso: resultado.empresas.length,
+    erro: resultado.bloqueio
+      ? `Parou no meio: o Google mostrou ${resultado.bloqueio}. O que já foi coletado está salvo.`
+      : null,
+  });
 
   log(
     `✅ ${resumo.gravadas} gravadas · ${resumo.oportunidades} com oportunidade · ${resumo.quentes} prioridade alta`,
@@ -192,18 +125,29 @@ async function executar(t: Tarefa) {
 }
 
 async function main() {
+  try {
+    const r = await api.ping();
+    log(`conectado ao painel como "${r.agente}"`);
+  } catch (e) {
+    console.error(`\n❌ ${(e as Error).message}\n`);
+    process.exit(1);
+  }
+
   log(`agente "${AGENTE}" no ar · navegador ${HEADLESS ? "oculto" : "visível"}`);
   log(`checando a fila a cada ${INTERVALO_MS / 1000}s · pausa de ${PAUSA_MS}ms entre empresas`);
 
   let ocioso = true;
   for (;;) {
     try {
-      const tarefa = await pegarTarefa();
+      const tarefa = igEmDescanso()
+        ? await api.proximaTarefa().then((t) => (t?.tipo === "instagram" ? null : t))
+        : await api.proximaTarefa();
+
       if (!tarefa) {
-        // Sem busca para fazer, o agente cuida da fila de abordagem — assim
-        // as duas coisas convivem sem disputar o navegador.
+        // Sem busca para fazer, o agente cuida da fila de abordagem — assim as
+        // duas coisas convivem sem disputar o navegador.
         try {
-          await rodarAbordagem(supabase, HEADLESS, (m) => log(`   ${m}`));
+          await rodarAbordagem(HEADLESS, (m) => log(`   ${m}`));
         } catch (e) {
           log(`⚠️  abordagem: ${(e as Error).message}`);
         }
@@ -226,10 +170,7 @@ async function main() {
         // mostraria um progresso que nunca termina.
         const msg = (e as Error).message.slice(0, 400);
         log(`❌ tarefa ${tarefa.id.slice(0, 8)} falhou: ${msg}`);
-        await supabase
-          .from("prospeccao_tarefas")
-          .update({ status: "erro", erro: msg, concluida_em: agora() })
-          .eq("id", tarefa.id);
+        await api.fimTarefa(tarefa.id, { status: "erro", erro: msg }).catch(() => {});
       }
     } catch (e) {
       // Erro de rede ou do navegador não pode derrubar o serviço: ele precisa

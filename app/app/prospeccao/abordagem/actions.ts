@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
-import { ehAdmin } from "../../actions";
+import { podeUsar } from "@/lib/painel/permissoes";
 import {
   MODELO_PADRAO,
   montarMensagem,
@@ -43,7 +43,7 @@ export async function salvarConfig(
   _prev: EstadoAbordagem,
   formData: FormData,
 ): Promise<EstadoAbordagem> {
-  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
   const org = await getMinhaOrg();
   if (!org) return { error: "Organização não encontrada." };
 
@@ -75,7 +75,7 @@ export async function salvarConfig(
   );
   if (error) return { error: error.message };
 
-  revalidatePath("/app/admin/prospeccao/abordagem");
+  revalidatePath("/app/prospeccao/abordagem");
   return { ok: "Configuração salva." };
 }
 
@@ -89,7 +89,7 @@ export async function prepararAbordagem(
   _prev: EstadoAbordagem,
   formData: FormData,
 ): Promise<EstadoAbordagem> {
-  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
   const org = await getMinhaOrg();
   if (!org) return { error: "Organização não encontrada." };
 
@@ -152,7 +152,7 @@ export async function prepararAbordagem(
     .upsert(linhas, { onConflict: "org_id,prospecto_id", ignoreDuplicates: true });
   if (error) return { error: error.message };
 
-  revalidatePath("/app/admin/prospeccao/abordagem");
+  revalidatePath("/app/prospeccao/abordagem");
   const aviso = semZap > 0 ? ` (${semZap} sem celular foram puladas)` : "";
   return {
     ok:
@@ -164,7 +164,7 @@ export async function prepararAbordagem(
 
 // No modo semi você envia na mão; o painel só registra que foi enviada.
 export async function marcarEnviada(id: string) {
-  if (!(await ehAdmin())) return;
+  if (!(await podeUsar("prospeccao"))) return;
   const supabase = await createClient();
   const { data } = await supabase
     .from("prospeccao_mensagens")
@@ -180,28 +180,28 @@ export async function marcarEnviada(id: string) {
       .update({ status: "contactado", contactado_em: new Date().toISOString() })
       .eq("id", prospectoId);
   }
-  revalidatePath("/app/admin/prospeccao/abordagem");
+  revalidatePath("/app/prospeccao/abordagem");
 }
 
 export async function cancelarMensagem(id: string) {
-  if (!(await ehAdmin())) return;
+  if (!(await podeUsar("prospeccao"))) return;
   const supabase = await createClient();
   await supabase
     .from("prospeccao_mensagens")
     .update({ status: "cancelada" })
     .eq("id", id)
     .eq("status", "pendente");
-  revalidatePath("/app/admin/prospeccao/abordagem");
+  revalidatePath("/app/prospeccao/abordagem");
 }
 
 export async function limparEnviadas() {
-  if (!(await ehAdmin())) return;
+  if (!(await podeUsar("prospeccao"))) return;
   const supabase = await createClient();
   await supabase
     .from("prospeccao_mensagens")
     .delete()
     .in("status", ["enviada", "cancelada", "erro", "sem_whatsapp"]);
-  revalidatePath("/app/admin/prospeccao/abordagem");
+  revalidatePath("/app/prospeccao/abordagem");
 }
 
 /*
@@ -212,7 +212,7 @@ export async function limparEnviadas() {
  * limpava o estado e não acontecia nada — o agente nunca era acionado.
  */
 export async function conectarWhatsapp() {
-  if (!(await ehAdmin())) return;
+  if (!(await podeUsar("prospeccao"))) return;
   const org = await getMinhaOrg();
   if (!org) return;
   const supabase = await createClient();
@@ -226,7 +226,7 @@ export async function conectarWhatsapp() {
     },
     { onConflict: "org_id" },
   );
-  revalidatePath("/app/admin/prospeccao/abordagem");
+  revalidatePath("/app/prospeccao/abordagem");
 }
 
 /*
@@ -237,7 +237,7 @@ export async function conectarWhatsapp() {
  * bandeira — quem apaga o perfil é o agente.
  */
 export async function desconectarWhatsapp() {
-  if (!(await ehAdmin())) return;
+  if (!(await podeUsar("prospeccao"))) return;
   const org = await getMinhaOrg();
   if (!org) return;
   const supabase = await createClient();
@@ -252,5 +252,5 @@ export async function desconectarWhatsapp() {
     },
     { onConflict: "org_id" },
   );
-  revalidatePath("/app/admin/prospeccao/abordagem");
+  revalidatePath("/app/prospeccao/abordagem");
 }

@@ -2,14 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
-import { ehAdmin } from "../../actions";
+import { podeUsar } from "@/lib/painel/permissoes";
 import Painel from "./Painel";
 import type { ConfigAbordagem, MensagemRow } from "./actions";
 import { telefoneWhatsapp } from "@/lib/prospeccao/mensagem";
 import type { ProspectoRow } from "@/lib/prospeccao/tipos";
 
 export default async function AbordagemPage() {
-  if (!(await ehAdmin())) notFound();
+  if (!(await podeUsar("prospeccao"))) notFound();
   const org = await getMinhaOrg();
   if (!org) notFound();
 
@@ -60,7 +60,7 @@ export default async function AbordagemPage() {
   return (
     <div className="painel-wrap flex flex-col gap-6">
       <div>
-        <Link href="/app/admin/prospeccao" className="text-sm text-paper-dim hover:text-paper">
+        <Link href="/app/prospeccao" className="text-sm text-paper-dim hover:text-paper">
           ← Prospecção
         </Link>
         <h1 className="mt-2 font-display text-3xl font-extrabold">Abordagem 💬</h1>

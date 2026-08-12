@@ -35,6 +35,12 @@ export default async function PainelLayout({ children }: { children: React.React
               Templates
             </Link>
             <Link
+              href="/app/prospeccao"
+              className="rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-white/8 hover:text-paper"
+            >
+              Prospecção 🎯
+            </Link>
+            <Link
               href="/app/assinatura"
               className="hidden rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-white/8 hover:text-paper sm:block"
             >

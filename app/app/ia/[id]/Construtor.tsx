@@ -438,7 +438,7 @@ export default function Construtor({
             </a>
           )}
           <Link
-            href="/app/admin/prospeccao"
+            href="/app/prospeccao"
             className="ml-auto text-paper-dim underline transition hover:text-paper"
           >
             ver na prospecção

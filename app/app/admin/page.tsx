@@ -91,7 +91,7 @@ export default async function AdminPage() {
       pronto: Boolean(chaveIA),
     },
     {
-      href: "/app/admin/prospeccao",
+      href: "/app/prospeccao",
       emoji: "🎯",
       titulo: "Prospecção",
       texto:

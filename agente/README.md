@@ -6,14 +6,17 @@ Supabase. O painel só **enfileira** a busca; quem executa é este agente.
 ```
 [Painel]  → cria a tarefa
               ↓
-      [Supabase: prospeccao_tarefas]
+        [Painel: fila da sua conta]
               ↑
 [Agente]  → pega a tarefa → busca → grava → marca pronta
 ```
 
-O agente **nunca recebe conexão de fora** — ele só consulta o banco. Por isso
-o mesmo código roda na VPS ou no seu computador, sem abrir porta, sem IP fixo
-e sem domínio.
+O agente **nunca recebe conexão de fora** — ele só pergunta ao painel se há
+trabalho. Por isso o mesmo código roda na VPS ou no seu computador, sem abrir
+porta, sem IP fixo e sem domínio.
+
+Ele também **não tem acesso ao banco**: fala com o painel por HTTP, com um
+token que vale só para a sua conta.
 
 ---
 
@@ -39,7 +42,8 @@ npx playwright install --with-deps chromium
 
 # 4. As credenciais
 cp .env.example .env
-nano .env      # cole a URL e a service_role do Supabase
+nano .env      # cole PAGINAPRO_URL e PAGINAPRO_TOKEN
+               # (painel → Prospecção › Meu agente)
 ```
 
 Teste antes de deixar rodando sozinho:
@@ -122,8 +126,8 @@ npm run prospectar -- --nicho=dentista --local="Barra da Tijuca, RJ" --limite=10
 
 | Variável | Para que serve |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | endereço do seu Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | chave de acesso ao banco (só no servidor!) |
+| `PAGINAPRO_URL` | endereço do painel (ex.: https://seusite.com.br) |
+| `PAGINAPRO_TOKEN` | o código do seu agente, criado no painel |
 | `AGENTE_NOME` | nome que aparece no painel (padrão: hostname) |
 | `AGENTE_PAUSA_MS` | pausa entre empresas (padrão 2500) |
 | `AGENTE_INTERVALO_MS` | de quanto em quanto tempo checa a fila (padrão 8000) |

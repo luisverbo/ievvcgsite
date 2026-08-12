@@ -1,25 +1,32 @@
-// Pontua as empresas coletadas e grava no Supabase. Compartilhado pelo
-// comando manual e pelo serviço da fila.
+import "server-only";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { calcularPotencial, ehEnderecoSocial } from "./score";
+import { analisarSite } from "./site";
+import type { EmpresaEncontrada } from "./tipos";
 
-import { calcularPotencial, ehEnderecoSocial } from "../lib/prospeccao/score.ts";
-import { analisarSite } from "../lib/prospeccao/site.ts";
-import type { EmpresaEncontrada } from "../lib/prospeccao/tipos.ts";
+/*
+ * Pontua as empresas que o agente encontrou e grava.
+ *
+ * Mora no servidor, e não no agente, de propósito: a nota é a régua que decide
+ * quem vale a pena abordar. Se rodasse na máquina do cliente, cada um teria a
+ * régua da versão que instalou — e um cliente com o agente velho veria notas
+ * diferentes das do painel, sem ninguém entender por quê.
+ */
 
 export type Resumo = { gravadas: number; oportunidades: number; quentes: number };
 
 export async function pontuarEGravar(
-  supabase: SupabaseClient,
   orgId: string,
   nicho: string,
   local: string,
   empresas: EmpresaEncontrada[],
-  log: (m: string) => void = () => {},
 ): Promise<Resumo> {
-  if (empresas.length === 0) return { gravadas: 0, oportunidades: 0, quentes: 0 };
+  if (!Array.isArray(empresas) || empresas.length === 0) {
+    return { gravadas: 0, oportunidades: 0, quentes: 0 };
+  }
 
-  log("conferindo os sites…");
+  // Só analisa site que existe e não é rede social.
   const analises = await Promise.all(
     empresas.map((e) =>
       e.website && !ehEnderecoSocial(e.website)
@@ -53,7 +60,8 @@ export async function pontuarEGravar(
 
   // ignoreDuplicates: false atualiza os dados da empresa, mas o status do
   // funil (contactado/fechou) fica intacto — não está na lista de colunas.
-  const { error } = await supabase
+  const admin = createAdminClient();
+  const { error } = await admin
     .from("prospeccao")
     .upsert(linhas, { onConflict: "org_id,fonte,fonte_id", ignoreDuplicates: false });
   if (error) throw new Error(`Falha ao gravar: ${error.message}`);

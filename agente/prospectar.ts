@@ -7,10 +7,8 @@
  * pelo painel, com o serviço (npm run servico) atendendo a fila.
  */
 
-import { createClient } from "@supabase/supabase-js";
-
+import * as api from "./api.ts";
 import { coletarDoGoogle } from "./coletor.ts";
-import { pontuarEGravar } from "./gravar.ts";
 import { acharNicho, NICHOS } from "../lib/prospeccao/nichos.ts";
 
 function arg(nome: string): string | undefined {
@@ -31,22 +29,12 @@ async function main() {
     process.exit(1);
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const chave = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !chave) {
-    console.log("\n❌ Faltam as variáveis. Crie agente/.env a partir do .env.example.\n");
+  if (!api.configurado()) {
+    console.log(`\n❌ ${api.faltaConfig()}\n`);
+    console.log("   Pegue os dois valores no painel, em Prospecção › Meu agente.\n");
     process.exit(1);
   }
-  const supabase = createClient(url, chave, { auth: { persistSession: false } });
-
-  const orgId =
-    arg("org") ??
-    (await supabase.from("organizacoes").select("id").order("created_at").limit(1).maybeSingle())
-      .data?.id;
-  if (!orgId) {
-    console.log("\n❌ Não achei sua organização no Supabase. Passe --org=<uuid>.\n");
-    process.exit(1);
-  }
+  // A organização vem do token: não há como pedir dado de outra.
 
   console.log(`\n🔎 ${NICHO} em "${LOCAL}" — até ${LIMITE} empresas\n`);
 
@@ -68,14 +56,8 @@ async function main() {
     return;
   }
 
-  const resumo = await pontuarEGravar(
-    supabase,
-    orgId,
-    NICHO,
-    LOCAL,
-    r.empresas,
-    (m) => console.log(`   ${m}`),
-  );
+  console.log("   enviando para o painel…");
+  const resumo = await api.gravarEmpresas(NICHO, LOCAL, r.empresas);
 
   console.log("\n────────────────────────────────────────");
   console.log(`✅ ${resumo.gravadas} empresas gravadas no painel`);
@@ -84,7 +66,7 @@ async function main() {
   );
   if (r.falhas) console.log(`   ${r.falhas} não puderam ser lidas`);
   if (r.bloqueio) console.log(`   ⚠️  parou no meio: ${r.bloqueio}`);
-  console.log("\n   Veja em: /app/admin/prospeccao\n");
+  console.log("\n   Veja em: /app/prospeccao\n");
 }
 
 main();

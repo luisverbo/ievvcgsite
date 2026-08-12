@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { slugify } from "@/lib/format";
-import { ehAdmin } from "../actions";
+import { podeUsar } from "@/lib/painel/permissoes";
 import { buscarEmpresas, localizar } from "@/lib/prospeccao/overpass";
 import { analisarSite } from "@/lib/prospeccao/site";
 import { calcularPotencial, ehEnderecoSocial } from "@/lib/prospeccao/score";
@@ -20,7 +20,7 @@ export async function buscarProspectos(
   _prev: BuscaState,
   formData: FormData,
 ): Promise<BuscaState> {
-  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
   const org = await getMinhaOrg();
   if (!org) return { error: "Organização não encontrada." };
 
@@ -86,7 +86,7 @@ export async function buscarProspectos(
   if (error) return { error: error.message };
 
   const semSite = linhas.filter((l) => l.situacao !== "site_moderno").length;
-  revalidatePath("/app/admin/prospeccao");
+  revalidatePath("/app/prospeccao");
   return {
     ok: `${linhas.length} empresas encontradas · ${semSite} com potencial real de venda.`,
   };
@@ -99,7 +99,7 @@ export async function enfileirarBuscaGoogle(
   _prev: BuscaState,
   formData: FormData,
 ): Promise<BuscaState> {
-  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
   const org = await getMinhaOrg();
   if (!org) return { error: "Organização não encontrada." };
 
@@ -124,14 +124,14 @@ export async function enfileirarBuscaGoogle(
     .insert({ org_id: org.id, nicho, local, limite });
   if (error) return { error: error.message };
 
-  revalidatePath("/app/admin/prospeccao");
+  revalidatePath("/app/prospeccao");
   return {
     ok: "Busca na fila. O agente vai executar em instantes — acompanhe aqui embaixo.",
   };
 }
 
 export async function cancelarTarefa(id: string) {
-  if (!(await ehAdmin())) return;
+  if (!(await podeUsar("prospeccao"))) return;
   const supabase = await createClient();
   // Só cancela o que ainda não começou: parar no meio deixaria dado pela metade.
   await supabase
@@ -139,22 +139,22 @@ export async function cancelarTarefa(id: string) {
     .update({ status: "cancelada", concluida_em: new Date().toISOString() })
     .eq("id", id)
     .eq("status", "pendente");
-  revalidatePath("/app/admin/prospeccao");
+  revalidatePath("/app/prospeccao");
 }
 
 export async function limparTarefas() {
-  if (!(await ehAdmin())) return;
+  if (!(await podeUsar("prospeccao"))) return;
   const supabase = await createClient();
   await supabase
     .from("prospeccao_tarefas")
     .delete()
     .in("status", ["concluida", "erro", "cancelada"]);
-  revalidatePath("/app/admin/prospeccao");
+  revalidatePath("/app/prospeccao");
 }
 
 // Enfileira a leitura do Instagram desta empresa para o agente fazer.
 export async function capturarInstagram(id: string) {
-  if (!(await ehAdmin())) return;
+  if (!(await podeUsar("prospeccao"))) return;
   const org = await getMinhaOrg();
   if (!org) return;
   const supabase = await createClient();
@@ -191,30 +191,30 @@ export async function capturarInstagram(id: string) {
     local: null,
     limite: 1,
   });
-  revalidatePath("/app/admin/prospeccao");
+  revalidatePath("/app/prospeccao");
 }
 
 export async function mudarStatus(id: string, status: StatusProspecto) {
-  if (!(await ehAdmin())) return;
+  if (!(await podeUsar("prospeccao"))) return;
   const supabase = await createClient();
   await supabase
     .from("prospeccao")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id);
-  revalidatePath("/app/admin/prospeccao");
+  revalidatePath("/app/prospeccao");
 }
 
 export async function excluirProspecto(id: string) {
-  if (!(await ehAdmin())) return;
+  if (!(await podeUsar("prospeccao"))) return;
   const supabase = await createClient();
   await supabase.from("prospeccao").delete().eq("id", id);
-  revalidatePath("/app/admin/prospeccao");
+  revalidatePath("/app/prospeccao");
 }
 
 // Cria a página de IA já apontada para esta empresa e leva você ao construtor
 // com o pedido pronto no chat.
 export async function gerarSiteParaProspecto(id: string) {
-  if (!(await ehAdmin())) return;
+  if (!(await podeUsar("prospeccao"))) return;
   const org = await getMinhaOrg();
   if (!org) return;
 
