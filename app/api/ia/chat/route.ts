@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { ehAdmin } from "@/app/app/admin/actions";
 import {
   conversarComIA,
-  getAnthropicKey,
+  ErroIA,
   modeloValido,
   MEDIA_TYPES_IMAGEM,
   type Anexo,
   type MensagemChat,
 } from "@/lib/ia/anthropic";
 import { SYSTEM_CONSTRUTOR, promptInicial } from "@/lib/ia/prompt";
+import { contaDaOrg, cobrar, podeGastar } from "@/lib/creditos/conta";
+import { emDolar } from "@/lib/creditos/precos";
 
 // Conversa com o Claude e devolve a resposta em streaming (NDJSON), porque
 // escrever uma página inteira leva minutos e ninguém encara uma tela parada.
@@ -48,8 +49,6 @@ function limparAnexos(bruto: unknown): Anexo[] {
 }
 
 export async function POST(req: Request) {
-  if (!(await ehAdmin())) return erro("Sem permissão.", 403);
-
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -63,9 +62,11 @@ export async function POST(req: Request) {
   if (pedido.length < 3) return erro("Escreva o que você quer na página.");
   const anexos = limparAnexos(body.anexos);
 
-  const key = await getAnthropicKey();
-  if (!key) return erro("Configure a chave da Anthropic no painel admin.");
-
+  /*
+   * Permissão vem da RLS: a página só aparece para quem é membro da
+   * organização dona dela. Não existe mais checagem de admin aqui — o
+   * construtor agora é de todo cliente do plano.
+   */
   const supabase = await createClient();
   const { data: siteRow } = await supabase
     .from("sites_ia")
@@ -74,6 +75,13 @@ export async function POST(req: Request) {
     .maybeSingle();
   const site = siteRow as { id: string; org_id: string; html: string; modelo: string } | null;
   if (!site) return erro("Página não encontrada.", 404);
+
+  // Chave própria do cliente ou a nossa descontando crédito — decidido aqui,
+  // uma vez, e o resto da rota não precisa saber a diferença.
+  const conta = await contaDaOrg(site.org_id);
+  const permissao = podeGastar(conta);
+  if (!permissao.ok) return erro(permissao.motivo, 402);
+  const key = conta.anthropic!;
 
   // Histórico do chat. O HTML antigo NÃO volta junto das mensagens antigas —
   // só o atual é reenviado, senão a conversa cresceria sem limite.
@@ -136,6 +144,15 @@ export async function POST(req: Request) {
           onTexto: (pedaco) => linha({ t: "delta", v: pedaco }),
         });
 
+        const custo = await cobrar({
+          conta,
+          modelo: modeloValido(site.modelo),
+          uso: resposta.uso,
+          descricao: "Geração de página com IA",
+          referenciaTipo: "site_ia",
+          referenciaId: siteIaId,
+        });
+
         if (!resposta.html) {
           await registrarFalha("A IA não devolveu o HTML da página. Tente pedir de novo.");
           controller.close();
@@ -168,8 +185,26 @@ export async function POST(req: Request) {
           html: resposta.html,
           resumo: resposta.resumo,
           versaoId: (versao as { id: string } | null)?.id ?? null,
+          // A tela mostra o custo desta geração e o saldo que sobrou.
+          custo: conta.fonte === "plataforma" ? emDolar(custo) : null,
+          saldo: conta.fonte === "plataforma" ? emDolar(Math.max(0, conta.saldo - custo)) : null,
         });
       } catch (e) {
+        /*
+         * Recusa e corte por tamanho acontecem DEPOIS de a IA trabalhar: a
+         * Anthropic cobra esses tokens de qualquer jeito. Não debitar aqui
+         * seria nós pagando o erro do cliente.
+         */
+        if (e instanceof ErroIA) {
+          await cobrar({
+            conta,
+            modelo: modeloValido(site.modelo),
+            uso: e.uso,
+            descricao: "Geração interrompida",
+            referenciaTipo: "site_ia",
+            referenciaId: siteIaId,
+          });
+        }
         await registrarFalha(e instanceof Error ? e.message : "Falha ao falar com a IA.");
       }
       controller.close();

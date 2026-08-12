@@ -78,7 +78,29 @@ function blocosDaMensagem(msg: MensagemChat): BlocoUsuario[] {
   return blocos;
 }
 
-export type RespostaIA = { html: string | null; resumo: string; textoBruto: string };
+export type UsoIA = { entrada: number; saida: number; cacheGravado: number; cacheLido: number };
+
+/*
+ * Erro que já aconteceu DEPOIS de a IA trabalhar — recusa, corte por tamanho.
+ * Esses tokens foram cobrados pela Anthropic de qualquer jeito, então o erro
+ * carrega o consumo junto: não descontar seria pagar a conta do cliente.
+ */
+export class ErroIA extends Error {
+  uso: UsoIA;
+  constructor(mensagem: string, uso: UsoIA) {
+    super(mensagem);
+    this.name = "ErroIA";
+    this.uso = uso;
+  }
+}
+
+export type RespostaIA = {
+  html: string | null;
+  resumo: string;
+  textoBruto: string;
+  // Quanto custou de verdade. Sem isto o débito de crédito seria estimativa.
+  uso: UsoIA;
+};
 
 /*
  * Manda a conversa para o Claude e devolve o HTML da página.
@@ -143,19 +165,26 @@ export async function conversarComIA(opcoes: {
   }
 
   const final = await stream.finalMessage();
+  const uso = {
+    entrada: final.usage.input_tokens ?? 0,
+    saida: final.usage.output_tokens ?? 0,
+    cacheGravado: final.usage.cache_creation_input_tokens ?? 0,
+    cacheLido: final.usage.cache_read_input_tokens ?? 0,
+  };
   // Os modelos novos podem recusar por classificador de segurança; sem isto o
   // erro apareceria como "a IA não devolveu HTML", que confunde.
   if (final.stop_reason === "refusal") {
-    throw new Error("A IA recusou este pedido. Reescreva o prompt e tente de novo.");
+    throw new ErroIA("A IA recusou este pedido. Reescreva o prompt e tente de novo.", uso);
   }
   // Documento cortado no meio: melhor avisar do que salvar uma página quebrada.
   if (final.stop_reason === "max_tokens") {
-    throw new Error(
+    throw new ErroIA(
       "A página ficou longa demais e foi cortada. Peça algo mais enxuto (menos seções) e tente de novo.",
+      uso,
     );
   }
 
-  return { html: extrairHtml(texto), resumo: extrairResumo(texto), textoBruto: texto };
+  return { html: extrairHtml(texto), resumo: extrairResumo(texto), textoBruto: texto, uso };
 }
 
 export { extrairHtml, extrairResumo } from "./extrair";
