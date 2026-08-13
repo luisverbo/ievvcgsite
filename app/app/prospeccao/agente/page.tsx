@@ -108,7 +108,14 @@ export default async function MeuAgentePage() {
 
       {/* passo a passo */}
       <div>
-        <h2 className="mb-3 text-sm font-bold">Como instalar</h2>
+        <h2 className="mb-1 text-sm font-bold">
+          {algumOnline ? "Instalar em outro computador" : "Como instalar"}
+        </h2>
+        {algumOnline && (
+          <p className="mb-3 text-xs text-paper-dim">
+            Seu agente já está ligado — estes passos são só se você quiser rodar em outra máquina.
+          </p>
+        )}
         <ol className="flex flex-col gap-3">
           {PASSOS.map((p, i) => (
             <li key={p.titulo} className="flex gap-3 rounded-xl border border-white/10 bg-ink-2 p-4">

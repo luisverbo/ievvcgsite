@@ -48,9 +48,15 @@ export async function agenteDaRequisicao(req: Request): Promise<AgenteAutenticad
   const linha = data as { id: string; org_id: string; nome: string; ativo: boolean } | null;
   if (!linha || !linha.ativo) return null;
 
-  // Marca presença sem travar a resposta: é isso que faz o painel mostrar
-  // "agente conectado" sem o agente precisar de porta aberta.
-  void admin
+  /*
+   * Marca presença. É isso que faz o painel mostrar "agente ligado" sem o
+   * agente precisar de porta aberta.
+   *
+   * O await não é opcional: as consultas do Supabase só saem quando alguém
+   * espera por elas. Sem isto a linha nunca era gravada, o agente trabalhava
+   * normalmente e o painel jurava que ninguém estava conectado.
+   */
+  await admin
     .from("agentes")
     .update({ ultimo_contato: new Date().toISOString() })
     .eq("id", linha.id);
