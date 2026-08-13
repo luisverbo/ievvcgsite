@@ -42,6 +42,14 @@ export type Anexo = {
   nome: string;
   media_type: string;
   data: string; // base64 puro (sem o prefixo data:)
+  /*
+   * Endereço público da foto, quando ela já foi hospedada.
+   *
+   * Sem isto a IA só ENXERGA a imagem: ela descreve, se inspira, mas não tem
+   * como colocá-la na página, porque <img src> precisa de um endereço. É a
+   * diferença entre "vi a foto da sua loja" e "usei a foto da sua loja".
+   */
+  url?: string;
 };
 
 export type MensagemChat = {
@@ -72,6 +80,14 @@ function blocosDaMensagem(msg: MensagemChat): BlocoUsuario[] {
           data: anexo.data,
         },
       });
+      // O endereço vem logo depois da imagem, para a IA saber que aquela foto
+      // que ela acabou de ver é a que está neste link.
+      if (anexo.url) {
+        blocos.push({
+          type: "text",
+          text: `A imagem acima está hospedada em ${anexo.url} — use exatamente este endereço em <img src="..."> quando ela entrar na página. NÃO peça geração de imagem para ela.`,
+        });
+      }
     }
   }
   blocos.push({ type: "text", text: msg.conteudo || "(sem texto)" });

@@ -61,12 +61,13 @@ export async function subirImagemIA(
   siteIaId: string,
   nomeArquivo: string,
   buf: Buffer,
+  tipo = "image/png",
 ): Promise<string> {
   const admin = createAdminClient();
   const caminho = `${orgId}/ia/${siteIaId}/${nomeArquivo}`;
   const { error } = await admin.storage
     .from("midias")
-    .upload(caminho, buf, { contentType: "image/png", upsert: true });
+    .upload(caminho, buf, { contentType: tipo, upsert: true });
   if (error) throw new Error(`Falha ao salvar a imagem: ${error.message}`);
   const { data } = admin.storage.from("midias").getPublicUrl(caminho);
   return data.publicUrl;

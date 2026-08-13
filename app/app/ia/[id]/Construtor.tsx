@@ -7,6 +7,7 @@ import { listarImagensHtml } from "@/lib/ia/html-imagens";
 import PainelPixel from "./PainelPixel";
 import {
   gerarImagemIA,
+  enviarImagemPropria,
   publicarPaginaIA,
   restaurarVersao,
   trocarModelo,
@@ -126,7 +127,7 @@ export default function Construtor({
     if (el) el.scrollTop = el.scrollHeight;
   }, [ticker]);
 
-  async function anexar(files: FileList | null) {
+  async function anexar(files: FileList | File[] | null) {
     if (!files?.length) return;
     const novos: AnexoLocal[] = [];
     for (const file of Array.from(files).slice(0, 5)) {
@@ -141,13 +142,44 @@ export default function Construtor({
       if (!ehPdf && !file.type.startsWith("image/")) continue;
       novos.push({
         tipo: ehPdf ? "pdf" : "imagem",
-        nome: file.name,
+        // Imagem colada da área de transferência chega sem nome de arquivo.
+        nome: file.name || `foto-${novos.length + 1}.png`,
         media_type: file.type,
         data: await lerBase64(file),
       });
     }
     setAnexos((a) => [...a, ...novos].slice(0, 5));
     if (inputArquivo.current) inputArquivo.current.value = "";
+  }
+
+  // Foto real no lugar exato daquela imagem — sem regerar a página.
+  async function enviarFotoPropria(indice: number, file: File | undefined) {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setErroImg((e) => ({ ...e, [indice]: "A foto passa de 10MB." }));
+      return;
+    }
+    setGerandoImg((s) => new Set(s).add(indice));
+    setErroImg((e) => ({ ...e, [indice]: "" }));
+    try {
+      const res = await enviarImagemPropria(site.id, indice, {
+        base64: await lerBase64(file),
+        media_type: file.type,
+      });
+      if (res.error) setErroImg((e) => ({ ...e, [indice]: res.error! }));
+      else if (res.html) setHtml(res.html);
+    } catch (e) {
+      setErroImg((x) => ({
+        ...x,
+        [indice]: e instanceof Error ? e.message : "Falha ao enviar a foto.",
+      }));
+    } finally {
+      setGerandoImg((s) => {
+        const novo = new Set(s);
+        novo.delete(indice);
+        return novo;
+      });
+    }
   }
 
   async function enviar() {
@@ -589,10 +621,34 @@ export default function Construtor({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) enviar();
                 }}
+                /*
+                 * Colar (Ctrl+V) e arrastar a foto para cá.
+                 *
+                 * É como as pessoas realmente mandam imagem: print da tela,
+                 * foto recebida no WhatsApp, arquivo arrastado da pasta.
+                 * Obrigar a passar pelo botão de anexo é atrito à toa.
+                 */
+                onPaste={(e) => {
+                  const arquivos = Array.from(e.clipboardData.files);
+                  if (arquivos.length) {
+                    e.preventDefault();
+                    void anexar(arquivos);
+                  }
+                }}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  const arquivos = Array.from(e.dataTransfer.files);
+                  if (arquivos.length) {
+                    e.preventDefault();
+                    void anexar(arquivos);
+                  }
+                }}
                 rows={2}
                 disabled={gerando || !contaPronta}
                 placeholder={
-                  html ? "O que você quer mudar?" : "Descreva a página que você quer criar…"
+                  html
+                    ? "O que você quer mudar? (pode colar fotos com Ctrl+V)"
+                    : "Descreva a página que você quer criar…"
                 }
                 className="min-h-0 flex-1 resize-none rounded-lg border border-white/10 bg-ink px-3 py-2.5 text-sm text-paper outline-none focus-visible:border-brand-2 disabled:opacity-60"
               />
@@ -718,6 +774,27 @@ export default function Construtor({
                             ? "Gerar de novo"
                             : "Gerar"}
                       </button>
+                      {/*
+                        A foto do próprio cliente. É o pedido nº 1 depois que
+                        ele aprova o site — e aqui não custa crédito nenhum.
+                      */}
+                      <label
+                        className={`cursor-pointer rounded-md border border-white/15 px-2.5 py-1 text-xs font-bold text-paper-dim transition hover:border-ok hover:text-ok ${
+                          gerandoImg.has(im.indice) ? "pointer-events-none opacity-50" : ""
+                        }`}
+                        title="Usar uma foto sua no lugar desta imagem"
+                      >
+                        📷 Minha foto
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/gif"
+                          hidden
+                          onChange={(e) => {
+                            void enviarFotoPropria(im.indice, e.target.files?.[0]);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
                       {erroImg[im.indice] && (
                         <p className="min-w-0 flex-1 truncate text-xs text-danger" title={erroImg[im.indice]}>
                           {erroImg[im.indice]}

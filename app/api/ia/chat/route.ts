@@ -10,6 +10,7 @@ import {
 } from "@/lib/ia/anthropic";
 import { SYSTEM_CONSTRUTOR, promptInicial } from "@/lib/ia/prompt";
 import { contaDaOrg, cobrar, podeGastar } from "@/lib/creditos/conta";
+import { subirImagemIA } from "@/lib/ia/imagens";
 import { emDolar } from "@/lib/creditos/precos";
 
 // Conversa com o Claude e devolve a resposta em streaming (NDJSON), porque
@@ -82,6 +83,33 @@ export async function POST(req: Request) {
   const permissao = podeGastar(conta);
   if (!permissao.ok) return erro(permissao.motivo, 402);
   const key = conta.anthropic!;
+
+  /*
+   * Hospeda as fotos anexadas antes de falar com a IA.
+   *
+   * Sem isto a IA só ENXERGA a foto: ela sabe que é a fachada da loja, mas não
+   * consegue colocá-la na página, porque <img src> precisa de um endereço.
+   * Guardando primeiro, a foto real do cliente entra no site — que é o que ele
+   * quer ver quando aprova.
+   *
+   * Uma falha aqui não derruba a conversa: a IA ainda vê a imagem e trabalha
+   * com ela como referência.
+   */
+  for (const anexo of anexos) {
+    if (anexo.tipo !== "imagem") continue;
+    try {
+      const ext = anexo.media_type.split("/")[1]?.replace("jpeg", "jpg") || "png";
+      anexo.url = await subirImagemIA(
+        site.org_id,
+        siteIaId,
+        `envio-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`,
+        Buffer.from(anexo.data, "base64"),
+        anexo.media_type,
+      );
+    } catch (e) {
+      console.error("[ia/chat] falha ao hospedar anexo:", (e as Error).message);
+    }
+  }
 
   // Histórico do chat. O HTML antigo NÃO volta junto das mensagens antigas —
   // só o atual é reenviado, senão a conversa cresceria sem limite.

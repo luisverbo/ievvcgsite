@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { slugify } from "@/lib/format";
 import { podeUsar } from "@/lib/painel/permissoes";
-import { modeloValido } from "@/lib/ia/anthropic";
+import { modeloValido, MEDIA_TYPES_IMAGEM } from "@/lib/ia/anthropic";
 import { contaDaOrg, cobrarFixo, statusDaConta } from "@/lib/creditos/conta";
 import { CUSTO_IMAGEM } from "@/lib/creditos/precos";
 import { gerarImagemLanding, subirImagemIA } from "@/lib/ia/imagens";
@@ -236,5 +236,60 @@ export async function gerarImagemIA(
     return { html, url };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Falha ao gerar a imagem." };
+  }
+}
+
+/*
+ * Coloca uma foto REAL no lugar de uma das imagens da página.
+ *
+ * É o caminho que o cliente aprovando o site vai pedir: "põe a foto da minha
+ * loja aqui". Melhor que passar pelo chat — troca só aquele espaço, não regera
+ * a página, não gasta crédito e o enquadramento não muda.
+ */
+export async function enviarImagemPropria(
+  siteIaId: string,
+  indice: number,
+  arquivo: { base64: string; media_type: string },
+): Promise<ImagemIAResult> {
+  if (!(await podeUsar("construtor"))) return { error: "Sem permissão." };
+  if (!MEDIA_TYPES_IMAGEM.includes(arquivo.media_type)) {
+    return { error: "Formato não aceito. Use JPG, PNG, WEBP ou GIF." };
+  }
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sites_ia")
+    .select("id, org_id, html")
+    .eq("id", siteIaId)
+    .maybeSingle();
+  const site = data as { id: string; org_id: string; html: string } | null;
+  if (!site?.html) return { error: "Página não encontrada." };
+
+  const imagens = listarImagensHtml(site.html);
+  if (!imagens[indice]) return { error: `Imagem ${indice + 1} não existe mais nesta versão.` };
+
+  const buf = Buffer.from(arquivo.base64, "base64");
+  if (buf.byteLength > 10 * 1024 * 1024) return { error: "A foto passa de 10MB." };
+
+  try {
+    const ext = arquivo.media_type.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
+    // Carimbo no nome: trocar a foto sem isso pegaria a antiga do cache do CDN.
+    const url = await subirImagemIA(
+      site.org_id,
+      site.id,
+      `propria-${indice}-${Date.now()}.${ext}`,
+      buf,
+      arquivo.media_type,
+    );
+    const html = trocarImagemHtml(site.html, indice, url);
+
+    await supabase
+      .from("sites_ia")
+      .update({ html, updated_at: new Date().toISOString() })
+      .eq("id", siteIaId);
+
+    return { html, url };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Falha ao enviar a foto." };
   }
 }
