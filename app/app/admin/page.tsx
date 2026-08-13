@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { alterarPlano, ehAdmin } from "./actions";
 import CriarLanding from "./CriarLanding";
 import ChaveAnthropic from "./ChaveAnthropic";
+import Diagnostico from "./Diagnostico";
 import ChaveForm from "./ebooks/ChaveForm";
 import { getAnthropicKey } from "@/lib/ia/anthropic";
 import { getOpenAIKey } from "@/lib/ebooks/openai";
@@ -114,6 +115,8 @@ export default async function AdminPage() {
           enxerga esta página.
         </p>
       </div>
+
+      <Diagnostico />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {stats.map((s) => (
