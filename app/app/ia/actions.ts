@@ -10,7 +10,7 @@ import { modeloValido, MEDIA_TYPES_IMAGEM } from "@/lib/ia/anthropic";
 import { contaDaOrg, cobrarFixo, statusDaConta } from "@/lib/creditos/conta";
 import { CUSTO_IMAGEM } from "@/lib/creditos/precos";
 import { gerarImagemLanding, subirImagemIA } from "@/lib/ia/imagens";
-import { listarImagensHtml, trocarImagemHtml } from "@/lib/ia/html-imagens";
+import { listarImagensHtml, trocarImagemHtml, removerImagemHtml } from "@/lib/ia/html-imagens";
 
 export type SiteIA = {
   id: string;
@@ -292,4 +292,41 @@ export async function enviarImagemPropria(
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Falha ao enviar a foto." };
   }
+}
+
+/*
+ * Tira uma imagem da página.
+ *
+ * Serve para o caso real: o cliente mandou 10 fotos e o site tem 15 espaços —
+ * ele não quer as 5 restantes desenhadas por IA. Sai na hora e sem custo.
+ *
+ * Sobra o buraco no layout, e é honesto dizer isso na tela: quem fecha o
+ * espaço direito é a IA, num pedido depois.
+ */
+export async function removerImagemIA(
+  siteIaId: string,
+  indice: number,
+): Promise<ImagemIAResult> {
+  if (!(await podeUsar("construtor"))) return { error: "Sem permissão." };
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sites_ia")
+    .select("id, html")
+    .eq("id", siteIaId)
+    .maybeSingle();
+  const site = data as { id: string; html: string } | null;
+  if (!site?.html) return { error: "Página não encontrada." };
+
+  const imagens = listarImagensHtml(site.html);
+  if (!imagens[indice]) return { error: `Imagem ${indice + 1} não existe mais nesta versão.` };
+
+  const html = removerImagemHtml(site.html, indice);
+  const { error } = await supabase
+    .from("sites_ia")
+    .update({ html, updated_at: new Date().toISOString() })
+    .eq("id", siteIaId);
+  if (error) return { error: error.message };
+
+  return { html };
 }

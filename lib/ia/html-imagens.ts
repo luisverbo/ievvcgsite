@@ -71,3 +71,20 @@ export function trocarImagemHtml(
     return nova;
   });
 }
+
+/*
+ * Tira a n-ésima imagem da página.
+ *
+ * Remove a tag inteira, e não só o src: uma <img> sem endereço vira o ícone de
+ * imagem quebrada, que é pior do que não ter foto nenhuma.
+ *
+ * O buraco no layout é o que sobra — uma grade de três colunas com dois itens
+ * fica torta. Por isso a tela oferece, logo depois, pedir à IA para fechar o
+ * espaço: aqui a gente resolve o imediato (de graça e na hora), e o ajuste
+ * fino continua sendo trabalho de quem sabe desenhar a página.
+ */
+export function removerImagemHtml(html: string, indice: number): string {
+  let i = 0;
+  RE_IMG.lastIndex = 0;
+  return html.replace(RE_IMG, (tag) => (i++ === indice ? "" : tag));
+}

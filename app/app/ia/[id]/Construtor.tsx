@@ -8,6 +8,7 @@ import PainelPixel from "./PainelPixel";
 import {
   gerarImagemIA,
   enviarImagemPropria,
+  removerImagemIA,
   publicarPaginaIA,
   restaurarVersao,
   trocarModelo,
@@ -104,6 +105,9 @@ export default function Construtor({
   // empresa") — é só revisar e mandar.
   const [texto, setTexto] = useState(pedidoInicial);
   const [anexos, setAnexos] = useState<AnexoLocal[]>([]);
+  // Quantas imagens você tirou nesta sessão — só para oferecer o ajuste da IA
+  // depois, que é quando o buraco no layout aparece.
+  const [removidas, setRemovidas] = useState(0);
   const [gerando, setGerando] = useState(false);
   const [ticker, setTicker] = useState(""); // o código chegando ao vivo
 
@@ -173,6 +177,27 @@ export default function Construtor({
         ...x,
         [indice]: e instanceof Error ? e.message : "Falha ao enviar a foto.",
       }));
+    } finally {
+      setGerandoImg((s) => {
+        const novo = new Set(s);
+        novo.delete(indice);
+        return novo;
+      });
+    }
+  }
+
+  // Tira a imagem da página. Sobra um espaço, e o aviso na tela oferece o
+  // atalho para a IA fechá-lo.
+  async function removerImagem(indice: number) {
+    setGerandoImg((s) => new Set(s).add(indice));
+    setErroImg((e) => ({ ...e, [indice]: "" }));
+    try {
+      const res = await removerImagemIA(site.id, indice);
+      if (res.error) setErroImg((e) => ({ ...e, [indice]: res.error! }));
+      else if (res.html) {
+        setHtml(res.html);
+        setRemovidas((n) => n + 1);
+      }
     } finally {
       setGerandoImg((s) => {
         const novo = new Set(s);
@@ -731,6 +756,26 @@ export default function Construtor({
                 )}
               </div>
 
+              {removidas > 0 && (
+                <div className="mb-3 rounded-lg border border-warn/40 bg-warn/10 p-2.5">
+                  <p className="text-xs text-paper">
+                    {removidas === 1 ? "1 imagem foi tirada" : `${removidas} imagens foram tiradas`}
+                    . O espaço delas pode ter ficado vazio no layout.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setTexto(
+                        "Tirei algumas imagens da página. Reorganize as seções afetadas para não ficar espaço vazio nem grade torta — redistribua o que sobrou, aumente o que fizer sentido e mantenha o resto igual.",
+                      );
+                      setMostrarImagens(false);
+                    }}
+                    className="mt-2 rounded-md bg-brand px-2.5 py-1 text-xs font-bold text-white transition hover:bg-brand-2"
+                  >
+                    Pedir à IA para fechar o espaço
+                  </button>
+                </div>
+              )}
+
               <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
                 {imagens.map((im) => (
                   <div key={im.indice} className="rounded-lg border border-white/10 p-2.5">
@@ -795,6 +840,14 @@ export default function Construtor({
                           }}
                         />
                       </label>
+                      <button
+                        onClick={() => removerImagem(im.indice)}
+                        disabled={gerandoImg.has(im.indice)}
+                        title="Tirar esta imagem da página"
+                        className="rounded-md border border-white/15 px-2.5 py-1 text-xs font-bold text-paper-dim transition hover:border-danger hover:text-danger disabled:opacity-50"
+                      >
+                        Tirar
+                      </button>
                       {erroImg[im.indice] && (
                         <p className="min-w-0 flex-1 truncate text-xs text-danger" title={erroImg[im.indice]}>
                           {erroImg[im.indice]}
