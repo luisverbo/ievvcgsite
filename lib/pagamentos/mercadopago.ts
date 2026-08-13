@@ -15,7 +15,23 @@ import { MercadoPagoConfig, Payment } from "mercadopago";
  */
 
 export function mpConfigurado(): boolean {
-  return !!process.env.MERCADOPAGO_ACCESS_TOKEN;
+  return !!process.env.MERCADOPAGO_ACCESS_TOKEN?.trim();
+}
+
+/*
+ * Detalhe técnico para quem administra o sistema.
+ *
+ * "Não está disponível" é a resposta certa para o cliente, mas é inútil para
+ * quem acabou de configurar e quer saber onde errou. Esta frase só é mostrada
+ * ao dono do sistema.
+ */
+export function motivoIndisponivel(): string {
+  const bruto = process.env.MERCADOPAGO_ACCESS_TOKEN;
+  if (!bruto) {
+    return "MERCADOPAGO_ACCESS_TOKEN não chegou ao servidor. Confira o nome da variável na Vercel, se ela está marcada em Production e — o esquecimento mais comum — faça um Redeploy: variável nova só vale em build novo.";
+  }
+  if (!bruto.trim()) return "MERCADOPAGO_ACCESS_TOKEN está vazia na Vercel.";
+  return "";
 }
 
 function pagamentos(): Payment {

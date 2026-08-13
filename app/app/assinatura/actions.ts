@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { checkoutAssinatura, checkoutCredito, portalDoCliente } from "@/lib/pagamentos/stripe";
-import { criarPix, mpConfigurado } from "@/lib/pagamentos/mercadopago";
+import { criarPix, mpConfigurado, motivoIndisponivel } from "@/lib/pagamentos/mercadopago";
+import { ehAdmin } from "@/lib/painel/admin";
 import { situacaoDaAssinatura, periodoDe, type AssinaturaRow } from "@/lib/pagamentos/estado";
 import { pacoteValido, MICRO } from "@/lib/creditos/precos";
 
@@ -21,6 +22,13 @@ function voltarCom(destino: string, chave: "erro" | "ok", texto: string): never 
 }
 
 const PRECO_MENSAL_CENTAVOS = Number(process.env.PRECO_MENSAL_CENTAVOS) || 30_000; // R$300
+
+// Para o cliente, "indisponível" basta. Para você, que está configurando,
+// a mensagem diz exatamente o que falta.
+async function avisoSemPix(): Promise<string> {
+  const base = "O Pix ainda não está disponível. Fale com o suporte.";
+  return (await ehAdmin()) ? `${base}\n\n${motivoIndisponivel()}` : base;
+}
 
 async function emailDoUsuario(): Promise<string | null> {
   const supabase = await createClient();
@@ -90,9 +98,7 @@ export async function pixDaMensalidade(): Promise<void> {
   const org = await getMinhaOrg();
   const email = await emailDoUsuario();
   if (!org || !email) voltarCom("/app/assinatura", "erro", "Faça login de novo.");
-  if (!mpConfigurado()) {
-    voltarCom("/app/assinatura", "erro", "O Pix ainda não está disponível. Fale com o suporte.");
-  }
+  if (!mpConfigurado()) voltarCom("/app/assinatura", "erro", await avisoSemPix());
 
   const admin = createAdminClient();
   const { data } = await admin
@@ -192,7 +198,7 @@ export async function comprarCreditoPix(dolares: number): Promise<PixCreditoStat
   const org = await getMinhaOrg();
   const email = await emailDoUsuario();
   if (!org || !email) return { error: "Faça login de novo." };
-  if (!mpConfigurado()) return { error: "O Pix ainda não está disponível." };
+  if (!mpConfigurado()) return { error: await avisoSemPix() };
 
   const pacote = pacoteValido(dolares);
   if (!pacote) return { error: "Pacote inválido." };
