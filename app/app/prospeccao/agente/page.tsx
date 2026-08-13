@@ -37,7 +37,8 @@ const PASSOS = [
   },
   {
     titulo: "Baixe o agente",
-    texto: "Descompacte a pasta em qualquer lugar do seu computador — a Área de Trabalho serve.",
+    texto:
+      "Use o botão azul acima. O arquivo já vem com o seu código dentro — descompacte em qualquer lugar do computador, a Área de Trabalho serve.",
   },
   {
     titulo: "Abra o terminal na pasta e rode a instalação",
@@ -45,9 +46,8 @@ const PASSOS = [
     codigo: true,
   },
   {
-    titulo: "Cole o seu código",
-    texto:
-      "Crie um arquivo chamado .env dentro da pasta agente e cole ali as duas linhas que aparecem acima.",
+    titulo: "Nada para configurar",
+    texto: "O seu código já veio pronto dentro do arquivo. Pode pular direto para o passo 5.",
   },
   {
     titulo: "Ligue",
@@ -110,7 +110,33 @@ export default async function MeuAgentePage() {
         )}
       </div>
 
-      <NovoToken url={url} />
+      {/* download — o caminho principal, um clique */}
+      <div className="rounded-xl border border-brand-2/40 bg-brand/10 p-5">
+        <h2 className="text-sm font-bold text-paper">Baixar o agente</h2>
+        <p className="mt-1 text-sm text-paper-dim">
+          O arquivo já vem <b className="text-paper">com o seu código dentro</b>. Você não precisa
+          copiar nem colar nada — é só descompactar e ligar.
+        </p>
+        <a
+          href="/app/prospeccao/agente/baixar"
+          className="mt-3 inline-flex items-center gap-2 rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2"
+        >
+          ⬇ Baixar o agente (.zip)
+        </a>
+        <p className="mt-2 text-xs text-paper-dim">
+          Não compartilhe o arquivo: dentro dele vai o código que dá acesso à sua conta.
+        </p>
+      </div>
+
+      {/* caminho alternativo, para quem já tem a pasta */}
+      <details className="rounded-xl border border-white/10 bg-ink-2 p-4">
+        <summary className="cursor-pointer text-sm font-bold text-paper-dim">
+          Já tenho a pasta do agente — só quero um código novo
+        </summary>
+        <div className="mt-3">
+          <NovoToken url={url} />
+        </div>
+      </details>
 
       {/* passo a passo */}
       <div>
