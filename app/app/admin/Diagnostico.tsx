@@ -1,4 +1,5 @@
 import { cardClass } from "@/components/painel/ui";
+import TesteMp from "./TesteMp";
 
 /*
  * O que o servidor está enxergando.
@@ -88,6 +89,18 @@ export default function Diagnostico() {
 
   const faltando = VARIAVEIS.filter((v) => v.obrigatoria && !valores[v.chave]?.trim());
 
+  /*
+   * Nomes REAIS que chegaram ao servidor, contendo MERCADO ou STRIPE.
+   *
+   * É o que pega o caso "eu cadastrei e ela não aparece": um espaço no fim do
+   * nome, um underscore a mais, a variável em outro projeto. Aqui aparece o
+   * nome exatamente como foi gravado — entre aspas, para espaço ficar visível.
+   * Só o nome; valor, nunca.
+   */
+  const nomesPagamento = Object.keys(process.env)
+    .filter((k) => /MERCADO|STRIPE/i.test(k))
+    .sort();
+
   return (
     <div className={cardClass}>
       <h2 className="text-lg font-bold">🔌 O que o servidor está enxergando</h2>
@@ -124,6 +137,34 @@ export default function Diagnostico() {
           );
         })}
       </div>
+
+      {/* nomes crus, para caçar erro de digitação e espaço invisível */}
+      <div className="mt-4 rounded-lg border border-white/10 bg-ink px-3 py-2.5">
+        <p className="text-xs font-bold text-paper">
+          Variáveis de pagamento que o servidor recebeu (nome exato, entre aspas):
+        </p>
+        {nomesPagamento.length === 0 ? (
+          <p className="mt-1 text-xs text-danger">
+            Nenhuma. As variáveis estão em outro projeto da Vercel, em outro ambiente, ou faltou o
+            Redeploy depois de cadastrar.
+          </p>
+        ) : (
+          <ul className="mt-1 flex flex-col gap-0.5">
+            {nomesPagamento.map((n) => (
+              <li key={n} className="font-mono text-[11px] text-paper-dim">
+                {JSON.stringify(n)}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="mt-2 text-[11px] text-paper-dim">
+          Se aparecer algo como <code>&quot;MERCADOPAGO_ACCESS_TOKEN &quot;</code> (com espaço antes
+          da aspa final) ou um nome escrito diferente, é isso: apague a variável na Vercel e crie de
+          novo com o nome limpo.
+        </p>
+      </div>
+
+      <TesteMp />
     </div>
   );
 }
