@@ -5,7 +5,13 @@ import { buscarProspectos, enfileirarBuscaGoogle, type BuscaState } from "./acti
 import { NICHOS } from "@/lib/prospeccao/nichos";
 import { inputClass, labelClass, fieldClass } from "@/components/painel/ui";
 
-export default function Busca({ agenteAtivo }: { agenteAtivo: boolean }) {
+export default function Busca({
+  agenteAtivo,
+  temAgente,
+}: {
+  agenteAtivo: boolean;
+  temAgente: boolean;
+}) {
   const [osm, acaoOsm, pendenteOsm] = useActionState<BuscaState, FormData>(
     buscarProspectos,
     undefined,
@@ -79,8 +85,20 @@ export default function Busca({ agenteAtivo }: { agenteAtivo: boolean }) {
           </button>
           {!agenteAtivo && (
             <p className="mt-2 text-[11px] text-paper-dim">
-              ⚠️ Nenhum agente pegou tarefa na última hora. A busca fica na fila até você ligar o
-              agente (<code>npm run servico</code>).
+              {temAgente ? (
+                <>
+                  ⚠️ Seu agente está desligado no momento. A busca entra na fila e sai sozinha
+                  assim que você abrir o programa no seu computador.
+                </>
+              ) : (
+                <>
+                  ⚠️ Você ainda não instalou o agente — sem ele a busca no Google não roda.{" "}
+                  <a href="/app/prospeccao/agente" className="underline">
+                    Instalar agora
+                  </a>
+                  .
+                </>
+              )}
             </p>
           )}
         </div>

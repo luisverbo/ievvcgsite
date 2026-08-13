@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import JSZip from "jszip";
-import fs from "node:fs/promises";
-import path from "node:path";
 
+import { ARQUIVOS_DO_AGENTE } from "@/lib/agente/pacote";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
@@ -20,30 +19,13 @@ import { gerarToken, hashDoToken } from "@/lib/agente/token";
  * autenticado, sai por HTTPS, e o arquivo acabaria no disco dele de qualquer
  * forma. O que nunca existe em claro é a cópia do NOSSO lado — guardamos só o
  * hash.
+ *
+ * Os fontes vêm de um módulo gerado no build, não do disco: ler arquivo em
+ * tempo de execução faz o empacotador da Vercel arrastar o projeto inteiro
+ * para dentro desta função.
  */
 
 export const maxDuration = 60;
-
-// Só o que o agente precisa. Listado à mão, e não por varredura de pasta:
-// um `**/*` acabaria empacotando node_modules, .env do servidor ou o perfil do
-// navegador — coisas que não podem sair daqui.
-const ARQUIVOS_AGENTE = [
-  "api.ts",
-  "abordagem.ts",
-  "capturaIg.ts",
-  "coletor.ts",
-  "instagram.ts",
-  "prospectar.ts",
-  "servico.ts",
-  "whatsapp.ts",
-  "package.json",
-  "tsconfig.json",
-  "README.md",
-];
-
-// O agente importa estes por caminho relativo (../lib/prospeccao/...), então a
-// pasta precisa vir junto e na mesma posição.
-const ARQUIVOS_LIB = ["tipos.ts", "nichos.ts", "instagram.ts"];
 
 const LEIAME = `AGENTE DO PÁGINAPRO
 ====================
@@ -80,14 +62,6 @@ NÃO COMPARTILHE a pasta com ninguém: o arquivo .env tem o código que dá aces
 à sua conta.
 `;
 
-async function lerArquivo(...partes: string[]): Promise<string | null> {
-  try {
-    return await fs.readFile(path.join(process.cwd(), ...partes), "utf8");
-  } catch {
-    return null;
-  }
-}
-
 export async function GET() {
   if (!(await podeUsar("prospeccao"))) {
     return new NextResponse("Não encontrado", { status: 404 });
@@ -109,34 +83,11 @@ export async function GET() {
 
   const zip = new JSZip();
   const raiz = zip.folder("paginapro-agente")!;
-  const pastaAgente = raiz.folder("agente")!;
-  const pastaLib = raiz.folder("lib")!.folder("prospeccao")!;
 
-  let faltou = false;
-  for (const nome of ARQUIVOS_AGENTE) {
-    const conteudo = await lerArquivo("agente", nome);
-    if (conteudo === null) {
-      faltou = true;
-      continue;
-    }
-    pastaAgente.file(nome, conteudo);
-  }
-  for (const nome of ARQUIVOS_LIB) {
-    const conteudo = await lerArquivo("lib", "prospeccao", nome);
-    if (conteudo === null) {
-      faltou = true;
-      continue;
-    }
-    pastaLib.file(nome, conteudo);
-  }
-
-  // Zip incompleto não pode ir: o cliente instalaria e travaria num erro de
-  // arquivo faltando, sem entender por quê.
-  if (faltou) {
-    return new NextResponse(
-      "Não consegui montar o pacote do agente. Avise o suporte — é problema nosso, não seu.",
-      { status: 500 },
-    );
+  // Os caminhos já vêm relativos à raiz do projeto, e é isso que preserva os
+  // imports "../lib/prospeccao/..." do agente.
+  for (const [caminho, conteudo] of Object.entries(ARQUIVOS_DO_AGENTE)) {
+    raiz.file(caminho, conteudo);
   }
 
   // O token nasce agora e já entra no .env.
@@ -150,8 +101,8 @@ export async function GET() {
   if (error) return new NextResponse("Falha ao preparar o agente.", { status: 500 });
 
   const url = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
-  pastaAgente.file(
-    ".env",
+  raiz.file(
+    "agente/.env",
     [
       "# Gerado automaticamente no download. Não compartilhe este arquivo.",
       `PAGINAPRO_URL=${url}`,

@@ -34,12 +34,16 @@ const FILTROS: { chave: string; rotulo: string }[] = [
   { chave: "fechou", rotulo: "Fechados" },
 ];
 
-// Fora do componente: o corpo do render precisa ser puro (regra do React).
-function houveAgenteRecente(tarefas: TarefaRow[]) {
-  const umaHoraAtras = new Date(Date.now() - 3_600_000).toISOString();
-  return tarefas.some(
-    (t) => t.agente && t.created_at > umaHoraAtras && t.status !== "pendente",
-  );
+/*
+ * O agente está ligado?
+ *
+ * Perguntamos ao próprio agente (ele marca presença a cada volta), e não às
+ * tarefas. Deduzir pelas tarefas dava resposta errada no caso mais comum: um
+ * agente ligado, ocupado com o WhatsApp, aparecia como "nenhum agente" só
+ * porque não tinha pegado busca na última hora.
+ */
+function agenteOnline(ultimo: string | null | undefined) {
+  return !!ultimo && Date.now() - new Date(ultimo).getTime() < 15 * 60_000;
 }
 
 // Só o WhatsApp de celular vale link direto; fixo não tem.
@@ -110,9 +114,14 @@ export default async function ProspeccaoPage({
     .limit(12);
   const tarefas = (tarefasRaw as TarefaRow[] | null) ?? [];
 
-  // "Agente ativo" = alguém pegou tarefa na última hora. Serve só para avisar
-  // que a busca do Google vai ficar parada se o agente não estiver ligado.
-  const agenteAtivo = houveAgenteRecente(tarefas);
+  const { data: agentesRaw } = await supabase
+    .from("agentes")
+    .select("ultimo_contato")
+    .eq("org_id", org.id);
+  const agenteAtivo = ((agentesRaw as { ultimo_contato: string | null }[] | null) ?? []).some((a) =>
+    agenteOnline(a.ultimo_contato),
+  );
+  const temAgente = (agentesRaw?.length ?? 0) > 0;
 
   /*
    * Quanto de Instagram já foi pedido — uma na fila por vez e um teto no dia.
@@ -198,7 +207,7 @@ export default async function ProspeccaoPage({
 
       <div className={cardClass}>
         <h2 className="mb-4 text-lg font-bold">🔎 Buscar empresas</h2>
-        <Busca agenteAtivo={agenteAtivo} />
+        <Busca agenteAtivo={agenteAtivo} temAgente={temAgente} />
       </div>
 
       <Fila tarefas={tarefas} />

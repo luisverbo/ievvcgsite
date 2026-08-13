@@ -20,28 +20,33 @@ import {
   type EstadoZap,
 } from "./whatsapp.ts";
 
-const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 /*
- * Espera longa, dando sinal de vida no meio.
+ * UMA mensagem por chamada, e o relógio guardado aqui fora.
  *
- * O intervalo entre mensagens pode passar de sete minutos. Dormir tudo de uma
- * vez faria o painel achar que o agente caiu — ele estaria só esperando, que é
- * exatamente o comportamento que evita o bloqueio do WhatsApp.
+ * Antes esta rotina ficava num laço próprio: mandava, esperava sete minutos,
+ * mandava de novo. Enquanto isso o agente não olhava a fila de buscas — com
+ * vinte mensagens pendentes, uma pesquisa do Google esperava horas para ser
+ * atendida, e o painel dizia que nenhum agente tinha pegado tarefa.
+ *
+ * Agora ela sai depois de cada envio e o serviço volta a checar a fila. O
+ * intervalo entre mensagens continua igual: quem controla é este carimbo.
  */
-async function esperarDandoSinal(ms: number) {
-  const PEDACO = 120_000;
-  for (let restante = ms; restante > 0; restante -= PEDACO) {
-    await espera(Math.min(PEDACO, restante));
-    if (restante > PEDACO) await api.ping().catch(() => {});
-  }
-}
+let proximoEnvioEm = 0;
 
 // Sessão viva entre uma volta e outra do serviço: reabrir o navegador a cada
 // mensagem seria lento e chamaria atenção.
 let sessao: { page: Page; fechar: () => Promise<void> } | null = null;
 
+// Não vale perguntar o estado da abordagem a cada volta de 8s do serviço.
+let proximaChecagemEm = 0;
+
 export async function rodarAbordagem(headless: boolean, log: (m: string) => void): Promise<void> {
+  const agoraMs = Date.now();
+  // Ainda no intervalo entre mensagens: nada a fazer, e a fila de buscas
+  // continua sendo atendida normalmente pelo serviço.
+  if (agoraMs < proximoEnvioEm && agoraMs < proximaChecagemEm) return;
+  proximaChecagemEm = agoraMs + 20_000;
+
   const { config: cfg, enviadasHoje, pendentes } = await api.abordagemEstado();
 
   // Pedido de desconexão vem primeiro: apaga a sessão para poder entrar com
@@ -112,46 +117,34 @@ export async function rodarAbordagem(headless: boolean, log: (m: string) => void
   // Era só para conectar — sem mensagem na fila, o trabalho acaba aqui.
   if (pendentes === 0) return;
 
-  const page = sessao.page;
-  let enviadas = enviadasHoje;
+  // Ainda dentro do intervalo da mensagem anterior.
+  if (Date.now() < proximoEnvioEm) return;
 
-  for (;;) {
-    if (enviadas >= cfg.limite_diario) {
-      log(`limite diário atingido (${enviadas}/${cfg.limite_diario})`);
-      break;
+  const msg = await api.proximaMensagem();
+  if (!msg) return;
+
+  const r = await enviarMensagem(sessao.page, msg.telefone, msg.texto);
+
+  if (r.ok) {
+    await api.fimMensagem({ id: msg.id, prospecto_id: msg.prospecto_id, ok: true });
+    log(`✉️  enviada para ${msg.telefone} (${enviadasHoje + 1}/${cfg.limite_diario} hoje)`);
+  } else {
+    await api.fimMensagem({ id: msg.id, ok: false, semWhatsapp: r.semWhatsapp, erro: r.motivo });
+    log(`⚠️  ${msg.telefone}: ${r.motivo}`);
+
+    if (r.pararTudo) {
+      // Sessão caiu: derruba o navegador para reconectar (e mostrar o QR de
+      // novo) na próxima volta, em vez de insistir e queimar o número.
+      await api.zapEstado("desconectado", r.motivo, null);
+      await sessao.fechar().catch(() => {});
+      sessao = null;
+      return;
     }
-
-    const msg = await api.proximaMensagem();
-    if (!msg) break;
-
-    const r = await enviarMensagem(page, msg.telefone, msg.texto);
-
-    if (r.ok) {
-      enviadas++;
-      await api.fimMensagem({ id: msg.id, prospecto_id: msg.prospecto_id, ok: true });
-      log(`✉️  enviada para ${msg.telefone} (${enviadas}/${cfg.limite_diario} hoje)`);
-    } else {
-      await api.fimMensagem({
-        id: msg.id,
-        ok: false,
-        semWhatsapp: r.semWhatsapp,
-        erro: r.motivo,
-      });
-      log(`⚠️  ${msg.telefone}: ${r.motivo}`);
-
-      if (r.pararTudo) {
-        // Sessão caiu: derruba o navegador para reconectar (e mostrar o QR de
-        // novo) na próxima volta, em vez de insistir e queimar o número.
-        await api.zapEstado("desconectado", r.motivo, null);
-        await sessao.fechar().catch(() => {});
-        sessao = null;
-        return;
-      }
-    }
-
-    // Intervalo aleatório: cadência regular é o que denuncia robô.
-    const s = cfg.intervalo_min_s + Math.random() * (cfg.intervalo_max_s - cfg.intervalo_min_s);
-    log(`aguardando ${Math.round(s)}s até a próxima`);
-    await esperarDandoSinal(s * 1000);
   }
+
+  // Intervalo aleatório: cadência regular é o que denuncia robô.
+  const s = cfg.intervalo_min_s + Math.random() * (cfg.intervalo_max_s - cfg.intervalo_min_s);
+  proximoEnvioEm = Date.now() + s * 1000;
+  proximaChecagemEm = proximoEnvioEm;
+  log(`próxima mensagem em ${Math.round(s)}s (a fila de buscas segue normal)`);
 }

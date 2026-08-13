@@ -46,3 +46,6 @@ agente/node_modules
 agente/.env
 agente/.perfil-navegador
 agente/diagnostico
+
+# gerado no build (scripts/gerar-pacote-agente.mjs)
+lib/agente/pacote.ts
