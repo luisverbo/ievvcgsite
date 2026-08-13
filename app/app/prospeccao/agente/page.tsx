@@ -18,10 +18,16 @@ type AgenteRow = {
   created_at: string;
 };
 
-// Online = deu sinal nos últimos 5 minutos. O agente avisa a cada volta da
-// fila, então esse prazo cobre folgado o intervalo normal.
+/*
+ * Online = deu sinal nos últimos 15 minutos.
+ *
+ * Não é folga à toa: entre uma mensagem de WhatsApp e outra o agente espera
+ * de propósito (às vezes 7, 8 minutos), e nesse tempo ele não fala com o
+ * painel. Com uma janela curta, um agente trabalhando normalmente apareceria
+ * como desligado.
+ */
 function online(ultimo: string | null) {
-  return !!ultimo && Date.now() - new Date(ultimo).getTime() < 5 * 60_000;
+  return !!ultimo && Date.now() - new Date(ultimo).getTime() < 15 * 60_000;
 }
 
 const PASSOS = [

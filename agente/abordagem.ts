@@ -22,6 +22,21 @@ import {
 
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/*
+ * Espera longa, dando sinal de vida no meio.
+ *
+ * O intervalo entre mensagens pode passar de sete minutos. Dormir tudo de uma
+ * vez faria o painel achar que o agente caiu — ele estaria só esperando, que é
+ * exatamente o comportamento que evita o bloqueio do WhatsApp.
+ */
+async function esperarDandoSinal(ms: number) {
+  const PEDACO = 120_000;
+  for (let restante = ms; restante > 0; restante -= PEDACO) {
+    await espera(Math.min(PEDACO, restante));
+    if (restante > PEDACO) await api.ping().catch(() => {});
+  }
+}
+
 // Sessão viva entre uma volta e outra do serviço: reabrir o navegador a cada
 // mensagem seria lento e chamaria atenção.
 let sessao: { page: Page; fechar: () => Promise<void> } | null = null;
@@ -137,6 +152,6 @@ export async function rodarAbordagem(headless: boolean, log: (m: string) => void
     // Intervalo aleatório: cadência regular é o que denuncia robô.
     const s = cfg.intervalo_min_s + Math.random() * (cfg.intervalo_max_s - cfg.intervalo_min_s);
     log(`aguardando ${Math.round(s)}s até a próxima`);
-    await espera(s * 1000);
+    await esperarDandoSinal(s * 1000);
   }
 }
