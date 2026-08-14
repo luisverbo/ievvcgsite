@@ -25,6 +25,33 @@ export default async function proxy(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
+  /*
+   * Domínio próprio de cliente: qualquer host que não é nosso.
+   *
+   * O proxy não consulta banco (roda em todo request); ele só reescreve para
+   * /dominio/[host], e é lá que o vínculo domínio → página é resolvido. Host
+   * desconhecido termina em 404 na rota — sem custo aqui.
+   */
+  const nossosHosts = new Set(
+    [
+      ROOT,
+      ROOT && `www.${ROOT}`,
+      ROOT && `app.${ROOT}`,
+      "localhost",
+      process.env.VERCEL_URL?.toLowerCase(),
+      process.env.VERCEL_BRANCH_URL?.toLowerCase(),
+      process.env.VERCEL_PROJECT_PRODUCTION_URL?.toLowerCase(),
+    ].filter(Boolean) as string[],
+  );
+  const ehNosso =
+    nossosHosts.has(host) || (ROOT ? host.endsWith(`.${ROOT}`) : false) || host.endsWith(".vercel.app");
+
+  if (host && !ehNosso && !pathname.startsWith("/_next") && !pathname.startsWith("/dominio/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/dominio/${host}`;
+    return NextResponse.rewrite(url);
+  }
+
   // Painel e auth: sessão + proteção
   if (
     pathname.startsWith("/app") ||

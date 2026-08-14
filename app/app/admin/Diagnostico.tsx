@@ -57,6 +57,18 @@ const VARIAVEIS: Item[] = [
     obrigatoria: false,
   },
   {
+    chave: "TOKEN_VERCEL",
+    rotulo: "Vercel · token da API",
+    para: "conectar domínio próprio dos clientes",
+    obrigatoria: false,
+  },
+  {
+    chave: "PROJETO_VERCEL",
+    rotulo: "Vercel · id do projeto",
+    para: "saber em qual projeto pendurar os domínios",
+    obrigatoria: false,
+  },
+  {
     chave: "ANTHROPIC_API_KEY",
     rotulo: "Anthropic (da plataforma)",
     para: "a IA de quem usa crédito",
@@ -83,6 +95,8 @@ export default function Diagnostico() {
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     MERCADOPAGO_ACCESS_TOKEN: process.env.MERCADOPAGO_ACCESS_TOKEN,
     MERCADOPAGO_WEBHOOK_SECRET: process.env.MERCADOPAGO_WEBHOOK_SECRET,
+    TOKEN_VERCEL: process.env.TOKEN_VERCEL,
+    PROJETO_VERCEL: process.env.PROJETO_VERCEL,
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
     OPENAI_API_KEY: process.env.OPENAI_API_KEY,
   };

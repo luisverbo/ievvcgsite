@@ -435,12 +435,21 @@ export default function Construtor({
           Versões ({versoes.length})
         </button>
         {publicado && (
-          <Link
-            href={`/app/sites/${site.id}/metricas`}
-            className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-paper-dim transition hover:border-white/30 hover:text-paper"
-          >
-            Métricas
-          </Link>
+          <>
+            <Link
+              href={`/app/sites/${site.id}/metricas`}
+              className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-paper-dim transition hover:border-white/30 hover:text-paper"
+            >
+              Métricas
+            </Link>
+            <Link
+              href={`/app/ia/${site.id}/dominio`}
+              title="Colocar esta página no domínio do cliente"
+              className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-bold text-paper-dim transition hover:border-white/30 hover:text-paper"
+            >
+              🌐 Domínio
+            </Link>
+          </>
         )}
         {html ? (
           <>
