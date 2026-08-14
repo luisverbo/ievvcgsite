@@ -20,8 +20,15 @@ import { emDolar } from "@/lib/creditos/precos";
 export const maxDuration = 300;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const MAX_ANEXO_BYTES = 8 * 1024 * 1024; // ~8MB por arquivo
-const MAX_ANEXOS = 5;
+/*
+ * O navegador já encolhe as imagens antes de enviar; estes tetos são a rede
+ * de segurança do servidor, não o limite prático.
+ *
+ * A soma importa mais que o arquivo isolado: a Vercel recusa requisição acima
+ * de ~4,5MB, e é a soma que estoura primeiro.
+ */
+const MAX_ANEXO_BYTES = 4 * 1024 * 1024;
+const MAX_ANEXOS = 10;
 
 function erro(mensagem: string, status = 400) {
   return NextResponse.json({ error: mensagem }, { status });

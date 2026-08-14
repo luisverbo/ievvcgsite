@@ -41,16 +41,73 @@ export type EmpresaVinculada = {
 type AnexoLocal = { tipo: "imagem" | "pdf"; nome: string; media_type: string; data: string };
 type Bolha = { papel: "user" | "assistant" | "erro"; conteudo: string; anexos?: { nome: string }[] };
 
-const MAX_MB = 8;
+const MAX_MB = 12;
+const MAX_ANEXOS = 10;
+
+// Lado maior de uma imagem depois de encolhida. A IA reduz tudo para perto
+// disso antes de olhar — mandar 3000px é gastar tempo de upload à toa.
+const LADO_MAX = 1500;
+
+// Teto do que cabe numa requisição. O servidor recusa acima de ~4,5MB, e um
+// print grande em base64 chega perto disso sozinho.
+const MAX_ENVIO_MB = 3.5;
 
 // Lê o arquivo como base64 puro (sem o prefixo "data:...;base64,").
-function lerBase64(file: File): Promise<string> {
+function lerBase64(file: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const leitor = new FileReader();
     leitor.onload = () => resolve(String(leitor.result).split(",")[1] ?? "");
     leitor.onerror = () => reject(new Error("Não consegui ler o arquivo."));
     leitor.readAsDataURL(file);
   });
+}
+
+/*
+ * Encolhe a imagem antes de enviar.
+ *
+ * Sem isto, oito prints de tela cheia estouram o limite de tamanho da
+ * requisição e o envio falha com um erro que não explica nada. Encolher no
+ * navegador resolve os dois lados: cabe, e sobe rápido.
+ *
+ * PNG com transparência continua PNG — uma logo transparente virando JPEG
+ * ganharia um retângulo preto ou branco atrás. O resto vira JPEG, que para
+ * print de tela pesa uma fração do PNG sem diferença visível.
+ */
+async function prepararImagem(file: File): Promise<{ media_type: string; data: string }> {
+  const bitmap = await createImageBitmap(file);
+  const escala = Math.min(1, LADO_MAX / Math.max(bitmap.width, bitmap.height));
+  const largura = Math.round(bitmap.width * escala);
+  const altura = Math.round(bitmap.height * escala);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = largura;
+  canvas.height = altura;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return { media_type: file.type, data: await lerBase64(file) };
+  ctx.drawImage(bitmap, 0, 0, largura, altura);
+  bitmap.close();
+
+  let transparente = false;
+  if (file.type === "image/png" || file.type === "image/webp") {
+    // Amostra de 1 em cada 16 pixels: achar um pixel translúcido já basta, e
+    // varrer tudo travaria a aba numa imagem grande.
+    const dados = ctx.getImageData(0, 0, largura, altura).data;
+    for (let i = 3; i < dados.length; i += 4 * 16) {
+      if (dados[i] < 250) {
+        transparente = true;
+        break;
+      }
+    }
+  }
+
+  const tipo = transparente ? "image/png" : "image/jpeg";
+  const url = canvas.toDataURL(tipo, 0.82);
+  return { media_type: tipo, data: url.split(",")[1] ?? "" };
+}
+
+// Tamanho aproximado do que vai na requisição (base64 infla ~33%).
+function pesoMb(anexos: { data: string }[]): number {
+  return anexos.reduce((t, a) => t + a.data.length, 0) / (1024 * 1024);
 }
 
 export default function Construtor({
@@ -134,7 +191,7 @@ export default function Construtor({
   async function anexar(files: FileList | File[] | null) {
     if (!files?.length) return;
     const novos: AnexoLocal[] = [];
-    for (const file of Array.from(files).slice(0, 5)) {
+    for (const file of Array.from(files).slice(0, MAX_ANEXOS)) {
       if (file.size > MAX_MB * 1024 * 1024) {
         setBolhas((b) => [
           ...b,
@@ -144,15 +201,40 @@ export default function Construtor({
       }
       const ehPdf = file.type === "application/pdf";
       if (!ehPdf && !file.type.startsWith("image/")) continue;
+
+      const preparado = ehPdf
+        ? { media_type: file.type, data: await lerBase64(file) }
+        : await prepararImagem(file).catch(async () => ({
+            // Formato exótico que o navegador não desenha: vai como veio.
+            media_type: file.type,
+            data: await lerBase64(file),
+          }));
+
       novos.push({
         tipo: ehPdf ? "pdf" : "imagem",
         // Imagem colada da área de transferência chega sem nome de arquivo.
         nome: file.name || `foto-${novos.length + 1}.png`,
-        media_type: file.type,
-        data: await lerBase64(file),
+        ...preparado,
       });
     }
-    setAnexos((a) => [...a, ...novos].slice(0, 5));
+
+    setAnexos((a) => {
+      const juntos = [...a, ...novos].slice(0, MAX_ANEXOS);
+      // Avisa antes de tentar enviar: falhar no envio depois de escrever o
+      // pedido inteiro é bem pior que recusar o arquivo agora.
+      if (pesoMb(juntos) > MAX_ENVIO_MB) {
+        setBolhas((b) => [
+          ...b,
+          {
+            papel: "erro",
+            conteudo:
+              "Os anexos ficaram pesados demais para uma mensagem só. Envie metade agora e o resto na mensagem seguinte.",
+          },
+        ]);
+        return a;
+      }
+      return juntos;
+    });
     if (inputArquivo.current) inputArquivo.current.value = "";
   }
 
@@ -695,7 +777,9 @@ export default function Construtor({
               </button>
             </div>
             <p className="mt-1.5 text-[11px] text-paper-dim">
-              {contaPronta ? "Ctrl+Enter envia · imagem e PDF aceitos" : avisoConta}
+              {contaPronta
+                ? `Ctrl+Enter envia · até ${MAX_ANEXOS} imagens ou PDFs, colando com Ctrl+V`
+                : avisoConta}
             </p>
           </div>
         </aside>
