@@ -32,13 +32,13 @@ export function stripeConfigurada(): boolean {
  * quase todo erro de configuração — e em todos a mensagem crua esconde a
  * causa real.
  */
-function traduzirErro(e: unknown): Error {
+function traduzirErro(e: unknown, variavel = "STRIPE_PRICE_AGENCIA"): Error {
   const msg = e instanceof Error ? e.message : String(e);
 
   // Colou o id do produto no lugar do id do preço. São vizinhos na mesma tela.
   if (/No such price/i.test(msg) && /prod_/.test(msg)) {
     return new Error(
-      "Você colou o ID do produto (prod_…) em STRIPE_PRICE_AGENCIA. O certo é o ID do PREÇO (price_…): no painel da Stripe, abra o produto, clique na linha do preço de R$300/mês e copie o código price_… de lá.",
+      `Você colou o ID do produto (prod_…) em ${variavel}. O certo é o ID do PREÇO (price_…): no painel da Stripe, abra o produto, clique na linha do preço e copie o código price_… de lá.`,
     );
   }
 
@@ -163,6 +163,64 @@ export async function portalDoCliente(customerId: string): Promise<string> {
     return sessao.url;
   } catch (e) {
     throw traduzirErro(e);
+  }
+}
+
+/*
+ * Sites extras hospedados: quantos o cliente paga por mês, além dos que o
+ * plano já inclui.
+ *
+ * Entram como um SEGUNDO item na mesma assinatura, não como outra assinatura.
+ * Assim o cliente tem uma fatura só, um cartão só, uma data só — e quando ele
+ * cancela, cancela tudo junto. Duas assinaturas separadas viram, mais cedo ou
+ * mais tarde, um cliente que cancelou uma e continua pagando a outra.
+ *
+ * `quantidade` é sempre o total desejado, não a diferença. Repetir a mesma
+ * chamada não cobra de novo: para a Stripe, quantidade igual é nada mudou.
+ *
+ * `create_prorations` faz o rateio dos dias — quem contrata dia 20 paga só os
+ * dias que faltam do mês, e quem devolve recebe o crédito na próxima fatura.
+ */
+export async function ajustarSitesExtras(
+  subscriptionId: string,
+  quantidade: number,
+): Promise<{ ok: true } | { ok: false; motivo: string }> {
+  const priceId = process.env.STRIPE_PRICE_SITE_EXTRA?.trim();
+  if (!priceId) {
+    return {
+      ok: false,
+      motivo:
+        "A cobrança de site extra ainda não está configurada no servidor (STRIPE_PRICE_SITE_EXTRA). Fale com o suporte.",
+    };
+  }
+
+  try {
+    const s = stripe();
+    const assinatura = await s.subscriptions.retrieve(subscriptionId);
+    const item = assinatura.items.data.find((i) => i.price?.id === priceId);
+
+    if (item) {
+      if (quantidade > 0) {
+        await s.subscriptionItems.update(item.id, {
+          quantity: quantidade,
+          proration_behavior: "create_prorations",
+        });
+      } else {
+        // Zero extras: tira o item da assinatura em vez de deixar quantidade 0,
+        // para a fatura do cliente não exibir uma linha de R$0,00.
+        await s.subscriptionItems.del(item.id, { proration_behavior: "create_prorations" });
+      }
+    } else if (quantidade > 0) {
+      await s.subscriptionItems.create({
+        subscription: subscriptionId,
+        price: priceId,
+        quantity: quantidade,
+        proration_behavior: "create_prorations",
+      });
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, motivo: traduzirErro(e, "STRIPE_PRICE_SITE_EXTRA").message };
   }
 }
 

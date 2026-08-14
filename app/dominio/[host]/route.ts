@@ -1,12 +1,15 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { responderPagina, type SiteServivel } from "@/lib/ia/servir";
+import { hospedagemAtiva } from "@/lib/dominios/acesso";
+import { paginaForaDoAr } from "@/lib/dominios/foraDoAr";
 
 /*
  * Serve a página de IA no domínio PRÓPRIO do cliente.
  *
  * Ninguém digita /dominio/... — o proxy reescreve para cá toda visita cujo
- * host não é nosso. Aqui o domínio vira página: consulta o vínculo, injeta
- * métricas e pixel (a mesma montagem do endereço interno) e responde.
+ * host não é nosso. Aqui o domínio vira página: consulta o vínculo, confere se
+ * a hospedagem está paga, injeta métricas e pixel (a mesma montagem do
+ * endereço interno) e responde.
  */
 
 export async function GET(_req: Request, ctx: { params: Promise<{ host: string }> }) {
@@ -43,6 +46,17 @@ export async function GET(_req: Request, ctx: { params: Promise<{ host: string }
   const site = siteRaw as SiteServivel | null;
   if (!site?.publicado || !site.html) {
     return new Response("Não encontrado", { status: 404 });
+  }
+
+  /*
+   * A hospedagem está paga?
+   *
+   * Esta é a única trava com dente do produto: sem ela, o cliente para de
+   * pagar e o site dele continua no ar para sempre — nós hospedando de graça,
+   * e ele sem nenhum motivo para voltar.
+   */
+  if (!(await hospedagemAtiva(site.org_id))) {
+    return paginaForaDoAr();
   }
 
   return responderPagina(site);

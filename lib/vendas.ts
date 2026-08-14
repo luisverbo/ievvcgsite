@@ -142,6 +142,11 @@ export const PERGUNTAS: { pergunta: string; resposta: string }[] = [
       "Os dados são públicos — os mesmos que aparecem quando você pesquisa no Google. O envio tem limite diário e intervalo aleatório justamente para não parecer robô, e você controla o ritmo. Ainda assim, use um chip separado: é a recomendação honesta para qualquer abordagem em volume.",
   },
   {
+    pergunta: "Quantos sites eu posso hospedar?",
+    resposta:
+      "Dez sites em domínio próprio já entram no plano, sem custo. Passou disso, cada site a mais custa R$ 29,90 por mês, cobrado na sua assinatura — você aprova antes, e sai da conta sozinho se você desconectar o domínio. Como a média do mercado de mensalidade de site é R$70 a R$150, cada site extra ainda sobra dinheiro no seu bolso.",
+  },
+  {
     pergunta: "Posso cobrar quanto eu quiser dos meus clientes?",
     resposta:
       "Pode. O que você cobra é entre você e o seu cliente — a gente não entra nisso e não fica com porcentagem. A média do mercado para uma landing page é R$800 a R$2.500, mais mensalidade de hospedagem.",
@@ -166,7 +171,8 @@ export const NO_PLANO: string[] = [
   "Prospecção no Google Maps",
   "Abordagem no WhatsApp (manual e automática)",
   "Captura de Instagram das empresas",
-  "Hospedagem com domínio próprio",
+  // Precisa bater com PLANOS.agencia.sites em lib/painel/permissoes.ts.
+  "Hospedagem de 10 sites em domínio próprio",
   "Métricas de visitas e cliques",
   "Download do site em .zip",
   "Pixel do Facebook",

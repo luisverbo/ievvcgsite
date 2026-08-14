@@ -33,18 +33,38 @@ export type Recurso =
  * ~US$0,51 no Opus 5. US$15 no plano Agência dá umas 14 páginas por mês antes
  * de o cliente precisar comprar crédito — e é o que sobra de margem nos R$300.
  */
-export const PLANOS: Record<string, { rotulo: string; recursos: Recurso[]; cota: number }> = {
-  free: { rotulo: "Grátis", recursos: ["construtor"], cota: 1_000_000 },
-  pro: { rotulo: "Pro", recursos: ["construtor", "hospedagem"], cota: 5_000_000 },
+/*
+ * `sites` é quantos sites o plano hospeda em domínio próprio, sem custo extra.
+ *
+ * O teto NÃO é técnico — a Vercel aceita 50 domínios por projeto no Hobby e
+ * não tem limite prático no Pro. É comercial: um cliente com 40 sites no ar
+ * consome banda e suporte de 40 sites pagando por um. A cota é o que faz o
+ * cliente que cresce pagar proporcionalmente ao que usa.
+ *
+ * Por que Agência tem 10 e não 3: o Agência é para quem revende. Dar folga
+ * aqui é o que faz ele sair vendendo — e cada site que ele vende é receita
+ * recorrente sua também, via site extra.
+ */
+export const PLANOS: Record<
+  string,
+  { rotulo: string; recursos: Recurso[]; cota: number; sites: number }
+> = {
+  free: { rotulo: "Grátis", recursos: ["construtor"], cota: 1_000_000, sites: 0 },
+  pro: { rotulo: "Pro", recursos: ["construtor", "hospedagem"], cota: 5_000_000, sites: 3 },
   agencia: {
     rotulo: "Agência",
     recursos: ["construtor", "prospeccao", "hospedagem"],
     cota: 15_000_000,
+    sites: 10,
   },
 };
 
 export function cotaDoPlano(plano: string | null | undefined): number {
   return PLANOS[plano ?? "free"]?.cota ?? 0;
+}
+
+export function sitesDoPlano(plano: string | null | undefined): number {
+  return PLANOS[plano ?? "free"]?.sites ?? 0;
 }
 
 export function planoLibera(plano: string | null | undefined, recurso: Recurso): boolean {

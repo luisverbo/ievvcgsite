@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { podeUsar } from "@/lib/painel/permissoes";
+import { podeUsar, PLANOS } from "@/lib/painel/permissoes";
+import { getMinhaOrg } from "@/lib/painel/queries";
+import { ehAdmin } from "@/lib/painel/admin";
+import { cotaDeHospedagem, precoExtraEmReais } from "@/lib/dominios/cota";
 import { instrucaoDns, vercelConfigurada } from "@/lib/dominios/vercel";
 import { verificarDominio, apagarDominio } from "./actions";
 import FormDominio from "./FormDominio";
@@ -19,7 +22,6 @@ type DominioRow = {
 };
 
 export default async function DominioPage({ params }: { params: Promise<{ id: string }> }) {
-  if (!(await podeUsar("hospedagem"))) notFound();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
 
@@ -38,6 +40,58 @@ export default async function DominioPage({ params }: { params: Promise<{ id: st
     .eq("site_ia_id", id)
     .order("created_at", { ascending: true });
   const dominios = (domRaw as DominioRow[] | null) ?? [];
+
+  /*
+   * Perdeu a hospedagem (assinatura suspensa) MAS tem domínio conectado.
+   *
+   * Antes esta tela dava 404 nesse caso, e o cliente ficava com o site fora do
+   * ar e sem nenhuma pista do motivo — a tela onde a explicação deveria estar
+   * era justamente a que sumia. Agora ela abre e diz o que houve.
+   */
+  const liberado = await podeUsar("hospedagem");
+  if (!liberado) {
+    if (dominios.length === 0) notFound();
+    return (
+      <div className="painel-wrap flex max-w-3xl flex-col gap-6">
+        <div>
+          <Link href={`/app/ia/${id}`} className="text-sm text-paper-dim hover:text-paper">
+            ← {site.titulo}
+          </Link>
+          <h1 className="mt-2 font-display text-3xl font-extrabold">Hospedagem pausada</h1>
+        </div>
+        <div className={cardClass}>
+          <p className="text-sm text-paper">
+            {dominios.length === 1 ? "Este domínio está" : "Estes domínios estão"} fora do ar porque
+            sua assinatura não está ativa:
+          </p>
+          <ul className="mt-2 flex flex-col gap-1">
+            {dominios.map((d) => (
+              <li key={d.id} className="font-mono text-sm font-bold text-paper-dim">
+                {d.dominio}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-sm text-paper-dim">
+            Nada foi apagado — a página, o conteúdo e o domínio continuam aqui. Assim que o
+            pagamento entrar, {dominios.length === 1 ? "ele volta" : "eles voltam"} ao ar sozinho, em
+            cerca de um minuto.
+          </p>
+          <Link
+            href="/app/assinatura"
+            className="mt-4 inline-block rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2"
+          >
+            Regularizar assinatura
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // A cota é da ORGANIZAÇÃO, não desta página: ela conta os sites hospedados
+  // em todas as páginas juntas. É por isso que a busca é por org e não por id.
+  const org = await getMinhaOrg();
+  const cota = org ? await cotaDeHospedagem(org.id) : null;
+  const semLimite = await ehAdmin();
 
   return (
     <div className="painel-wrap flex max-w-3xl flex-col gap-6">
@@ -66,7 +120,43 @@ export default async function DominioPage({ params }: { params: Promise<{ id: st
         </p>
       )}
 
-      <FormDominio siteIaId={id} />
+      {cota && !semLimite && (
+        <div className={cardClass}>
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="text-sm font-bold text-paper">
+              {cota.usados} de {cota.limite} {cota.limite === 1 ? "site hospedado" : "sites hospedados"}
+            </span>
+            <span className="text-xs text-paper-dim">
+              plano {PLANOS[cota.plano]?.rotulo ?? cota.plano} inclui {cota.incluidos}
+              {cota.pagos > 0 && ` · ${cota.pagos} extra${cota.pagos > 1 ? "s" : ""} contratado${cota.pagos > 1 ? "s" : ""}`}
+              {cota.cortesia > 0 && ` · ${cota.cortesia} de cortesia`}
+            </span>
+          </div>
+          <div
+            className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10"
+            role="presentation"
+          >
+            <div
+              className={`h-full rounded-full ${cota.livre === 0 ? "bg-warn" : "bg-brand-2"}`}
+              style={{
+                width: `${cota.limite > 0 ? Math.min(100, (cota.usados / cota.limite) * 100) : 100}%`,
+              }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-paper-dim">
+            {cota.livre > 0
+              ? `Você ainda pode conectar ${cota.livre} ${cota.livre === 1 ? "site" : "sites"} sem custo. Acima disso, cada site custa R$ ${precoExtraEmReais()} por mês.`
+              : `Você usou tudo do plano. Cada site a mais custa R$ ${precoExtraEmReais()} por mês, cobrado na sua assinatura.`}{" "}
+            O <b className="text-paper">www</b> de um domínio já conectado não conta como outro site.
+          </p>
+        </div>
+      )}
+
+      <FormDominio
+        siteIaId={id}
+        livre={semLimite ? null : (cota?.livre ?? 0)}
+        precoExtra={precoExtraEmReais()}
+      />
 
       {dominios.map((d) => {
         const dns = instrucaoDns(d.dominio);

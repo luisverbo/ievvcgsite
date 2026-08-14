@@ -5,14 +5,29 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
+import { ehAdmin } from "@/lib/painel/admin";
 import {
   vercelConfigurada,
   registrarDominio,
   removerDominio,
   conferirDns,
 } from "@/lib/dominios/vercel";
+import {
+  cotaDeHospedagem,
+  chaveDeCobranca,
+  contratarSiteExtra,
+  devolverExtrasNaoUsados,
+  precoExtraEmReais,
+} from "@/lib/dominios/cota";
 
-export type DominioState = { ok?: string; error?: string } | undefined;
+export type DominioState =
+  | {
+      ok?: string;
+      error?: string;
+      /** Passou da cota: a tela pede o "de acordo" antes de cobrar. */
+      precisaExtra?: boolean;
+    }
+  | undefined;
 
 /*
  * "clinicasorriso.com.br", "https://www.clinicasorriso.com.br/" e
@@ -64,16 +79,54 @@ export async function adicionarDominio(
   }
 
   const admin = createAdminClient();
-  const { count } = await admin
-    .from("dominios")
-    .select("id", { count: "exact", head: true })
-    .eq("org_id", org.id);
-  if ((count ?? 0) >= 20) {
-    return { error: "Você chegou a 20 domínios. Fale com o suporte para aumentar." };
+
+  /*
+   * Cota de sites hospedados.
+   *
+   * Só consome cota um site NOVO. Conectar o "www." de um domínio que já está
+   * aqui é completar o mesmo site, e não pode gerar cobrança — é justamente o
+   * passo que a gente pede para ele dar.
+   */
+  const { data: jaTem } = await admin.from("dominios").select("dominio").eq("org_id", org.id);
+  const chaves = new Set(
+    ((jaTem as { dominio: string }[] | null) ?? []).map((d) => chaveDeCobranca(d.dominio)),
+  );
+  const siteNovo = !chaves.has(chaveDeCobranca(dominio));
+  let cobrouExtra = false;
+
+  if (siteNovo && !(await ehAdmin())) {
+    const cota = await cotaDeHospedagem(org.id);
+    if (cota.livre <= 0) {
+      // Primeiro clique só informa o preço. Cobrar sem um "sim" explícito é
+      // como se perde a confiança de quem paga.
+      if (String(formData.get("extra") ?? "") !== "1") {
+        return {
+          precisaExtra: true,
+          error: `Você já usa ${cota.usados} de ${cota.limite} sites hospedados do seu plano. Este seria um site extra: R$ ${precoExtraEmReais()} por mês, cobrado na sua assinatura (proporcional aos dias que faltam neste mês).`,
+        };
+      }
+      const extra = await contratarSiteExtra(org.id);
+      if (!extra.ok) return { error: extra.motivo };
+      cobrouExtra = true;
+    }
   }
 
+  /*
+   * Daqui para baixo, qualquer falha precisa desfazer a cobrança.
+   *
+   * Ele autorizou pagar por um site que, no fim, não subiu. Cobrar assim mesmo
+   * é o erro que ele descobre na fatura — e aí não é mais um problema técnico,
+   * é um problema de confiança.
+   */
+  const desfazer = async () => {
+    if (cobrouExtra) await devolverExtrasNaoUsados(org.id);
+  };
+
   const r = await registrarDominio(dominio);
-  if (!r.ok) return { error: r.motivo };
+  if (!r.ok) {
+    await desfazer();
+    return { error: r.motivo };
+  }
 
   // UNIQUE no banco decide o empate: se outro cliente registrou o mesmo
   // domínio entre a checagem e o insert, este insert falha — e é o certo.
@@ -83,6 +136,8 @@ export async function adicionarDominio(
     dominio,
   });
   if (error) {
+    await removerDominio(dominio);
+    await desfazer();
     if (error.code === "23505") {
       return { error: "Este domínio já está cadastrado no sistema." };
     }
@@ -140,6 +195,10 @@ export async function apagarDominio(siteIaId: string, dominioId: string) {
   // vivo na Vercel, o domínio responderia 404 para sempre sem dono aparente.
   await removerDominio(linha.dominio);
   await admin.from("dominios").delete().eq("id", linha.id);
+
+  // Tirou um site do ar, para de pagar por ele. Roda depois do delete porque a
+  // conta é feita em cima do que sobrou.
+  await devolverExtrasNaoUsados(org.id);
 
   revalidatePath(`/app/ia/${siteIaId}/dominio`);
 }

@@ -148,6 +148,13 @@ export async function POST(req: Request) {
           .from("assinaturas")
           .update({ status: "cancelada", updated_at: new Date().toISOString() })
           .eq("org_id", orgId);
+        /*
+         * Zera os sites extras: o item que os cobrava morreu junto com a
+         * assinatura. Sem isto, o cliente que voltasse meses depois reapareceria
+         * devendo extras que ninguém mais está cobrando — e a nossa conta
+         * discordaria da conta da Stripe, que é a que ele enxerga na fatura.
+         */
+        await admin.from("organizacoes").update({ sites_extras_pagos: 0 }).eq("id", orgId);
         break;
       }
     }
