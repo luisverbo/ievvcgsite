@@ -20,7 +20,12 @@ export function planoVendidoValido(bruto: string): PlanoVendido | null {
 }
 
 export function precoCentavos(plano: PlanoVendido): number {
-  if (plano === "pro") return Number(process.env.PRECO_PRO_CENTAVOS) || 9_700; // R$97
+  /*
+   * R$147 no Pro é decisão de posicionamento, não de custo: o plano entrega
+   * US$5/mês de IA (que nós pagamos) + hospedagem de 3 sites, e mira quem
+   * entende o valor da ferramenta — não quem procura o mais barato.
+   */
+  if (plano === "pro") return Number(process.env.PRECO_PRO_CENTAVOS) || 14_700; // R$147
   return Number(process.env.PRECO_MENSAL_CENTAVOS) || 30_000; // R$300
 }
 

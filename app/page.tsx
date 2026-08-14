@@ -2,13 +2,25 @@ import Link from "next/link";
 import {
   LINK_ASSINATURA,
   LINK_WHATSAPP,
-  PRECO_MENSAL,
   DORES,
   PASSOS,
+  PILARES,
+  PARA_QUEM,
+  NAO_E_PARA,
   RECURSOS,
   PERGUNTAS,
+  NO_PRO,
   NO_PLANO,
 } from "@/lib/vendas";
+import { precoEmReais } from "@/lib/pagamentos/planos";
+import { videoDaLanding } from "@/lib/landing";
+
+/*
+ * A página é estática com revalidação: o vídeo e os preços vêm do servidor,
+ * mas ninguém paga uma ida ao banco por visita. Quando o Admin salva um
+ * vídeo, a action revalida o caminho e a mudança entra na hora.
+ */
+export const revalidate = 3600;
 
 export const metadata = {
   title: "PáginaPro — crie sites com IA e encontre quem precisa deles",
@@ -60,7 +72,10 @@ function Secao({
   );
 }
 
-export default function Home() {
+export default async function Home() {
+  const video = await videoDaLanding();
+  const precoPro = precoEmReais("pro");
+  const precoAgencia = precoEmReais("agencia");
   return (
     <div className="overflow-x-hidden">
       {/* ---------------------------------------------------------------- */}
@@ -151,7 +166,31 @@ export default function Home() {
             </p>
           </div>
 
+          {/*
+           * Vídeo de vendas — só quando o Admin colocou um. Ele assume o posto
+           * de prova principal; sem vídeo, a tela do produto (abaixo) fica.
+           */}
+          {video && (
+            <div className="mx-auto mt-16 max-w-3xl">
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-ink-2 p-2 shadow-[0_40px_120px_-40px_rgba(108,92,231,0.6)]">
+                <div className="relative aspect-video overflow-hidden rounded-xl">
+                  <iframe
+                    src={video.embedUrl}
+                    title="Veja o PáginaPro funcionando"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    className="absolute inset-0 h-full w-full"
+                  />
+                </div>
+              </div>
+              <p className="mt-3 text-center text-xs text-paper-dim">
+                ▶ Aperte o play e veja a ferramenta funcionando de verdade.
+              </p>
+            </div>
+          )}
+
           {/* prova visual: a tela do produto, desenhada em CSS */}
+          {!video && (
           <div className="mx-auto mt-16 max-w-4xl">
             <div className="rounded-2xl border border-white/10 bg-ink-2 p-2 shadow-[0_40px_120px_-40px_rgba(108,92,231,0.6)]">
               <div className="flex items-center gap-1.5 px-3 py-2">
@@ -184,6 +223,7 @@ export default function Home() {
               Nota de potencial: quanto maior, mais fácil a venda.
             </p>
           </div>
+          )}
         </section>
 
         {/* -------------------------------------------------------------- */}
@@ -238,29 +278,88 @@ export default function Home() {
         </section>
 
         {/* -------------------------------------------------------------- */}
+        {/* os 4 pilares, a fundo — a profundidade que ticket alto exige    */}
+        {/* -------------------------------------------------------------- */}
+        <section className="border-t border-white/10 px-5 py-24">
+          <Secao
+            chapeu="Por dentro da ferramenta"
+            titulo="Quatro máquinas trabalhando juntas"
+            subtitulo="Cada uma existiria como produto separado. Aqui elas conversam entre si: a prospecção alimenta o criador, o criador alimenta a hospedagem, e a hospedagem vira a sua mensalidade."
+          />
+          <div className="mx-auto mt-14 flex max-w-5xl flex-col gap-8">
+            {PILARES.map((p, i) => (
+              <div
+                key={p.titulo}
+                className={`grid items-center gap-8 rounded-3xl border border-white/10 bg-ink-2/60 p-8 sm:p-10 lg:grid-cols-2 ${
+                  i % 2 === 1 ? "lg:[&>*:first-child]:order-2" : ""
+                }`}
+              >
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-[0.2em] text-brand-2">
+                    {p.chapeu}
+                  </span>
+                  <h3 className="mt-3 text-2xl leading-snug text-paper sm:text-3xl">
+                    {p.icone} {p.titulo}
+                  </h3>
+                  <p className="mt-4 text-base leading-relaxed text-paper-dim">{p.texto}</p>
+                </div>
+                <ul className="flex flex-col gap-3">
+                  {p.detalhes.map((d) => (
+                    <li
+                      key={d}
+                      className="flex items-start gap-3 rounded-xl border border-white/10 bg-ink px-4 py-3 text-sm text-paper-dim"
+                    >
+                      <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-brand/25 text-xs font-bold text-brand-2">
+                        ✓
+                      </span>
+                      {d}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* -------------------------------------------------------------- */}
         {/* conta que fecha                                                 */}
         {/* -------------------------------------------------------------- */}
         <section className="border-y border-white/10 bg-gradient-to-b from-brand/10 to-transparent px-5 py-24">
           <Secao
             chapeu="A conta"
-            titulo="Um cliente já paga o ano inteiro"
-            subtitulo="A mensalidade custa menos que o café da equipe. O primeiro site que você vender já cobre vários meses."
+            titulo="Faça a conta antes de decidir"
+            subtitulo="Não é gasto, é margem: você revende cada pedaço da ferramenta por mais do que ela custa inteira."
           />
           <div className="mx-auto mt-12 grid max-w-4xl gap-4 sm:grid-cols-3">
             {[
-              { valor: `R$ ${PRECO_MENSAL}`, rotulo: "por mês, tudo incluso" },
-              { valor: "R$ 1.200", rotulo: "média cobrada por uma landing page" },
-              { valor: "4×", rotulo: "o que sobra já no primeiro site vendido" },
+              {
+                valor: "R$ 800–2.500",
+                rotulo: "o que o mercado cobra por UMA landing page — você entrega em minutos",
+              },
+              {
+                valor: "R$ 70–150/mês",
+                rotulo: "o que o mercado cobra pela hospedagem de UM site — o plano inclui até 10",
+              },
+              {
+                valor: "R$ 700+/mês",
+                rotulo: "sua recorrência com 10 sites hospedados, cobrando o mínimo do mercado",
+              },
             ].map((e) => (
               <div
                 key={e.rotulo}
                 className="rounded-2xl border border-white/10 bg-ink-2 p-7 text-center"
               >
-                <div className="font-display text-4xl font-extrabold text-paper">{e.valor}</div>
+                <div className="font-display text-3xl font-extrabold text-paper sm:text-4xl">
+                  {e.valor}
+                </div>
                 <div className="mt-2 text-sm text-paper-dim">{e.rotulo}</div>
               </div>
             ))}
           </div>
+          <p className="mx-auto mt-8 max-w-2xl text-center text-base text-paper-dim">
+            Em outras palavras: <b className="text-paper">o primeiro site vendido paga meses de
+            assinatura</b> — e cada site hospedado transforma a mensalidade em lucro fixo.
+          </p>
         </section>
 
         {/* -------------------------------------------------------------- */}
@@ -268,7 +367,7 @@ export default function Home() {
         {/* -------------------------------------------------------------- */}
         <section id="recursos" className="scroll-mt-20 px-5 py-24">
           <Secao
-            chapeu="O que vem junto"
+            chapeu="E ainda vem junto"
             titulo="Tudo que uma agência de site precisa"
             subtitulo="Sem plugin, sem contratar ferramenta por fora, sem mensalidade escondida."
           />
@@ -287,16 +386,93 @@ export default function Home() {
         </section>
 
         {/* -------------------------------------------------------------- */}
+        {/* para quem é — qualificação de ticket alto                       */}
+        {/* -------------------------------------------------------------- */}
+        <section className="border-t border-white/10 px-5 py-24">
+          <Secao
+            chapeu="Antes do preço"
+            titulo="Isto aqui não é para todo mundo"
+            subtitulo="Ferramenta profissional, preço de ferramenta profissional. Vale mais um não honesto agora do que um cancelamento no mês que vem."
+          />
+          <div className="mx-auto mt-12 grid max-w-4xl gap-5 md:grid-cols-2">
+            <div className="rounded-2xl border border-ok/30 bg-ok/5 p-7">
+              <h3 className="text-lg font-bold text-ok">É para você, se…</h3>
+              <ul className="mt-4 flex flex-col gap-3">
+                {PARA_QUEM.map((t) => (
+                  <li key={t} className="flex items-start gap-3 text-sm text-paper">
+                    <span className="mt-0.5 text-ok">✓</span>
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-ink-2 p-7">
+              <h3 className="text-lg font-bold text-paper-dim">Não é para você, se…</h3>
+              <ul className="mt-4 flex flex-col gap-3">
+                {NAO_E_PARA.map((t) => (
+                  <li key={t} className="flex items-start gap-3 text-sm text-paper-dim">
+                    <span className="mt-0.5">✗</span>
+                    {t}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* -------------------------------------------------------------- */}
         {/* preço                                                           */}
         {/* -------------------------------------------------------------- */}
         <section id="preco" className="scroll-mt-20 border-t border-white/10 px-5 py-24">
           <Secao
             chapeu="Preço"
-            titulo="Um plano. Tudo liberado."
-            subtitulo="Sem pegadinha de “a partir de”, sem cobrar por site criado, sem limite de clientes."
+            titulo="Dois planos. Nenhuma pegadinha."
+            subtitulo="Sem “a partir de”, sem cobrar por página criada, sem limite de clientes. O que muda é se o sistema também SAI para vender por você."
           />
 
-          <div className="mx-auto mt-12 max-w-lg">
+          <div className="mx-auto mt-12 grid max-w-4xl items-start gap-5 md:grid-cols-2">
+            {/* Pro */}
+            <div className="rounded-3xl border border-white/15 bg-ink-2 p-8">
+              <h3 className="text-2xl">Pro</h3>
+              <p className="mt-1 text-sm text-paper-dim">
+                A fábrica de sites: crie sem limite e hospede os seus clientes.
+              </p>
+
+              <div className="mt-6 flex items-end gap-2">
+                <span className="font-display text-5xl font-extrabold text-paper">
+                  R$ {precoPro}
+                </span>
+                <span className="pb-2 text-lg font-bold text-paper-dim">/mês</span>
+              </div>
+
+              <ul className="mt-7 flex flex-col gap-3">
+                {NO_PRO.map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-sm text-paper">
+                    <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-ok/20 text-xs font-bold text-ok">
+                      ✓
+                    </span>
+                    {item}
+                  </li>
+                ))}
+                <li className="flex items-start gap-3 text-sm text-paper-dim">
+                  <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-white/10 text-xs font-bold">
+                    ✗
+                  </span>
+                  Prospecção e abordagem no WhatsApp
+                </li>
+              </ul>
+
+              <div className="mt-8">
+                <Link
+                  href={LINK_ASSINATURA}
+                  className="flex w-full items-center justify-center rounded-full border border-white/20 px-6 py-4 text-base font-bold text-paper transition hover:border-brand-2 hover:text-brand-2"
+                >
+                  Começar no Pro →
+                </Link>
+              </div>
+            </div>
+
+            {/* Agência */}
             <div className="relative rounded-3xl border border-brand-2/40 bg-ink-2 p-8 shadow-[0_40px_120px_-50px_rgba(108,92,231,0.9)]">
               <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand px-4 py-1 text-xs font-bold text-white">
                 MAIS COMPLETO
@@ -304,12 +480,12 @@ export default function Home() {
 
               <h3 className="text-2xl">Agência</h3>
               <p className="mt-1 text-sm text-paper-dim">
-                Para quem vive de vender site — ou quer começar a viver.
+                A fábrica + o vendedor: o sistema encontra e aborda os clientes por você.
               </p>
 
               <div className="mt-6 flex items-end gap-2">
-                <span className="font-display text-6xl font-extrabold text-paper">
-                  R$ {PRECO_MENSAL}
+                <span className="font-display text-5xl font-extrabold text-paper">
+                  R$ {precoAgencia}
                 </span>
                 <span className="pb-2 text-lg font-bold text-paper-dim">/mês</span>
               </div>
@@ -330,28 +506,29 @@ export default function Home() {
                   href={LINK_ASSINATURA}
                   className="flex w-full items-center justify-center rounded-full bg-brand px-6 py-4 text-base font-bold text-white shadow-[0_10px_40px_-12px_rgba(108,92,231,0.9)] transition hover:-translate-y-0.5 hover:bg-brand-2"
                 >
-                  Assinar agora →
+                  Assinar o Agência →
                 </Link>
               </div>
-
-              <p className="mt-4 text-center text-xs text-paper-dim">
-                Cartão de crédito · renova sozinho · cancela no painel quando quiser
-              </p>
             </div>
-
-            <p className="mt-6 text-center text-sm text-paper-dim">
-              Ficou com dúvida antes de assinar?{" "}
-              <a
-                href={LINK_WHATSAPP}
-                target="_blank"
-                rel="noreferrer"
-                className="font-semibold text-brand-2 underline underline-offset-4"
-              >
-                Fala comigo no WhatsApp
-              </a>
-              .
-            </p>
           </div>
+
+          <p className="mx-auto mt-6 max-w-2xl text-center text-xs text-paper-dim">
+            Cartão de crédito · renova sozinho · cancela no painel quando quiser · site hospedado
+            além da cota: R$ 29,90/mês cada
+          </p>
+
+          <p className="mt-6 text-center text-sm text-paper-dim">
+            Ficou com dúvida antes de assinar?{" "}
+            <a
+              href={LINK_WHATSAPP}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-brand-2 underline underline-offset-4"
+            >
+              Fala comigo no WhatsApp
+            </a>
+            .
+          </p>
         </section>
 
         {/* -------------------------------------------------------------- */}

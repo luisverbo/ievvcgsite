@@ -5,6 +5,7 @@ import { alterarPlano, alternarPlanoFree, ehAdmin } from "./actions";
 import CriarLanding from "./CriarLanding";
 import ChaveAnthropic from "./ChaveAnthropic";
 import Diagnostico from "./Diagnostico";
+import VideoLanding from "./VideoLanding";
 import ChaveForm from "./ebooks/ChaveForm";
 import { getAnthropicKey } from "@/lib/ia/anthropic";
 import { getOpenAIKey } from "@/lib/ebooks/openai";
@@ -34,6 +35,7 @@ export default async function AdminPage() {
     { count: totalEbooks },
     { count: totalProspectos },
     freeAtivo,
+    { data: videoRow },
   ] = await Promise.all([
     admin.from("organizacoes").select("id, nome, plano, created_at").order("created_at"),
     admin.from("sites").select("org_id, publicado"),
@@ -45,7 +47,9 @@ export default async function AdminPage() {
     admin.from("ebooks").select("id", { count: "exact", head: true }),
     admin.from("prospeccao").select("id", { count: "exact", head: true }),
     planoFreeAtivo(),
+    admin.from("config_sistema").select("valor").eq("chave", "landing_video_url").maybeSingle(),
   ]);
+  const videoAtual = (videoRow as { valor: string } | null)?.valor ?? "";
 
   const orgs = (orgsRaw as OrgRow[] | null) ?? [];
   const sites = (sitesRaw as { org_id: string; publicado: boolean }[] | null) ?? [];
@@ -121,6 +125,8 @@ export default async function AdminPage() {
       </div>
 
       <Diagnostico />
+
+      <VideoLanding atual={videoAtual} />
 
       {/* ------------------------- plano grátis -------------------------- */}
       <div className={cardClass}>

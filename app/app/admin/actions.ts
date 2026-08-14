@@ -49,6 +49,54 @@ export async function alternarPlanoFree(ativo: boolean) {
   revalidatePath("/app");
 }
 
+/* --------------------------- vídeo da landing ------------------------------ */
+
+export type VideoLandingState = { ok?: string; error?: string } | undefined;
+
+/*
+ * Cola o link do YouTube e o vídeo aparece no topo da página de vendas.
+ * Campo vazio remove. A revalidação derruba o cache da landing na hora —
+ * sem ela, a mudança só apareceria na próxima reconstrução da página.
+ */
+export async function salvarVideoLanding(
+  _prev: VideoLandingState,
+  formData: FormData,
+): Promise<VideoLandingState> {
+  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  const { idDoYoutube } = await import("@/lib/landing");
+
+  const bruto = String(formData.get("video_url") ?? "").trim();
+  const admin = createAdminClient();
+
+  if (!bruto) {
+    await admin.from("config_sistema").upsert({
+      chave: "landing_video_url",
+      valor: "",
+      updated_at: new Date().toISOString(),
+    });
+    revalidatePath("/");
+    revalidatePath("/app/admin");
+    return { ok: "Vídeo removido. A página de vendas volta a aparecer sem vídeo." };
+  }
+
+  const id = idDoYoutube(bruto);
+  if (!id) {
+    return {
+      error:
+        "Não reconheci este link. Cole o endereço do vídeo no YouTube (youtube.com/watch?v=... ou youtu.be/...).",
+    };
+  }
+
+  await admin.from("config_sistema").upsert({
+    chave: "landing_video_url",
+    valor: bruto,
+    updated_at: new Date().toISOString(),
+  });
+  revalidatePath("/");
+  revalidatePath("/app/admin");
+  return { ok: "Vídeo no ar! Abra a página de vendas para conferir." };
+}
+
 /* ---------------------------- chave da Anthropic --------------------------- */
 export type ChaveIAState = { ok?: boolean; error?: string } | undefined;
 

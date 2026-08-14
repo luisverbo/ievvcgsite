@@ -41,7 +41,7 @@ const VARIAVEIS: Item[] = [
   {
     chave: "STRIPE_PRICE_PRO",
     rotulo: "Stripe · id do preço do Pro",
-    para: "vender o plano Pro (R$97)",
+    para: "vender o plano Pro (R$147)",
     obrigatoria: false,
   },
   {

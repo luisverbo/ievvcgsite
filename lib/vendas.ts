@@ -70,6 +70,88 @@ export const PASSOS: { numero: string; titulo: string; texto: string }[] = [
   },
 ];
 
+/* ------------------------- os 4 pilares, a fundo -------------------------- *
+ * Produto de ticket alto se vende com PROFUNDIDADE: quem vai pagar R$147 ou
+ * R$300 por mês quer entender o que está levando, não ler slogan. Cada pilar
+ * ganha uma explicação de verdade + o detalhe que prova que é sério.
+ * -------------------------------------------------------------------------- */
+
+export const PILARES: {
+  icone: string;
+  chapeu: string;
+  titulo: string;
+  texto: string;
+  detalhes: string[];
+}[] = [
+  {
+    icone: "✨",
+    chapeu: "Pilar 1 · Produção",
+    titulo: "A IA escreve o site inteiro — e você conversa até ficar perfeito",
+    texto:
+      "Não é template com espaço para preencher. Você descreve o negócio (“clínica de estética na Tijuca, agendamento pelo WhatsApp”) e a IA escreve a página completa: títulos, textos de venda, seções, cores, animações. Saiu diferente do que imaginou? Fala com ela como falaria com um designer: “deixa o botão maior”, “troca essa foto”, “põe uma seção de depoimentos”. Cada pedido vira uma nova versão — e dá para voltar às anteriores.",
+    detalhes: [
+      "Fotos reais: anexe as fotos do cliente (ou deixe o sistema puxar do Instagram dele) e elas entram no site",
+      "Cada imagem tem botão de trocar, gerar de novo ou remover — sem regerar a página",
+      "Histórico de versões: errou, volta",
+      "Página publicada na hora, com endereço próprio e certificado de segurança",
+    ],
+  },
+  {
+    icone: "🎯",
+    chapeu: "Pilar 2 · Clientes",
+    titulo: "O sistema encontra quem precisa de site na sua cidade",
+    texto:
+      "Você escolhe o nicho e a região — “dentista na Barra”, “oficina em Campinas” — e o sistema varre o Google Maps e traz as empresas com telefone, endereço, avaliações e, o principal: se já têm site ou não. Cada uma recebe uma nota de 0 a 100. Quem não tem site pontua alto, porque é a venda mais fácil que existe. Você para de adivinhar para quem vender.",
+    detalhes: [
+      "Filtro por situação: sem site, só Instagram, site antigo",
+      "Fotos e dados do Instagram da empresa entram no site que você gera para ela",
+      "Da lista para a página pronta: um clique gera o site daquela empresa",
+      "A lista é sua — exporta, filtra, organiza por status de conversa",
+    ],
+  },
+  {
+    icone: "💬",
+    chapeu: "Pilar 3 · Abordagem",
+    titulo: "A primeira mensagem sai no WhatsApp, no seu ritmo",
+    texto:
+      "De que adianta a lista se você não fala com ela? O sistema escreve a mensagem personalizada — nome da empresa, bairro, o que ela não tem — e envia pelo SEU WhatsApp, com limite diário e intervalo aleatório para parecer o que é: uma pessoa oferecendo um serviço. Você aprova mensagem por mensagem, ou deixa a fila andar sozinha e só responde quem se interessar.",
+    detalhes: [
+      "Envio manual (você aprova cada uma) ou automático com limite diário",
+      "Intervalo humano entre mensagens — nada de rajada de robô",
+      "O agente roda no seu computador: o número é seu, a conta é sua, o controle é seu",
+      "Quem responde já aparece marcado na lista, pronto para receber o link do site",
+    ],
+  },
+  {
+    icone: "🌐",
+    chapeu: "Pilar 4 · Recorrência",
+    titulo: "Hospedagem no domínio do cliente — a sua mensalidade",
+    texto:
+      "Site entregue é dinheiro uma vez. Site HOSPEDADO é mensalidade para sempre. Você conecta o domínio do cliente (clinicasorriso.com.br) em dois cliques, o certificado de segurança sai sozinho, e toda atualização que você fizer entra no ar em um minuto. O mercado cobra de R$70 a R$150 por mês por isso — e o seu custo já está dentro do plano.",
+    detalhes: [
+      "Instrução de DNS pronta para o cliente (Registro.br, GoDaddy, Hostinger…)",
+      "Certificado https automático, renovado sozinho",
+      "Métricas por site: visitas, cliques, horários — o relatório que justifica a mensalidade",
+      "Pixel do Facebook em um campo, para vender tráfego como serviço extra",
+    ],
+  },
+];
+
+/* ------------------------- para quem é (e não é) -------------------------- */
+
+export const PARA_QUEM: string[] = [
+  "Você já vende site (ou serviço digital) e quer parar de caçar cliente no escuro",
+  "Você quer montar uma renda recorrente com hospedagem, não só projetos avulsos",
+  "Você atende negócio local — dentista, advogado, salão, oficina, restaurante",
+  "Você entende que ferramenta boa é investimento: ela se paga no primeiro cliente",
+];
+
+export const NAO_E_PARA: string[] = [
+  "Quem procura “fazer um site grátis” — existe ferramenta grátis por aí, essa aqui não é",
+  "Quem quer spam: o envio tem limite diário de propósito, e a conta é o SEU número",
+  "Quem não vai atender as respostas — o sistema abre a conversa, quem fecha é você",
+];
+
 /* ------------------------------ o que inclui ----------------------------- */
 
 export const RECURSOS: { icone: string; titulo: string; texto: string }[] = [
@@ -144,7 +226,22 @@ export const PERGUNTAS: { pergunta: string; resposta: string }[] = [
   {
     pergunta: "Quantos sites eu posso hospedar?",
     resposta:
-      "Dez sites em domínio próprio já entram no plano, sem custo. Passou disso, cada site a mais custa R$ 29,90 por mês, cobrado na sua assinatura — você aprova antes, e sai da conta sozinho se você desconectar o domínio. Como a média do mercado de mensalidade de site é R$70 a R$150, cada site extra ainda sobra dinheiro no seu bolso.",
+      "O Pro hospeda 3 sites em domínio próprio; o Agência, 10. Passou disso, cada site a mais custa R$ 29,90 por mês, cobrado na sua assinatura — você aprova antes, e sai da conta sozinho se você desconectar o domínio. Como o mercado cobra de R$70 a R$150 pela mensalidade de um site, cada site extra ainda deixa lucro no seu bolso.",
+  },
+  {
+    pergunta: "Qual a diferença entre o Pro e o Agência?",
+    resposta:
+      "O Pro é a fábrica: criar páginas com IA sem limite e hospedar até 3 sites em domínio próprio. O Agência é a fábrica MAIS o vendedor: prospecção no Google Maps com nota de potencial, abordagem automática no WhatsApp, fotos do Instagram das empresas, 10 sites hospedados e o triplo de crédito de IA. Se a sua dúvida é “onde vou achar cliente?”, a resposta é o Agência.",
+  },
+  {
+    pergunta: "Preciso deixar meu computador ligado?",
+    resposta:
+      "Só para a abordagem automática no WhatsApp: o agente roda na sua máquina (ou numa VPS), porque o número é seu e o controle tem que ser seu. Todo o resto — criar páginas, hospedar, ver métricas — roda nos nossos servidores, com o seu computador desligado.",
+  },
+  {
+    pergunta: "Posso mudar de plano depois?",
+    resposta:
+      "Pode. Dá para começar no Pro e subir para o Agência quando quiser fazer prospecção — a troca vale já na fatura seguinte. E cancelar é no painel, em dois cliques.",
   },
   {
     pergunta: "Posso cobrar quanto eu quiser dos meus clientes?",
@@ -164,6 +261,15 @@ export const PERGUNTAS: { pergunta: string; resposta: string }[] = [
 ];
 
 /* ------------------------------- incluso --------------------------------- */
+
+// Precisa bater com PLANOS.pro em lib/painel/permissoes.ts.
+export const NO_PRO: string[] = [
+  "Páginas com IA ilimitadas, editadas no chat",
+  "US$5 de crédito de IA por mês",
+  "Hospedagem de 3 sites em domínio próprio",
+  "Fotos reais, versões e download em .zip",
+  "Métricas de visitas e pixel do Facebook",
+];
 
 export const NO_PLANO: string[] = [
   "Sites com IA ilimitados",
