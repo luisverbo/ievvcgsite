@@ -3,13 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { ehAdmin } from "@/lib/painel/admin";
 import { slugify } from "@/lib/format";
 import { semearBlocos } from "@/lib/painel/seed";
 import type { Tema } from "@/lib/types";
 
+// Todas as ações daqui são do construtor por blocos — ferramenta interna.
+// A tela já não existe para o cliente; a ação se defende sozinha porque server
+// action é endereço público.
+
 export type PaginaState = { error?: string } | undefined;
 
 export async function criarPagina(_prev: PaginaState, formData: FormData): Promise<PaginaState> {
+  if (!(await ehAdmin())) return { error: "Recurso indisponível." };
   const siteId = String(formData.get("site_id") ?? "");
   const titulo = String(formData.get("titulo") ?? "").trim();
   const slug = slugify(String(formData.get("slug") ?? "") || titulo);
@@ -53,6 +59,7 @@ export async function salvarTemaPagina(
   siteAdminId: string,
   tema: Tema | null,
 ) {
+  if (!(await ehAdmin())) return { error: "Recurso indisponível." };
   const supabase = await createClient();
   const { data: pagina } = await supabase
     .from("paginas")
@@ -74,6 +81,7 @@ export async function salvarTemaPagina(
 // Duplica a página com todos os blocos (config, ordem e visibilidade).
 // A cópia nasce como rascunho, para você revisar antes de publicar.
 export async function duplicarPagina(paginaId: string, siteId: string) {
+  if (!(await ehAdmin())) return;
   const supabase = await createClient();
   const { data: orig } = await supabase
     .from("paginas")
@@ -138,6 +146,7 @@ export async function duplicarPagina(paginaId: string, siteId: string) {
 }
 
 export async function excluirPagina(paginaId: string, siteId: string) {
+  if (!(await ehAdmin())) return;
   const supabase = await createClient();
   // não deixa excluir a home (slug '')
   const { data } = await supabase.from("paginas").select("slug").eq("id", paginaId).maybeSingle();

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { ehAdmin } from "@/lib/painel/admin";
 import { getSite } from "@/lib/painel/queries";
 import Editor from "./Editor";
 import type { Bloco, Pagina } from "@/lib/types";
@@ -11,6 +12,8 @@ export default async function EditorPage({
 }: {
   params: Promise<{ id: string; paginaId: string }>;
 }) {
+  // Editor por blocos: ferramenta interna, o cliente usa o construtor de IA.
+  if (!(await ehAdmin())) notFound();
   const { id, paginaId } = await params;
   const site = await getSite(id);
   if (!site) notFound();

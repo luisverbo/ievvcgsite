@@ -1,94 +1,146 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getMinhaOrg, getSites } from "@/lib/painel/queries";
-import NovoSite from "./NovoSite";
+import { getMinhaOrg } from "@/lib/painel/queries";
+import { PLANOS, planoVigente, planoLibera } from "@/lib/painel/permissoes";
+import { ehAdmin } from "@/lib/painel/admin";
+import { situacaoDaAssinatura, type AssinaturaRow } from "@/lib/pagamentos/estado";
+import { statusDaConta } from "@/lib/creditos/conta";
+import { emDolar } from "@/lib/creditos/precos";
 
-const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+/*
+ * A home do painel — a visão do CLIENTE.
+ *
+ * Uma pergunta guia a tela inteira: "abri o painel, e agora?". Por isso ela
+ * tem três andares, nesta ordem:
+ *
+ *   1. o que precisa de atenção AGORA (pagamento atrasado);
+ *   2. como está o negócio dele (páginas, visitas, crédito);
+ *   3. para onde ir (as áreas, cada uma explicada em uma frase).
+ *
+ * O construtor por blocos não aparece: é ferramenta interna, mora em
+ * /app/sites e só o admin enxerga.
+ */
 
-// Cor de capa por site, derivada do id — cada card tem identidade própria.
-const CAPAS = [
-  ["#6c5ce7", "#a29bfe"],
-  ["#e8843c", "#f5b76b"],
-  ["#2fbf8f", "#7ee0bd"],
-  ["#e15c8a", "#f59bbb"],
-  ["#3f8cff", "#8ec1ff"],
-  ["#c2657f", "#e8a7b8"],
-];
-// Fora do componente: mantém o corpo do render puro (regra do React).
 function desde30Dias() {
   return new Date(Date.now() - 30 * 86_400_000).toISOString();
 }
 
-function capaDoSite(id: string) {
-  let soma = 0;
-  for (const ch of id) soma += ch.charCodeAt(0);
-  return CAPAS[soma % CAPAS.length];
-}
+type PaginaIA = {
+  id: string;
+  titulo: string;
+  slug: string;
+  publicado: boolean;
+  html: string | null;
+  updated_at: string;
+};
 
 export default async function PainelHome() {
   const org = await getMinhaOrg();
   if (!org) redirect("/app/onboarding");
 
-  const sites = await getSites(org.id);
   const supabase = await createClient();
-  const desde = desde30Dias();
+  const [plano, admin, conta, assinaturaRes, paginasRes, visitasRes] = await Promise.all([
+    planoVigente(org.id, org.plano),
+    ehAdmin(),
+    statusDaConta(org.id),
+    supabase
+      .from("assinaturas")
+      .select("plano, pago_ate, status, falhou_em")
+      .eq("org_id", org.id)
+      .maybeSingle(),
+    supabase
+      .from("sites_ia")
+      .select("id, titulo, slug, publicado, html, updated_at")
+      .eq("org_id", org.id)
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("analytics_eventos")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", org.id)
+      .eq("tipo", "pageview")
+      .gte("created_at", desde30Dias()),
+  ]);
 
-  // Um número por site: visitas, cliques e leads dos últimos 30 dias.
-  const [{ count: totalPaginas }, { count: totalLeads }, { data: eventos }, { data: leads }] =
-    await Promise.all([
-      supabase.from("paginas").select("id", { count: "exact", head: true }).eq("org_id", org.id),
-      supabase.from("leads").select("id", { count: "exact", head: true }).eq("org_id", org.id),
+  const situacao = situacaoDaAssinatura((assinaturaRes.data as AssinaturaRow | null) ?? null);
+  const paginas = (paginasRes.data as PaginaIA[] | null) ?? [];
+  const noAr = paginas.filter((p) => p.publicado).length;
+  const visitas30d = visitasRes.count ?? 0;
+  const recentes = paginas.slice(0, 3);
+
+  const temProspeccao = admin || planoLibera(plano, "prospeccao");
+
+  // Prospecção só é consultada para quem tem o recurso — senão é banco à toa.
+  let empresas = 0;
+  let agenteOnline = false;
+  if (temProspeccao) {
+    const [{ count }, { data: ag }] = await Promise.all([
+      supabase.from("prospeccao").select("id", { count: "exact", head: true }).eq("org_id", org.id),
       supabase
-        .from("analytics_eventos")
-        .select("site_id, tipo")
+        .from("agentes")
+        .select("ultimo_contato")
         .eq("org_id", org.id)
-        .gte("created_at", desde)
-        .limit(20000),
-      supabase.from("leads").select("site_id").eq("org_id", org.id).gte("created_at", desde),
+        .order("ultimo_contato", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
-
-  const porSite = new Map<string, { visitas: number; cliques: number; leads: number }>();
-  const zero = () => ({ visitas: 0, cliques: 0, leads: 0 });
-  for (const e of (eventos as { site_id: string; tipo: string }[] | null) ?? []) {
-    const m = porSite.get(e.site_id) ?? zero();
-    if (e.tipo === "pageview") m.visitas++;
-    else if (e.tipo === "click") m.cliques++;
-    porSite.set(e.site_id, m);
-  }
-  for (const l of (leads as { site_id: string | null }[] | null) ?? []) {
-    if (!l.site_id) continue;
-    const m = porSite.get(l.site_id) ?? zero();
-    m.leads++;
-    porSite.set(l.site_id, m);
+    empresas = count ?? 0;
+    const ultimo = (ag as { ultimo_contato: string | null } | null)?.ultimo_contato;
+    agenteOnline = !!ultimo && Date.now() - new Date(ultimo).getTime() < 15 * 60_000;
   }
 
   const stats = [
-    { rotulo: "Sites", valor: sites.length },
-    { rotulo: "Páginas", valor: totalPaginas ?? 0 },
-    { rotulo: "Leads recebidos", valor: totalLeads ?? 0 },
-    { rotulo: "Publicados", valor: sites.filter((s) => s.publicado).length },
+    { rotulo: "Páginas criadas", valor: String(paginas.length) },
+    { rotulo: "No ar", valor: String(noAr) },
+    { rotulo: "Visitas (30 dias)", valor: String(visitas30d) },
+    {
+      rotulo: "Crédito de IA",
+      valor: conta.fonte === "propria" ? "chave própria" : emDolar(conta.saldo),
+    },
   ];
 
   return (
     <div className="painel-wrap flex flex-col gap-8">
+      {/* quem é, em que plano está */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold">{org.nome}</h1>
           <p className="mt-1 text-sm text-paper-dim">
             Plano{" "}
             <span className="rounded-full bg-brand/20 px-2 py-0.5 text-xs font-bold text-brand-2">
-              {org.plano === "pro" ? "Pro" : "Grátis"}
+              {PLANOS[plano]?.rotulo ?? plano}
             </span>
           </p>
         </div>
-        <NovoSite />
+        <Link
+          href="/app/ia"
+          className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand/25 transition hover:bg-brand-2"
+        >
+          + Criar página com IA
+        </Link>
       </div>
 
+      {/* o que precisa de atenção agora */}
+      {situacao.aviso && (
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            situacao.status === "atrasada"
+              ? "border-warn/40 bg-warn/10 text-warn"
+              : "border-danger/40 bg-danger/10 text-danger"
+          }`}
+        >
+          {situacao.aviso}{" "}
+          <Link href="/app/assinatura" className="font-bold underline underline-offset-2">
+            Resolver agora
+          </Link>
+        </div>
+      )}
+
+      {/* como está o negócio */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map((s) => (
           <div key={s.rotulo} className="rounded-xl border border-white/10 bg-ink-2 p-4">
-            <div className="text-2xl font-extrabold">{s.valor}</div>
+            <div className="text-2xl font-extrabold tabular-nums">{s.valor}</div>
             <div className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-paper-dim">
               {s.rotulo}
             </div>
@@ -96,96 +148,155 @@ export default async function PainelHome() {
         ))}
       </div>
 
-      <div>
-        <div className="mb-3 flex items-baseline justify-between gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-paper-dim">
-            Meus sites
-          </h2>
-          <span className="text-xs text-paper-dim">números dos últimos 30 dias</span>
-        </div>
-        {sites.length === 0 && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <NovoSite variante="vazio" />
+      {/* continuar de onde parou */}
+      {recentes.length > 0 && (
+        <div>
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-paper-dim">
+              Continuar de onde parou
+            </h2>
+            <Link href="/app/ia" className="text-xs font-semibold text-brand-2 hover:underline">
+              ver todas as páginas →
+            </Link>
           </div>
-        )}
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {sites.map((site) => {
-            const m = porSite.get(site.id) ?? zero();
-            const [c1, c2] = capaDoSite(site.id);
-            return (
-              <div
-                key={site.id}
-                className="group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-ink-2 transition hover:-translate-y-1 hover:border-brand-2/50 hover:shadow-2xl"
+          <div className="grid gap-3 sm:grid-cols-3">
+            {recentes.map((p) => (
+              <Link
+                key={p.id}
+                href={`/app/ia/${p.id}`}
+                className="group rounded-xl border border-white/10 bg-ink-2 p-4 transition hover:-translate-y-0.5 hover:border-brand-2/50"
               >
-                <Link href={`/app/sites/${site.id}`} className="block">
-                  <div
-                    className="relative flex h-28 items-end p-4"
-                    style={{
-                      background: `linear-gradient(135deg, ${c1}, ${c2})`,
-                    }}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate text-sm font-bold text-paper">{p.titulo}</span>
+                  <span
+                    className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      p.publicado ? "bg-ok/15 text-ok" : "bg-white/10 text-paper-dim"
+                    }`}
                   >
-                    <span
-                      className="absolute inset-0 opacity-25"
-                      style={{
-                        background:
-                          "radial-gradient(120% 80% at 90% 0%, rgba(255,255,255,.55), transparent 60%)",
-                      }}
-                    />
-                    <span
-                      className={`absolute right-3 top-3 rounded-full px-2.5 py-1 text-[11px] font-bold backdrop-blur ${
-                        site.publicado ? "bg-black/35 text-white" : "bg-black/45 text-white/80"
-                      }`}
-                    >
-                      {site.publicado ? "● No ar" : "○ Rascunho"}
-                    </span>
-                    <span className="relative font-display text-xl font-extrabold text-white drop-shadow">
-                      {site.nome}
-                    </span>
-                  </div>
-                </Link>
-
-                {/* métricas rápidas do site */}
-                <div className="grid grid-cols-3 divide-x divide-white/8 border-b border-white/8">
-                  {[
-                    { rot: "visitas", val: m.visitas, cor: "text-paper" },
-                    { rot: "cliques", val: m.cliques, cor: "text-brand-2" },
-                    { rot: "leads", val: m.leads, cor: "text-ok" },
-                  ].map((x) => (
-                    <div key={x.rot} className="px-2 py-3 text-center">
-                      <div className={`text-lg font-extrabold tabular-nums ${x.cor}`}>{x.val}</div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-paper-dim">
-                        {x.rot}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex items-center justify-between gap-2 px-4 py-3">
-                  <span className="min-w-0 truncate text-xs text-paper-dim">
-                    {site.slug}
-                    {ROOT ? `.${ROOT}` : ""}
-                  </span>
-                  <span className="flex flex-none gap-1">
-                    <Link
-                      href={`/app/sites/${site.id}/metricas`}
-                      title="Métricas"
-                      className="rounded-lg px-2 py-1 text-sm text-paper-dim transition hover:bg-white/10 hover:text-paper"
-                    >
-                      📊
-                    </Link>
-                    <Link
-                      href={`/app/sites/${site.id}`}
-                      className="rounded-lg bg-brand/15 px-3 py-1 text-xs font-bold text-brand-2 transition hover:bg-brand hover:text-white"
-                    >
-                      Abrir
-                    </Link>
+                    {p.publicado ? "no ar" : p.html ? "rascunho" : "vazia"}
                   </span>
                 </div>
+                <p className="mt-1 text-xs text-paper-dim">
+                  atualizada em {new Date(p.updated_at).toLocaleDateString("pt-BR")}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* para onde ir */}
+      <div>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-paper-dim">
+          Suas ferramentas
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Link
+            href="/app/ia"
+            className="group rounded-2xl border border-brand-2/30 bg-gradient-to-br from-brand/15 to-transparent p-5 transition hover:-translate-y-0.5 hover:border-brand-2/60"
+          >
+            <div className="text-2xl">✨</div>
+            <h3 className="mt-2 font-display text-lg font-extrabold text-paper">
+              Criador de páginas com IA
+            </h3>
+            <p className="mt-1 text-sm text-paper-dim">
+              Descreva o negócio e a IA escreve a página inteira — texto, design e imagens. Depois
+              é conversar até ficar do seu jeito.
+            </p>
+          </Link>
+
+          {temProspeccao ? (
+            <Link
+              href="/app/prospeccao"
+              className="group rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-0.5 hover:border-brand-2/50"
+            >
+              <div className="flex items-start justify-between">
+                <div className="text-2xl">🎯</div>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                    agenteOnline ? "bg-ok/15 text-ok" : "bg-white/10 text-paper-dim"
+                  }`}
+                >
+                  {agenteOnline ? "● agente ligado" : "○ agente desligado"}
+                </span>
               </div>
-            );
-          })}
+              <h3 className="mt-2 font-display text-lg font-extrabold text-paper">Prospecção</h3>
+              <p className="mt-1 text-sm text-paper-dim">
+                {empresas > 0
+                  ? `${empresas} empresas encontradas. Ache quem ainda não tem site e aborde no WhatsApp.`
+                  : "Encontre empresas sem site na sua cidade e aborde no WhatsApp — é seu vendedor automático."}
+              </p>
+            </Link>
+          ) : (
+            <Link
+              href="/app/assinatura"
+              className="group rounded-2xl border border-dashed border-white/15 bg-ink-2/60 p-5 transition hover:border-warn/50"
+            >
+              <div className="text-2xl opacity-60">🔒</div>
+              <h3 className="mt-2 font-display text-lg font-extrabold text-paper-dim">
+                Prospecção
+              </h3>
+              <p className="mt-1 text-sm text-paper-dim">
+                Encontre empresas sem site e aborde no WhatsApp. Disponível no plano{" "}
+                <span className="font-bold text-warn">Agência</span> — clique para conhecer.
+              </p>
+            </Link>
+          )}
+
+          <Link
+            href="/app/creditos"
+            className="group rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-0.5 hover:border-brand-2/50"
+          >
+            <div className="text-2xl">⚡</div>
+            <h3 className="mt-2 font-display text-lg font-extrabold text-paper">Créditos de IA</h3>
+            <p className="mt-1 text-sm text-paper-dim">
+              {conta.fonte === "propria"
+                ? "Você usa a sua própria chave da Anthropic — as gerações saem direto na sua conta."
+                : `Saldo atual: ${emDolar(conta.saldo)}. Compre mais no cartão ou Pix, ou use a sua própria chave.`}
+            </p>
+          </Link>
+
+          <Link
+            href="/app/assinatura"
+            className="group rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-0.5 hover:border-brand-2/50"
+          >
+            <div className="text-2xl">📄</div>
+            <h3 className="mt-2 font-display text-lg font-extrabold text-paper">Assinatura</h3>
+            <p className="mt-1 text-sm text-paper-dim">
+              {situacao.status === "ativa"
+                ? "Em dia. Veja faturas, troque o cartão ou gerencie o plano."
+                : situacao.status === "atrasada"
+                  ? "Pagamento pendente — resolva para não perder o acesso."
+                  : "Veja os planos e assine para liberar todos os recursos."}
+            </p>
+          </Link>
         </div>
       </div>
+
+      {/* ferramentas internas — só o dono enxerga */}
+      {admin && (
+        <div>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-warn">
+            Ferramentas internas (só você vê)
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              { href: "/app/sites", emoji: "🧱", titulo: "Sites por blocos" },
+              { href: "/app/templates", emoji: "🗂️", titulo: "Templates" },
+              { href: "/app/admin", emoji: "👑", titulo: "Admin" },
+            ].map((f) => (
+              <Link
+                key={f.href}
+                href={f.href}
+                className="flex items-center gap-3 rounded-xl border border-warn/25 bg-warn/5 px-4 py-3 text-sm font-bold text-paper transition hover:border-warn/50"
+              >
+                <span>{f.emoji}</span>
+                {f.titulo}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

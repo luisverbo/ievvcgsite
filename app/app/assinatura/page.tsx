@@ -125,8 +125,9 @@ export default async function AssinaturaPage({
               <span className="text-base font-bold text-paper-dim">/mês</span>
             </p>
             <p className="mt-1 text-sm text-paper-dim">
-              Sites com IA ilimitados, prospecção no Google, abordagem no WhatsApp, hospedagem com
-              domínio próprio e {emDolar(PLANOS.agencia.cota)} de crédito de IA todo mês.
+              Sites com IA ilimitados, prospecção no Google, abordagem no WhatsApp, hospedagem de{" "}
+              {PLANOS.agencia.sites} sites em domínio próprio e {emDolar(PLANOS.agencia.cota)} de
+              crédito de IA todo mês.
             </p>
           </>
         )}

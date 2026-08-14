@@ -1,12 +1,30 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { ehAdmin } from "@/lib/painel/admin";
+import { podeUsar } from "@/lib/painel/permissoes";
 import { sair } from "./actions";
+
+/*
+ * O menu mostra SÓ o que o usuário pode usar.
+ *
+ * Link para tela bloqueada é a pior vitrine: o cliente clica, dá "não
+ * encontrado" e ele conclui que o sistema está quebrado. Recurso de plano
+ * maior aparece como convite na home, não como porta trancada no menu.
+ *
+ * As ferramentas internas (blocos, templates, admin) nem entram aqui para o
+ * cliente — cada rota delas também se defende sozinha com ehAdmin().
+ */
+
+const linkClass =
+  "rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-white/8 hover:text-paper";
 
 export default async function PainelLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const [admin, temProspeccao] = await Promise.all([ehAdmin(), podeUsar("prospeccao")]);
 
   return (
     <div className="min-h-screen">
@@ -16,51 +34,39 @@ export default async function PainelLayout({ children }: { children: React.React
             Página<span className="text-brand-2">Pro</span>
           </Link>
           <nav className="flex items-center gap-1 text-sm">
-            <Link
-              href="/app"
-              className="rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-white/8 hover:text-paper"
-            >
-              Meus sites
+            <Link href="/app" className={linkClass}>
+              Início
             </Link>
-            <Link
-              href="/app/ia"
-              className="rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-white/8 hover:text-paper"
-            >
-              Criar com IA ✨
+            <Link href="/app/ia" className={linkClass}>
+              Minhas páginas ✨
             </Link>
-            <Link
-              href="/app/templates"
-              className="hidden rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-white/8 hover:text-paper sm:block"
-            >
-              Templates
-            </Link>
-            <Link
-              href="/app/prospeccao"
-              className="rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-white/8 hover:text-paper"
-            >
-              Prospecção 🎯
-            </Link>
-            <Link
-              href="/app/assinatura"
-              className="hidden rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-white/8 hover:text-paper sm:block"
-            >
-              Assinatura
-            </Link>
-            <Link
-              href="/app/creditos"
-              className="rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-white/8 hover:text-paper"
-            >
+            {temProspeccao && (
+              <Link href="/app/prospeccao" className={linkClass}>
+                Prospecção 🎯
+              </Link>
+            )}
+            <Link href="/app/creditos" className={linkClass}>
               Créditos
             </Link>
-            {user?.email &&
-              user.email.toLowerCase() === process.env.ADMIN_EMAIL?.toLowerCase().trim() && (
+            <Link href="/app/assinatura" className={`hidden sm:block ${linkClass}`}>
+              Assinatura
+            </Link>
+            {admin && (
+              <>
+                <Link
+                  href="/app/sites"
+                  className="hidden rounded-lg px-3 py-1.5 font-semibold text-warn/80 transition hover:bg-warn/10 hover:text-warn lg:block"
+                >
+                  Blocos 🧱
+                </Link>
                 <Link
                   href="/app/admin"
                   className="rounded-lg px-3 py-1.5 font-semibold text-warn transition hover:bg-warn/10"
                 >
                   Admin 👑
                 </Link>
-              )}
+              </>
+            )}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
             {user?.email && (

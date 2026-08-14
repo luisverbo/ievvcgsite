@@ -1,4 +1,5 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { ehAdmin } from "@/lib/painel/admin";
 import { getMinhaOrg, getSites } from "@/lib/painel/queries";
 import { TEMPLATES, CATEGORIAS_TEMPLATE } from "@/lib/templates/catalog";
 import TemplateCard from "./TemplateCard";
@@ -8,6 +9,9 @@ export default async function TemplatesPage({
 }: {
   searchParams: Promise<{ site?: string }>;
 }) {
+  // Ferramenta interna: os templates alimentam o construtor por blocos, que o
+  // cliente não usa — o produto dele é o construtor com IA.
+  if (!(await ehAdmin())) notFound();
   const org = await getMinhaOrg();
   if (!org) redirect("/app/onboarding");
 

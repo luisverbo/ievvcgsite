@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { ehAdmin } from "@/lib/painel/admin";
 import { buildThemeCss, googleFontsHref, mesclarTema } from "@/lib/theme";
 import BlocosLive from "@/components/blocks/BlocosLive";
 import type { Bloco, Pagina, Site } from "@/lib/types";
@@ -12,6 +13,8 @@ import "@/components/blocks/blocks.css";
 export const dynamic = "force-dynamic";
 
 export default async function PreviewPage({ params }: { params: Promise<{ paginaId: string }> }) {
+  // Prévia do editor por blocos — ferramenta interna, como o editor.
+  if (!(await ehAdmin())) notFound();
   const { paginaId } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(paginaId)) notFound();
 

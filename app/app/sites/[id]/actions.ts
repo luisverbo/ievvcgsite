@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { ehAdmin } from "@/lib/painel/admin";
 import { slugify } from "@/lib/format";
 import { PRESETS_TEMA } from "@/lib/theme";
 import type { Tema } from "@/lib/types";
@@ -10,6 +11,8 @@ import type { Tema } from "@/lib/types";
 export type SaveState = { ok?: boolean; error?: string } | undefined;
 
 export async function salvarSite(_prev: SaveState, formData: FormData): Promise<SaveState> {
+  // Construtor por blocos: ferramenta interna, só o dono do sistema.
+  if (!(await ehAdmin())) return { error: "Recurso indisponível." };
   const id = String(formData.get("id") ?? "");
   const nome = String(formData.get("nome") ?? "").trim();
   const slug = slugify(String(formData.get("slug") ?? ""));
@@ -53,6 +56,7 @@ export async function salvarSite(_prev: SaveState, formData: FormData): Promise<
 // Exclui o site inteiro (páginas, blocos, leads e métricas caem em cascata
 // pelas foreign keys "on delete cascade"). Confirmação é feita no cliente.
 export async function excluirSite(id: string) {
+  if (!(await ehAdmin())) return;
   const supabase = await createClient();
   const { data: site } = await supabase.from("sites").select("slug").eq("id", id).maybeSingle();
   await supabase.from("sites").delete().eq("id", id);

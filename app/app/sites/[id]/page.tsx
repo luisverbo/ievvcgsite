@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ehAdmin } from "@/lib/painel/admin";
 import { getPaginas, getSite } from "@/lib/painel/queries";
 import SiteForm from "./SiteForm";
 import NovaPaginaForm from "./NovaPaginaForm";
@@ -10,6 +11,8 @@ import { cardClass } from "@/components/painel/ui";
 const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
 
 export default async function SitePage({ params }: { params: Promise<{ id: string }> }) {
+  // Construtor por blocos: ferramenta interna, o cliente usa o de IA.
+  if (!(await ehAdmin())) notFound();
   const { id } = await params;
   const site = await getSite(id);
   if (!site) notFound();

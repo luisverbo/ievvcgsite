@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
+import { ehAdmin } from "@/lib/painel/admin";
 import { criarSiteComHome } from "@/lib/painel/sites";
 
 export async function sair() {
@@ -15,6 +16,8 @@ export async function sair() {
 export type NovoSiteState = { error?: string } | undefined;
 
 export async function criarSite(_prev: NovoSiteState, formData: FormData): Promise<NovoSiteState> {
+  // Construtor por blocos é ferramenta interna; o cliente cria páginas na IA.
+  if (!(await ehAdmin())) return { error: "Recurso indisponível." };
   const org = await getMinhaOrg();
   if (!org) return { error: "Sessão expirada. Faça login novamente." };
 

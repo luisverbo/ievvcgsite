@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { TEMPLATES_POR_ID } from "@/lib/templates/catalog";
 import { getMinhaOrg } from "@/lib/painel/queries";
+import { ehAdmin } from "@/lib/painel/admin";
 import { criarSiteComHome } from "@/lib/painel/sites";
 import { slugify } from "@/lib/format";
 
@@ -14,6 +15,9 @@ export async function usarTemplate(
   _prev: UsarTemplateState,
   formData: FormData,
 ): Promise<UsarTemplateState> {
+  // Construtor por blocos é ferramenta interna — a tela já não aparece para o
+  // cliente, mas ação de servidor é endereço público e se defende sozinha.
+  if (!(await ehAdmin())) return { error: "Recurso indisponível." };
   const templateId = String(formData.get("template_id") ?? "");
   const siteId = String(formData.get("site_id") ?? "");
   const template = TEMPLATES_POR_ID.get(templateId);
