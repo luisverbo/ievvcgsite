@@ -78,12 +78,16 @@ export async function checkoutAssinatura(opcoes: {
   orgId: string;
   email: string;
   customerId?: string | null;
+  // Qual plano este checkout vende e o price da Stripe correspondente. O
+  // plano viaja na metadata: é dela que o webhook descobre o que entregar.
+  plano: string;
+  priceId: string;
 }): Promise<string> {
   const s = stripe();
   try {
     const sessao = await s.checkout.sessions.create({
       mode: "subscription",
-      line_items: [{ price: process.env.STRIPE_PRICE_AGENCIA!, quantity: 1 }],
+      line_items: [{ price: opcoes.priceId, quantity: 1 }],
       /*
        * Em modo assinatura a Stripe já cria o cliente sozinha — passar
        * `customer_creation` aqui é erro (só existe em pagamento avulso).
@@ -94,8 +98,8 @@ export async function checkoutAssinatura(opcoes: {
         ? { customer: opcoes.customerId }
         : { customer_email: opcoes.email }),
       client_reference_id: opcoes.orgId,
-      subscription_data: { metadata: { org_id: opcoes.orgId } },
-      metadata: { org_id: opcoes.orgId, tipo: "assinatura" },
+      subscription_data: { metadata: { org_id: opcoes.orgId, plano: opcoes.plano } },
+      metadata: { org_id: opcoes.orgId, tipo: "assinatura", plano: opcoes.plano },
       locale: "pt-BR",
       success_url: `${urlBase()}/app/assinatura?ok=1`,
       cancel_url: `${urlBase()}/app/assinatura?cancelado=1`,

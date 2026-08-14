@@ -4,9 +4,7 @@ import { stripe } from "@/lib/pagamentos/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { periodoDe, fimDoPeriodo } from "@/lib/pagamentos/estado";
 import { cotaDoPlano } from "@/lib/painel/permissoes";
-
-// O plano que a assinatura de R$300 entrega.
-const PLANO_VENDIDO = "agencia";
+import { planoDaMetadata } from "@/lib/pagamentos/planos";
 
 /*
  * Webhook da Stripe — é AQUI que o dinheiro vira acesso.
@@ -93,6 +91,17 @@ export async function POST(req: Request) {
           p_descricao: "Mensalidade no cartão",
         });
 
+        /*
+         * O plano vem da metadata da assinatura, gravada no checkout. É o que
+         * permite vender Pro e Agência pelo MESMO webhook: cada renovação
+         * repete a metadata, então até o upgrade futuro fica correto — a
+         * fatura seguinte traz o plano novo e a promoção acompanha.
+         */
+        const planoPago = planoDaMetadata(
+          (f as { subscription_details?: { metadata?: Record<string, string> } })
+            .subscription_details?.metadata ?? f.metadata ?? undefined,
+        );
+
         // Guarda os ids para o portal e para o Pix saber qual fatura quitar.
         const sub = typeof f.subscription === "string" ? f.subscription : f.subscription?.id;
         await admin
@@ -100,7 +109,7 @@ export async function POST(req: Request) {
           .update({
             stripe_customer_id: typeof f.customer === "string" ? f.customer : (f.customer?.id ?? null),
             stripe_subscription_id: sub ?? null,
-            plano: PLANO_VENDIDO,
+            plano: planoPago,
             updated_at: new Date().toISOString(),
           })
           .eq("org_id", orgId);
@@ -114,7 +123,7 @@ export async function POST(req: Request) {
          */
         await admin
           .from("organizacoes")
-          .update({ plano: PLANO_VENDIDO, cota_mensal: cotaDoPlano(PLANO_VENDIDO) })
+          .update({ plano: planoPago, cota_mensal: cotaDoPlano(planoPago) })
           .eq("id", orgId);
         break;
       }

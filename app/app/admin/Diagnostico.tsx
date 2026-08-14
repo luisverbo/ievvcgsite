@@ -39,6 +39,12 @@ const VARIAVEIS: Item[] = [
     obrigatoria: true,
   },
   {
+    chave: "STRIPE_PRICE_PRO",
+    rotulo: "Stripe · id do preço do Pro",
+    para: "vender o plano Pro (R$97)",
+    obrigatoria: false,
+  },
+  {
     chave: "STRIPE_PRICE_SITE_EXTRA",
     rotulo: "Stripe · id do preço do site extra",
     para: "cobrar hospedagem acima da cota do plano",
@@ -98,6 +104,7 @@ export default function Diagnostico() {
     APP_CRYPTO_KEY: process.env.APP_CRYPTO_KEY,
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     STRIPE_PRICE_AGENCIA: process.env.STRIPE_PRICE_AGENCIA,
+    STRIPE_PRICE_PRO: process.env.STRIPE_PRICE_PRO,
     STRIPE_PRICE_SITE_EXTRA: process.env.STRIPE_PRICE_SITE_EXTRA,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     MERCADOPAGO_ACCESS_TOKEN: process.env.MERCADOPAGO_ACCESS_TOKEN,

@@ -5,13 +5,12 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { assinar, abrirPortal, pixDaMensalidade } from "./actions";
 import CodigoPix from "./CodigoPix";
 import { situacaoDaAssinatura, periodoDe, type AssinaturaRow } from "@/lib/pagamentos/estado";
-import { PLANOS } from "@/lib/painel/permissoes";
+import { PLANOS, sitesDoPlano } from "@/lib/painel/permissoes";
+import { precoEmReais, planoVendidoValido } from "@/lib/pagamentos/planos";
 import { emDolar } from "@/lib/creditos/precos";
 import { cardClass } from "@/components/painel/ui";
 
 export const dynamic = "force-dynamic";
-
-const PRECO = (Number(process.env.PRECO_MENSAL_CENTAVOS) || 30_000) / 100;
 
 export default async function AssinaturaPage({
   searchParams,
@@ -84,96 +83,158 @@ export default async function AssinaturaPage({
         </p>
       )}
 
-      {/* estado atual */}
-      <div className={cardClass}>
-        {s.status === "ativa" && (
-          <>
-            <p className="text-sm font-bold text-ok">✓ Assinatura ativa</p>
-            <p className="mt-1 text-sm text-paper-dim">
-              Plano {PLANOS[assinatura?.plano ?? "agencia"]?.rotulo} · renova automaticamente no
-              cartão em{" "}
-              {assinatura?.pago_ate
-                ? new Date(assinatura.pago_ate).toLocaleDateString("pt-BR")
-                : "—"}
-              . Inclui {emDolar(PLANOS[assinatura?.plano ?? "agencia"]?.cota ?? 0)} de IA por mês.
-            </p>
-          </>
-        )}
-
-        {s.status === "atrasada" && (
-          <>
-            <p className="text-sm font-bold text-warn">⚠️ Pagamento não passou</p>
-            <p className="mt-1 text-sm text-paper-dim">{s.aviso}</p>
-            <p className="mt-1 text-sm text-paper-dim">
-              Até lá <b className="text-paper">nada sai do ar</b> — seus sites e os dos seus
-              clientes continuam funcionando normalmente.
-            </p>
-          </>
-        )}
-
-        {s.status === "suspensa" && (
-          <>
-            <p className="text-sm font-bold text-danger">Assinatura suspensa</p>
-            <p className="mt-1 text-sm text-paper-dim">{s.aviso}</p>
-          </>
-        )}
-
-        {(s.status === "nova" || s.status === "cancelada") && (
-          <>
-            <p className="font-display text-2xl font-extrabold">
-              R$ {PRECO.toLocaleString("pt-BR")}
+      {s.status === "nova" || s.status === "cancelada" ? (
+        /*
+         * Sem assinatura: a escolha dos planos. Dois cards, o Agência em
+         * destaque — é o carro-chefe; o Pro existe para quem só quer criar e
+         * hospedar, sem prospecção.
+         */
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className={cardClass}>
+            <p className="text-sm font-bold text-paper">Pro</p>
+            <p className="mt-2 font-display text-3xl font-extrabold">
+              R$ {precoEmReais("pro")}
               <span className="text-base font-bold text-paper-dim">/mês</span>
             </p>
-            <p className="mt-1 text-sm text-paper-dim">
-              Sites com IA ilimitados, prospecção no Google, abordagem no WhatsApp, hospedagem de{" "}
-              {PLANOS.agencia.sites} sites em domínio próprio e {emDolar(PLANOS.agencia.cota)} de
-              crédito de IA todo mês.
+            <p className="mt-1 text-xs text-paper-dim">
+              Para quem quer criar e hospedar os próprios sites.
             </p>
-          </>
-        )}
+            <ul className="mt-4 flex flex-col gap-1.5 text-sm text-paper-dim">
+              <li>✓ Páginas com IA ilimitadas, editadas no chat</li>
+              <li>✓ {emDolar(PLANOS.pro.cota)} de crédito de IA por mês</li>
+              <li>✓ Hospedagem de {sitesDoPlano("pro")} sites em domínio próprio</li>
+              <li>✓ Fotos reais, métricas e pixel</li>
+              <li className="text-paper-dim/60">✗ Prospecção e WhatsApp</li>
+            </ul>
+            <form action={assinar.bind(null, "pro")} className="mt-5">
+              <button
+                type="submit"
+                className="w-full rounded-lg border border-white/15 px-5 py-2.5 text-sm font-bold text-paper transition hover:border-brand-2"
+              >
+                Assinar o Pro
+              </button>
+            </form>
+          </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {s.status === "ativa" || s.status === "atrasada" ? (
-            <form action={abrirPortal}>
+          <div className="rounded-xl border border-brand-2/50 bg-gradient-to-br from-brand/15 to-transparent p-5">
+            <p className="text-sm font-bold text-brand-2">Agência · mais completo</p>
+            <p className="mt-2 font-display text-3xl font-extrabold">
+              R$ {precoEmReais("agencia")}
+              <span className="text-base font-bold text-paper-dim">/mês</span>
+            </p>
+            <p className="mt-1 text-xs text-paper-dim">
+              Para quem vende site: o sistema encontra o cliente para você.
+            </p>
+            <ul className="mt-4 flex flex-col gap-1.5 text-sm text-paper-dim">
+              <li className="font-semibold text-paper">✓ Tudo do Pro, e mais:</li>
+              <li>✓ Prospecção no Google Maps com nota de potencial</li>
+              <li>✓ Abordagem no WhatsApp (manual e automática)</li>
+              <li>✓ Fotos do Instagram das empresas</li>
+              <li>✓ Hospedagem de {sitesDoPlano("agencia")} sites em domínio próprio</li>
+              <li>✓ {emDolar(PLANOS.agencia.cota)} de crédito de IA por mês</li>
+            </ul>
+            <form action={assinar.bind(null, "agencia")} className="mt-5">
               <button
                 type="submit"
-                className="rounded-lg border border-white/15 px-4 py-2.5 text-sm font-bold text-paper transition hover:border-brand-2"
+                className="w-full rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2"
               >
-                Trocar cartão / ver faturas
+                Assinar o Agência
               </button>
             </form>
-          ) : (
-            <form action={assinar}>
-              <button
-                type="submit"
-                className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2"
-              >
-                Assinar no cartão
-              </button>
-            </form>
+          </div>
+
+          <p className="text-xs text-paper-dim md:col-span-2">
+            Pagamento no cartão, renovando sozinho. Sem fidelidade: cancela pelo painel quando
+            quiser, e o pago vale até o fim do mês. Site extra além da cota: R$ 29,90/mês.
+          </p>
+        </div>
+      ) : (
+        /* já tem assinatura: o estado dela e as ações */
+        <div className={cardClass}>
+          {s.status === "ativa" && (
+            <>
+              <p className="text-sm font-bold text-ok">✓ Assinatura ativa</p>
+              <p className="mt-1 text-sm text-paper-dim">
+                Plano {PLANOS[assinatura?.plano ?? "agencia"]?.rotulo} · renova automaticamente no
+                cartão em{" "}
+                {assinatura?.pago_ate
+                  ? new Date(assinatura.pago_ate).toLocaleDateString("pt-BR")
+                  : "—"}
+                . Inclui {emDolar(PLANOS[assinatura?.plano ?? "agencia"]?.cota ?? 0)} de IA por mês.
+              </p>
+              <p className="mt-1 text-xs text-paper-dim">
+                Quer mudar de plano? Fale com o suporte — a troca vale já na próxima fatura.
+              </p>
+            </>
           )}
 
-          {podePix && !pix && (
-            <form action={pixDaMensalidade}>
-              <button
-                type="submit"
-                className="rounded-lg border border-ok/40 px-4 py-2.5 text-sm font-bold text-ok transition hover:bg-ok/10"
+          {s.status === "atrasada" && (
+            <>
+              <p className="text-sm font-bold text-warn">⚠️ Pagamento não passou</p>
+              <p className="mt-1 text-sm text-paper-dim">{s.aviso}</p>
+              <p className="mt-1 text-sm text-paper-dim">
+                Até lá <b className="text-paper">nada sai do ar</b> — seus sites e os dos seus
+                clientes continuam funcionando normalmente.
+              </p>
+            </>
+          )}
+
+          {s.status === "suspensa" && (
+            <>
+              <p className="text-sm font-bold text-danger">Assinatura suspensa</p>
+              <p className="mt-1 text-sm text-paper-dim">{s.aviso}</p>
+            </>
+          )}
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {s.status === "ativa" || s.status === "atrasada" ? (
+              <form action={abrirPortal}>
+                <button
+                  type="submit"
+                  className="rounded-lg border border-white/15 px-4 py-2.5 text-sm font-bold text-paper transition hover:border-brand-2"
+                >
+                  Trocar cartão / ver faturas
+                </button>
+              </form>
+            ) : (
+              /* suspensa: reativa o plano que ele já tinha contratado */
+              <form
+                action={assinar.bind(
+                  null,
+                  planoVendidoValido(assinatura?.plano ?? "") ?? "agencia",
+                )}
               >
-                Pagar este mês no Pix
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2"
+                >
+                  Reativar no cartão
+                </button>
+              </form>
+            )}
+
+            {podePix && !pix && (
+              <form action={pixDaMensalidade}>
+                <button
+                  type="submit"
+                  className="rounded-lg border border-ok/40 px-4 py-2.5 text-sm font-bold text-ok transition hover:bg-ok/10"
+                >
+                  Pagar este mês no Pix
+                </button>
+              </form>
+            )}
+          </div>
+
+          {/* Por que Pix só aparece aqui: a resposta antes da pergunta. */}
+          {podePix && (
+            <p className="mt-3 text-xs text-paper-dim">
+              A assinatura é sempre no cartão, porque é ela que renova sozinha. O Pix aparece só
+              quando o cartão recusa, para você não ficar refém do banco — e assim que ele for
+              confirmado, a cobrança do cartão deste mês é cancelada, sem risco de pagar duas vezes.
+            </p>
           )}
         </div>
-
-        {/* Por que Pix só aparece aqui: a resposta antes da pergunta. */}
-        {podePix && (
-          <p className="mt-3 text-xs text-paper-dim">
-            A assinatura é sempre no cartão, porque é ela que renova sozinha. O Pix aparece só
-            quando o cartão recusa, para você não ficar refém do banco — e assim que ele for
-            confirmado, a cobrança do cartão deste mês é cancelada, sem risco de pagar duas vezes.
-          </p>
-        )}
-      </div>
+      )}
 
       {pix?.qr_code && (
         <CodigoPix

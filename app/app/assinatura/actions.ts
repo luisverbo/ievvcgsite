@@ -9,6 +9,7 @@ import { checkoutAssinatura, checkoutCredito, portalDoCliente } from "@/lib/paga
 import { criarPix, mpConfigurado, motivoIndisponivel } from "@/lib/pagamentos/mercadopago";
 import { ehAdmin } from "@/lib/painel/admin";
 import { situacaoDaAssinatura, periodoDe, type AssinaturaRow } from "@/lib/pagamentos/estado";
+import { planoVendidoValido, precoCentavos, priceIdDaStripe } from "@/lib/pagamentos/planos";
 import { pacoteValido, MICRO } from "@/lib/creditos/precos";
 
 /*
@@ -20,8 +21,6 @@ import { pacoteValido, MICRO } from "@/lib/creditos/precos";
 function voltarCom(destino: string, chave: "erro" | "ok", texto: string): never {
   redirect(`${destino}?${chave}=${encodeURIComponent(texto)}`);
 }
-
-const PRECO_MENSAL_CENTAVOS = Number(process.env.PRECO_MENSAL_CENTAVOS) || 30_000; // R$300
 
 // Para o cliente, "indisponível" basta. Para você, que está configurando,
 // a mensagem diz exatamente o que falta.
@@ -40,7 +39,23 @@ async function emailDoUsuario(): Promise<string | null> {
 
 /* ----------------------------- assinar (cartão) --------------------------- */
 
-export async function assinar(): Promise<void> {
+export async function assinar(planoBruto: string): Promise<void> {
+  const plano = planoVendidoValido(planoBruto);
+  if (!plano) voltarCom("/app/assinatura", "erro", "Plano inválido.");
+
+  const priceId = priceIdDaStripe(plano!);
+  if (!priceId) {
+    // Configuração incompleta (falta o price na Vercel) não pode virar um
+    // erro técnico na cara do cliente na hora de PAGAR.
+    voltarCom(
+      "/app/assinatura",
+      "erro",
+      (await ehAdmin())
+        ? `Falta configurar ${plano === "pro" ? "STRIPE_PRICE_PRO" : "STRIPE_PRICE_AGENCIA"} na Vercel (e fazer Redeploy).`
+        : "Este plano está indisponível no momento. Fale com o suporte.",
+    );
+  }
+
   const org = await getMinhaOrg();
   const email = await emailDoUsuario();
   if (!org || !email) voltarCom("/app/assinatura", "erro", "Faça login de novo.");
@@ -58,6 +73,8 @@ export async function assinar(): Promise<void> {
       orgId: org.id,
       email,
       customerId: (data as { stripe_customer_id: string | null } | null)?.stripe_customer_id,
+      plano: plano!,
+      priceId: priceId!,
     });
   } catch (e) {
     voltarCom("/app/assinatura", "erro", (e as Error).message);
@@ -113,6 +130,10 @@ export async function pixDaMensalidade(): Promise<void> {
     voltarCom("/app/assinatura", "erro", "Sua assinatura está em dia — não há nada a pagar agora.");
   }
 
+  // O Pix cobra o valor do plano CONTRATADO — quem assinou Pro não pode
+  // receber uma cobrança avulsa com o preço do Agência.
+  const valorMes = precoCentavos(planoVendidoValido(assinatura?.plano ?? "") ?? "agencia");
+
   const periodo = periodoDe(new Date());
 
   // Já pagou este mês por qualquer caminho? Então não gera cobrança nova.
@@ -140,7 +161,7 @@ export async function pixDaMensalidade(): Promise<void> {
 
   try {
     const pix = await criarPix({
-      valorCentavos: PRECO_MENSAL_CENTAVOS,
+      valorCentavos: valorMes,
       descricao: `Mensalidade PáginaPro · ${periodo.slice(0, 7)}`,
       email: email!,
       referencia: `mensal:${org!.id}:${periodo}:${Date.now()}`,
@@ -150,7 +171,7 @@ export async function pixDaMensalidade(): Promise<void> {
     await admin.from("cobrancas_pix").insert({
       org_id: org!.id,
       periodo,
-      valor_centavos: PRECO_MENSAL_CENTAVOS,
+      valor_centavos: valorMes,
       mp_pagamento_id: pix.id,
       qr_code: pix.qrCode,
       qr_code_base64: pix.qrCodeBase64,

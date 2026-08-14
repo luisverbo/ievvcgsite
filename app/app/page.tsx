@@ -139,9 +139,9 @@ export default async function PainelHome() {
         <div className="rounded-xl border border-white/15 bg-ink-2 px-4 py-3 text-sm text-paper">
           Sua conta está criada, mas o acesso gratuito está fechado no momento.{" "}
           <Link href="/app/assinatura" className="font-bold text-brand-2 underline underline-offset-2">
-            Assine o plano Agência
+            Veja os planos
           </Link>{" "}
-          para usar o construtor com IA, a prospecção e a hospedagem.
+          para usar o construtor com IA, a hospedagem e a prospecção.
         </div>
       )}
 

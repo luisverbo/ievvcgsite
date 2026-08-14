@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   LINK_ASSINATURA,
-  LINK_TESTE,
   LINK_WHATSAPP,
   PRECO_MENSAL,
   DORES,
@@ -68,7 +67,7 @@ export default function Home() {
       {/* aviso do topo                                                     */}
       {/* ---------------------------------------------------------------- */}
       <div className="bg-gradient-to-r from-brand to-brand-2 px-4 py-2.5 text-center text-sm font-semibold text-white">
-        🎁 7 dias para testar — cancele em dois cliques, sem falar com ninguém
+        🚀 Sem fidelidade — cancele quando quiser, em dois cliques, sem falar com ninguém
       </div>
 
       {/* ---------------------------------------------------------------- */}
@@ -100,7 +99,7 @@ export default function Home() {
             >
               Entrar
             </Link>
-            <Botao href={LINK_TESTE}>Começar</Botao>
+            <Botao href={LINK_ASSINATURA}>Começar</Botao>
           </div>
         </div>
       </header>
@@ -139,8 +138,8 @@ export default function Home() {
             </p>
 
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-              <Botao href={LINK_TESTE} tamanho="grande">
-                Quero testar 7 dias →
+              <Botao href={LINK_ASSINATURA} tamanho="grande">
+                Começar agora →
               </Botao>
               <Botao href="#como" variante="fantasma" tamanho="grande">
                 Ver como funciona
@@ -148,7 +147,7 @@ export default function Home() {
             </div>
 
             <p className="mt-4 text-sm text-paper-dim">
-              Sem cartão para testar · cancela sozinho no painel
+              Sem fidelidade · cancela sozinho no painel, quando quiser
             </p>
           </div>
 
@@ -361,11 +360,11 @@ export default function Home() {
         <section className="px-5 pb-24">
           <div className="mx-auto max-w-3xl rounded-3xl border border-ok/30 bg-ok/5 p-8 text-center sm:p-10">
             <span className="text-4xl">🛡️</span>
-            <h2 className="mt-4 text-2xl sm:text-3xl">Teste sem risco</h2>
+            <h2 className="mt-4 text-2xl sm:text-3xl">Sem risco de ficar preso</h2>
             <p className="mx-auto mt-3 max-w-xl text-base leading-relaxed text-paper-dim">
-              Você tem 7 dias para usar tudo. Se não fizer sentido, cancela pelo painel em dois
-              cliques — sem ligar para ninguém, sem justificar, sem taxa. Os sites que você já
-              baixou continuam seus.
+              Não tem fidelidade nem multa. Se não fizer sentido, cancela pelo painel em dois
+              cliques — sem ligar para ninguém, sem justificar. O que você pagou vale até o fim do
+              mês, e os sites que você baixou continuam seus.
             </p>
           </div>
         </section>
