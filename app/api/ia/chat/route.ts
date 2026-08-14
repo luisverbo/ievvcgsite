@@ -3,13 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import {
   conversarComIA,
   ErroIA,
+  ehErroDeChaveIndisponivel,
   modeloValido,
   MEDIA_TYPES_IMAGEM,
   type Anexo,
   type MensagemChat,
 } from "@/lib/ia/anthropic";
 import { SYSTEM_CONSTRUTOR, promptInicial } from "@/lib/ia/prompt";
-import { contaDaOrg, cobrar, podeGastar } from "@/lib/creditos/conta";
+import { contaDaOrg, contaDeRespaldo, cobrar, podeGastar, type ContaIA } from "@/lib/creditos/conta";
 import { subirImagemIA } from "@/lib/ia/imagens";
 import { emDolar } from "@/lib/creditos/precos";
 
@@ -169,18 +170,71 @@ export async function POST(req: Request) {
         });
       };
 
+      // Qual conta terminou pagando esta geração. Começa como a resolvida lá em
+      // cima; só muda se a chave própria recusar por crédito/validade e a
+      // plataforma assumir no lugar dela.
+      let contaEfetiva: ContaIA = conta;
+      // Nenhum pedaço pode ter ido para a tela ainda quando trocamos de chave —
+      // reiniciar a chamada depois de já ter mostrado texto misturaria o
+      // começo de uma resposta com o fim de outra.
+      let algumTextoEmitido = false;
+      const onTexto = (pedaco: string) => {
+        algumTextoEmitido = true;
+        linha({ t: "delta", v: pedaco });
+      };
+
       try {
-        const resposta = await conversarComIA({
-          key,
-          modelo: modeloValido(site.modelo),
-          system: SYSTEM_CONSTRUTOR,
-          mensagens,
-          htmlAtual: site.html || null,
-          onTexto: (pedaco) => linha({ t: "delta", v: pedaco }),
-        });
+        let resposta;
+        try {
+          resposta = await conversarComIA({
+            key,
+            modelo: modeloValido(site.modelo),
+            system: SYSTEM_CONSTRUTOR,
+            mensagens,
+            htmlAtual: site.html || null,
+            onTexto,
+          });
+        } catch (e) {
+          /*
+           * A chave do cliente ficou sem crédito ou foi revogada: ele
+           * continua com tudo o que já paga aqui (prospecção, WhatsApp,
+           * domínio) e não pode travar por causa disso. Cai no crédito da
+           * plataforma, uma vez, com aviso — e não silenciosamente.
+           */
+          if (
+            conta.fonte !== "propria" ||
+            algumTextoEmitido ||
+            e instanceof ErroIA ||
+            !ehErroDeChaveIndisponivel(e)
+          ) {
+            throw e;
+          }
+
+          const respaldo = await contaDeRespaldo(site.org_id, conta.saldo);
+          const permissao = podeGastar(respaldo);
+          if (!permissao.ok) {
+            throw new Error(
+              "Sua chave da Anthropic recusou a chamada (sem crédito ou inválida), e você também não tem crédito da plataforma no momento. Corrija a chave ou compre créditos na tela de Créditos.",
+            );
+          }
+
+          contaEfetiva = respaldo;
+          linha({
+            t: "aviso",
+            v: "Sua chave da Anthropic recusou a chamada (sem crédito ou inválida). Usamos o crédito da plataforma desta vez para não travar seu trabalho.",
+          });
+          resposta = await conversarComIA({
+            key: respaldo.anthropic!,
+            modelo: modeloValido(site.modelo),
+            system: SYSTEM_CONSTRUTOR,
+            mensagens,
+            htmlAtual: site.html || null,
+            onTexto,
+          });
+        }
 
         const custo = await cobrar({
-          conta,
+          conta: contaEfetiva,
           modelo: modeloValido(site.modelo),
           uso: resposta.uso,
           descricao: "Geração de página com IA",
@@ -220,9 +274,10 @@ export async function POST(req: Request) {
           html: resposta.html,
           resumo: resposta.resumo,
           versaoId: (versao as { id: string } | null)?.id ?? null,
-          // A tela mostra o custo desta geração e o saldo que sobrou.
-          custo: conta.fonte === "plataforma" ? emDolar(custo) : null,
-          saldo: conta.fonte === "plataforma" ? emDolar(Math.max(0, conta.saldo - custo)) : null,
+          // A tela mostra o custo desta geração e o saldo que sobrou. Reflete a
+          // conta que REALMENTE pagou — a própria ou, no respaldo, a nossa.
+          custo: contaEfetiva.fonte === "plataforma" ? emDolar(custo) : null,
+          saldo: contaEfetiva.fonte === "plataforma" ? emDolar(Math.max(0, contaEfetiva.saldo - custo)) : null,
         });
       } catch (e) {
         /*
@@ -232,7 +287,7 @@ export async function POST(req: Request) {
          */
         if (e instanceof ErroIA) {
           await cobrar({
-            conta,
+            conta: contaEfetiva,
             modelo: modeloValido(site.modelo),
             uso: e.uso,
             descricao: "Geração interrompida",

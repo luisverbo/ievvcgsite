@@ -110,6 +110,29 @@ export class ErroIA extends Error {
   }
 }
 
+/*
+ * A chave do CLIENTE recusou por um motivo que é dela, não do pedido?
+ *
+ * Existe para decidir se vale a pena tentar de novo com o crédito da
+ * plataforma. Por isso é estreito de propósito — só os três casos em que o
+ * problema é comprovadamente da chave:
+ *
+ *   401  chave inválida ou revogada
+ *   400  "Your credit balance is too low…" — a mensagem clássica de saldo zerado
+ *   403  conta com restrição de cobrança
+ *
+ * Qualquer outro erro (rede, sobrecarga, limite de taxa) NÃO cai aqui: se a
+ * Anthropic estiver fora do ar, tentar de novo com outra chave falharia do
+ * mesmo jeito e só gastaria tempo — e crédito nosso — à toa.
+ */
+export function ehErroDeChaveIndisponivel(e: unknown): boolean {
+  if (!(e instanceof Anthropic.APIError)) return false;
+  if (e.status === 401) return true;
+  if (e.status === 400 && /credit balance|purchase credits|billing/i.test(e.message)) return true;
+  if (e.status === 403 && /billing|permission/i.test(e.message)) return true;
+  return false;
+}
+
 export type RespostaIA = {
   html: string | null;
   resumo: string;

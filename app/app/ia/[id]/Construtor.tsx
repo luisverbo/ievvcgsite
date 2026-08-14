@@ -39,7 +39,11 @@ export type EmpresaVinculada = {
 } | null;
 
 type AnexoLocal = { tipo: "imagem" | "pdf"; nome: string; media_type: string; data: string };
-type Bolha = { papel: "user" | "assistant" | "erro"; conteudo: string; anexos?: { nome: string }[] };
+type Bolha = {
+  papel: "user" | "assistant" | "erro" | "aviso";
+  conteudo: string;
+  anexos?: { nome: string }[];
+};
 
 const MAX_MB = 12;
 const MAX_ANEXOS = 10;
@@ -333,7 +337,8 @@ export default function Construtor({
           const evento = JSON.parse(linha) as
             | { t: "delta"; v: string }
             | { t: "fim"; html: string; resumo: string; versaoId: string | null }
-            | { t: "erro"; v: string };
+            | { t: "erro"; v: string }
+            | { t: "aviso"; v: string };
 
           if (evento.t === "delta") {
             acumulado += evento.v;
@@ -348,6 +353,8 @@ export default function Construtor({
                 ...v,
               ]);
             }
+          } else if (evento.t === "aviso") {
+            setBolhas((b) => [...b, { papel: "aviso", conteudo: evento.v }]);
           } else {
             setBolhas((b) => [...b, { papel: "erro", conteudo: evento.v }]);
           }
@@ -662,7 +669,9 @@ export default function Construtor({
                       ? "ml-6 bg-brand/20 text-paper"
                       : b.papel === "erro"
                         ? "border border-danger/40 bg-danger/10 text-danger"
-                        : "mr-6 border border-white/10 bg-white/5 text-paper"
+                        : b.papel === "aviso"
+                          ? "mr-6 border border-warn/40 bg-warn/10 text-warn"
+                          : "mr-6 border border-white/10 bg-white/5 text-paper"
                   }`}
                 >
                   <p className="whitespace-pre-line">{b.conteudo}</p>

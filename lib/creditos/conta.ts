@@ -71,7 +71,7 @@ export async function contaDaOrg(orgId: string): Promise<ContaIA> {
   return {
     orgId,
     fonte: "plataforma",
-    anthropic: process.env.ANTHROPIC_API_KEY || (await chaveDaPlataforma("anthropic_api_key")),
+    anthropic: await chaveAnthropicDaPlataforma(),
     openai: propriaOpenai || process.env.OPENAI_API_KEY || (await chaveDaPlataforma("openai_api_key")),
     saldo: org.creditos,
   };
@@ -85,6 +85,29 @@ async function chaveDaPlataforma(chave: string): Promise<string | null> {
     .eq("chave", chave)
     .maybeSingle();
   return (data as { valor: string } | null)?.valor?.trim() || null;
+}
+
+export async function chaveAnthropicDaPlataforma(): Promise<string | null> {
+  return process.env.ANTHROPIC_API_KEY || (await chaveDaPlataforma("anthropic_api_key"));
+}
+
+/*
+ * A conta de RESPALDO: mesmo saldo que a organização já tem, mas com a chave
+ * da plataforma — para quando a chave própria do cliente falha por crédito ou
+ * validade e ele não pode ficar travado no meio do trabalho.
+ *
+ * `saldo` vem de fora (não busca de novo) porque quem chama já tem a conta
+ * "própria" em mãos, de onde tirou o saldo momentos antes — buscar de novo
+ * seria uma segunda ida ao banco para o mesmo número.
+ */
+export async function contaDeRespaldo(orgId: string, saldo: number): Promise<ContaIA> {
+  return {
+    orgId,
+    fonte: "plataforma",
+    anthropic: await chaveAnthropicDaPlataforma(),
+    openai: null,
+    saldo,
+  };
 }
 
 /* ------------------------------ antes de gastar --------------------------- */

@@ -145,7 +145,9 @@ export default async function CreditosPage({
         <h2 className="mb-1 text-sm font-bold">Usar a minha própria chave</h2>
         <p className="mb-3 text-xs text-paper-dim">
           Sai mais barato se você usa muito: você paga o preço de custo direto à Anthropic, sem
-          passar por aqui. A chave é guardada criptografada e nunca aparece na tela de novo.
+          passar por aqui. A chave é guardada criptografada e nunca aparece na tela de novo. Se ela
+          ficar sem crédito ou for revogada, o sistema não trava — usa o crédito da plataforma
+          naquela geração e avisa no próprio chat.
         </p>
         <div className="flex flex-col gap-3">
           <FormChave

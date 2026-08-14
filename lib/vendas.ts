@@ -134,7 +134,7 @@ export const PERGUNTAS: { pergunta: string; resposta: string }[] = [
   {
     pergunta: "Como funciona o crédito de IA?",
     resposta:
-      "Todo mês entram US$15 de crédito no seu plano, o suficiente para umas 14 páginas completas. Se precisar de mais, compra crédito avulso no cartão ou no Pix. E se você já tem conta na Anthropic, pode colar a sua própria chave e não gastar crédito nenhum.",
+      "Todo mês entram US$15 de crédito no seu plano, o suficiente para umas 14 páginas completas. Se precisar de mais, compra crédito avulso no cartão ou no Pix. E se você já tem conta na Anthropic, pode colar a sua própria chave: o sistema passa a usar ela, e se algum dia ela ficar sem crédito, cai automaticamente no crédito da plataforma para o seu trabalho não travar.",
   },
   {
     pergunta: "A prospecção é legal? Meu número pode ser bloqueado?",
