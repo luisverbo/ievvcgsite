@@ -178,7 +178,75 @@ export default function Diagnostico() {
         </p>
       </div>
 
+      <Roteamento />
       <TesteMp />
+    </div>
+  );
+}
+
+/*
+ * Quem é "nosso" e quem é "do cliente".
+ *
+ * Todo visitante chega com um Host. O proxy tem que dizer, sem consultar nada,
+ * se aquele endereço é o painel ou o site de um cliente. Errar para o lado
+ * "é nosso" é o pior caso: o cliente paga pela hospedagem e o visitante dele
+ * vê a NOSSA página de vendas.
+ *
+ * São nomes de domínio, não segredo — pode aparecer inteiro.
+ */
+function Roteamento() {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  let hostPainel = "";
+  try {
+    hostPainel = new URL(appUrl!).hostname.toLowerCase();
+  } catch {
+    hostPainel = "";
+  }
+  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim();
+  const producao = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+
+  const nossos = [
+    root,
+    root && `www.${root}`,
+    root && `app.${root}`,
+    hostPainel,
+    "localhost",
+    "127.0.0.1",
+  ].filter(Boolean) as string[];
+
+  // Se a Vercel elegeu um domínio de cliente como "produção", isso é normal —
+  // só não pode mais influenciar o roteamento. O aviso existe para você saber
+  // que é esperado, e não sair caçando problema onde não tem.
+  const producaoEhCliente = !!producao && producao !== hostPainel && !producao.endsWith(".vercel.app");
+
+  return (
+    <div className="mt-4 rounded-lg border border-white/10 bg-ink px-3 py-2.5">
+      <p className="text-xs font-bold text-paper">Roteamento de domínio</p>
+      <p className="mt-1 text-[11px] text-paper-dim">
+        Endereços tratados como <b className="text-paper">nossos</b> (mostram o painel e a página de
+        vendas). Qualquer outro Host vira site de cliente.
+      </p>
+      <ul className="mt-1.5 flex flex-col gap-0.5">
+        {nossos.map((h) => (
+          <li key={h} className="font-mono text-[11px] text-paper-dim">
+            {h}
+          </li>
+        ))}
+        <li className="font-mono text-[11px] text-paper-dim">*.vercel.app</li>
+        {root && <li className="font-mono text-[11px] text-paper-dim">*.{root}</li>}
+      </ul>
+      {!hostPainel && (
+        <p className="mt-2 text-[11px] text-danger">
+          NEXT_PUBLIC_APP_URL está vazia ou malformada — precisa do endereço completo, com https://
+        </p>
+      )}
+      {producaoEhCliente && (
+        <p className="mt-2 text-[11px] text-paper-dim">
+          A Vercel está chamando <code className="text-paper">{producao}</code> de &quot;domínio de
+          produção&quot; do projeto. É normal quando o primeiro domínio conectado é de cliente, e não
+          afeta o roteamento.
+        </p>
+      )}
     </div>
   );
 }

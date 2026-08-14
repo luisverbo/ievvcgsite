@@ -3,7 +3,25 @@ import { updateSession } from "@/lib/supabase/middleware";
 
 // Domínio raiz do produto (ex.: "paginapro.com.br"). Quando definido, sites
 // publicados respondem em {slug}.paginapro.com.br via rewrite interno.
-const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.toLowerCase().trim();
+
+/*
+ * O endereço do PAINEL, tirado de NEXT_PUBLIC_APP_URL.
+ *
+ * Precisa ser uma variável que NÓS controlamos. Já usamos aqui a
+ * VERCEL_PROJECT_PRODUCTION_URL e ela nos traiu: a Vercel preenche essa
+ * variável com "o domínio de produção do projeto", e domínio de produção
+ * passa a ser o CUSTOM DOMAIN assim que o primeiro é conectado. Ou seja, no
+ * deploy seguinte o domínio do cliente entrava na lista de "hosts nossos" e o
+ * visitante recebia a nossa landing page em vez do site dele.
+ */
+const HOST_PAINEL = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_APP_URL!).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+})();
 
 export default async function proxy(request: NextRequest) {
   const host = request.headers.get("host")?.toLowerCase().split(":")[0] ?? "";
@@ -33,15 +51,9 @@ export default async function proxy(request: NextRequest) {
    * desconhecido termina em 404 na rota — sem custo aqui.
    */
   const nossosHosts = new Set(
-    [
-      ROOT,
-      ROOT && `www.${ROOT}`,
-      ROOT && `app.${ROOT}`,
-      "localhost",
-      process.env.VERCEL_URL?.toLowerCase(),
-      process.env.VERCEL_BRANCH_URL?.toLowerCase(),
-      process.env.VERCEL_PROJECT_PRODUCTION_URL?.toLowerCase(),
-    ].filter(Boolean) as string[],
+    [ROOT, ROOT && `www.${ROOT}`, ROOT && `app.${ROOT}`, HOST_PAINEL, "localhost", "127.0.0.1"].filter(
+      Boolean,
+    ) as string[],
   );
   const ehNosso =
     nossosHosts.has(host) || (ROOT ? host.endsWith(`.${ROOT}`) : false) || host.endsWith(".vercel.app");
