@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { slugify } from "@/lib/format";
-import { podeUsar } from "@/lib/painel/permissoes";
+import { podeUsar, planoVigente, FREE_MAX_PAGINAS } from "@/lib/painel/permissoes";
+import { ehAdmin } from "@/lib/painel/admin";
 import { modeloValido, MEDIA_TYPES_IMAGEM } from "@/lib/ia/anthropic";
 import { contaDaOrg, cobrarFixo, statusDaConta } from "@/lib/creditos/conta";
 import { CUSTO_IMAGEM } from "@/lib/creditos/precos";
@@ -39,6 +40,17 @@ export type VersaoRow = { id: string; resumo: string | null; created_at: string 
 
 export type NovaPaginaState = { error?: string } | undefined;
 
+/*
+ * O plano grátis é degustação: a página nasce pronta do primeiro pedido e
+ * acabou. Este helper responde, para uma ação qualquer, se quem chama está
+ * nessa condição — e as mensagens de bloqueio sempre apontam a saída (assinar),
+ * nunca só a porta fechada.
+ */
+async function estaNoFree(orgId: string, planoContratado: string): Promise<boolean> {
+  if (await ehAdmin()) return false;
+  return (await planoVigente(orgId, planoContratado)) === "free";
+}
+
 export async function criarPaginaIA(
   _prev: NovaPaginaState,
   formData: FormData,
@@ -46,6 +58,20 @@ export async function criarPaginaIA(
   if (!(await podeUsar("construtor"))) return { error: "Sem permissão." };
   const org = await getMinhaOrg();
   if (!org) return { error: "Organização não encontrada." };
+
+  if (await estaNoFree(org.id, org.plano)) {
+    const supabaseRls = await createClient();
+    const { count } = await supabaseRls
+      .from("sites_ia")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", org.id);
+    if ((count ?? 0) >= FREE_MAX_PAGINAS) {
+      return {
+        error:
+          "No plano grátis você cria 1 página, para conhecer a ferramenta. Assine para criar quantas quiser — e liberar edição por chat, prospecção e domínio próprio.",
+      };
+    }
+  }
 
   // Melhor barrar aqui do que deixar criar a página e falhar na primeira
   // mensagem do chat, com a tela já aberta.
@@ -188,6 +214,19 @@ export async function gerarImagemIA(
     .maybeSingle();
   const site = data as { id: string; org_id: string; html: string } | null;
   if (!site?.html) return { error: "Página não encontrada." };
+
+  /*
+   * Gerar imagem custa dinheiro de verdade; a degustação grátis para no
+   * texto. Foto própria continua liberada (não custa nada e deixa a página
+   * apresentável) — o bloqueio é só no que gasta.
+   */
+  const orgFree = await getMinhaOrg();
+  if (orgFree && (await estaNoFree(orgFree.id, orgFree.plano))) {
+    return {
+      error:
+        "Gerar imagens com IA faz parte dos planos pagos. No grátis, use o botão de enviar a sua própria foto — ou assine para liberar tudo.",
+    };
+  }
 
   // Imagem sai na chave da OpenAI do cliente, se ele tiver; senão na nossa,
   // descontando crédito. O texto e a imagem podem vir de contas diferentes.

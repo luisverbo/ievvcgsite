@@ -49,7 +49,21 @@ export const PLANOS: Record<
   string,
   { rotulo: string; recursos: Recurso[]; cota: number; sites: number }
 > = {
-  free: { rotulo: "Grátis", recursos: ["construtor"], cota: 1_000_000, sites: 0 },
+  /*
+   * O grátis é uma DEGUSTAÇÃO, não um plano: 1 página, gerada uma vez, a
+   * partir de um único pedido — publica no endereço interno e pronto. Sem
+   * chat de edição, sem domínio próprio. Os limites moram nas ações (criar
+   * página, chat), não aqui; aqui só o que ele enxerga de recurso.
+   *
+   * A cota de US$1,50 existe para UMA geração completa caber inteira
+   * (a página mais cara custa ~US$1,06 no Fable) — cota menor deixaria a
+   * degustação morrer no meio, que é a pior primeira impressão possível.
+   *
+   * Ele ainda pode ser desligado por completo no Admin (plano_free_ativo).
+   */
+  free: { rotulo: "Grátis", recursos: ["construtor"], cota: 1_500_000, sites: 0 },
+  // Fora de linha: definido para o futuro, mas nenhum checkout vende o Pro
+  // hoje — o produto é vendido num plano só, o Agência.
   pro: { rotulo: "Pro", recursos: ["construtor", "hospedagem"], cota: 5_000_000, sites: 3 },
   agencia: {
     rotulo: "Agência",
@@ -58,6 +72,29 @@ export const PLANOS: Record<
     sites: 10,
   },
 };
+
+/*
+ * O plano grátis está aberto para novos usuários?
+ *
+ * Interruptor do dono, em config_sistema (chave plano_free_ativo, "1"/"0").
+ * DESLIGADO por padrão: com ele desligado, quem se cadastra precisa assinar
+ * para usar o construtor. Ligado, vale a degustação descrita acima.
+ *
+ * É configuração de banco, não variável de ambiente, de propósito: liga e
+ * desliga na hora, sem redeploy — campanha no ar, botão no Admin.
+ */
+export async function planoFreeAtivo(): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("config_sistema")
+    .select("valor")
+    .eq("chave", "plano_free_ativo")
+    .maybeSingle();
+  return (data as { valor: string } | null)?.valor?.trim() === "1";
+}
+
+// Quantas páginas de IA o grátis cria. Uma: é degustação.
+export const FREE_MAX_PAGINAS = 1;
 
 export function cotaDoPlano(plano: string | null | undefined): number {
   return PLANOS[plano ?? "free"]?.cota ?? 0;
@@ -83,7 +120,11 @@ export async function podeUsar(recurso: Recurso): Promise<boolean> {
   if (await ehAdmin()) return true;
   const org = await getMinhaOrg();
   if (!org) return false;
-  return planoLibera(await planoVigente(org.id, org.plano), recurso);
+  const plano = await planoVigente(org.id, org.plano);
+  // Grátis desligado no Admin = grátis sem acesso a nada. A conta continua
+  // existindo; o caminho passa a ser assinar.
+  if (plano === "free" && !(await planoFreeAtivo())) return false;
+  return planoLibera(plano, recurso);
 }
 
 /*

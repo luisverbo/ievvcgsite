@@ -29,6 +29,26 @@ export async function alterarPlano(orgId: string, novoPlano: "free" | "pro" | "a
   revalidatePath("/app/admin");
 }
 
+/* ------------------------------ plano grátis ------------------------------- */
+
+/*
+ * Liga/desliga o plano grátis (a degustação de 1 página).
+ *
+ * Vive em config_sistema para valer na hora, sem redeploy. Desligado, quem
+ * está no free não usa o construtor — o painel abre e o caminho vira assinar.
+ */
+export async function alternarPlanoFree(ativo: boolean) {
+  if (!(await ehAdmin())) return;
+  const admin = createAdminClient();
+  await admin.from("config_sistema").upsert({
+    chave: "plano_free_ativo",
+    valor: ativo ? "1" : "0",
+    updated_at: new Date().toISOString(),
+  });
+  revalidatePath("/app/admin");
+  revalidatePath("/app");
+}
+
 /* ---------------------------- chave da Anthropic --------------------------- */
 export type ChaveIAState = { ok?: boolean; error?: string } | undefined;
 

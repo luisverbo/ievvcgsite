@@ -24,7 +24,11 @@ export default async function PainelLayout({ children }: { children: React.React
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [admin, temProspeccao] = await Promise.all([ehAdmin(), podeUsar("prospeccao")]);
+  const [admin, temProspeccao, temConstrutor] = await Promise.all([
+    ehAdmin(),
+    podeUsar("prospeccao"),
+    podeUsar("construtor"),
+  ]);
 
   return (
     <div className="min-h-screen">
@@ -37,9 +41,11 @@ export default async function PainelLayout({ children }: { children: React.React
             <Link href="/app" className={linkClass}>
               Início
             </Link>
-            <Link href="/app/ia" className={linkClass}>
-              Minhas páginas ✨
-            </Link>
+            {temConstrutor && (
+              <Link href="/app/ia" className={linkClass}>
+                Minhas páginas ✨
+              </Link>
+            )}
             {temProspeccao && (
               <Link href="/app/prospeccao" className={linkClass}>
                 Prospecção 🎯

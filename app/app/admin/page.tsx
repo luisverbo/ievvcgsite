@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { alterarPlano, ehAdmin } from "./actions";
+import { alterarPlano, alternarPlanoFree, ehAdmin } from "./actions";
 import CriarLanding from "./CriarLanding";
 import ChaveAnthropic from "./ChaveAnthropic";
 import Diagnostico from "./Diagnostico";
 import ChaveForm from "./ebooks/ChaveForm";
 import { getAnthropicKey } from "@/lib/ia/anthropic";
 import { getOpenAIKey } from "@/lib/ebooks/openai";
-import { PLANOS } from "@/lib/painel/permissoes";
+import { PLANOS, planoFreeAtivo, FREE_MAX_PAGINAS } from "@/lib/painel/permissoes";
 import { emDolar } from "@/lib/creditos/precos";
 import { cardClass } from "@/components/painel/ui";
 
@@ -33,6 +33,7 @@ export default async function AdminPage() {
     { count: totalPaginasIA },
     { count: totalEbooks },
     { count: totalProspectos },
+    freeAtivo,
   ] = await Promise.all([
     admin.from("organizacoes").select("id, nome, plano, created_at").order("created_at"),
     admin.from("sites").select("org_id, publicado"),
@@ -43,6 +44,7 @@ export default async function AdminPage() {
     admin.from("sites_ia").select("id", { count: "exact", head: true }),
     admin.from("ebooks").select("id", { count: "exact", head: true }),
     admin.from("prospeccao").select("id", { count: "exact", head: true }),
+    planoFreeAtivo(),
   ]);
 
   const orgs = (orgsRaw as OrgRow[] | null) ?? [];
@@ -59,7 +61,9 @@ export default async function AdminPage() {
 
   const stats = [
     { rotulo: "Contas", valor: orgs.length, cor: "text-paper" },
-    { rotulo: "Assinantes Pro", valor: orgs.filter((o) => o.plano === "pro").length, cor: "text-brand-2" },
+    // Qualquer plano pago conta: hoje só se vende o Agência, mas contas em
+    // outros planos pagos (cortesia, legado) são assinantes do mesmo jeito.
+    { rotulo: "Assinantes", valor: orgs.filter((o) => o.plano !== "free").length, cor: "text-brand-2" },
     { rotulo: "Usuários", valor: usersRes.data.users.length, cor: "text-paper" },
     { rotulo: "Sites", valor: sites.length, cor: "text-paper" },
     { rotulo: "Sites no ar", valor: sites.filter((s) => s.publicado).length, cor: "text-ok" },
@@ -117,6 +121,42 @@ export default async function AdminPage() {
       </div>
 
       <Diagnostico />
+
+      {/* ------------------------- plano grátis -------------------------- */}
+      <div className={cardClass}>
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-lg font-bold">🎁 Plano grátis (degustação)</h2>
+          <span
+            className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+              freeAtivo ? "bg-ok/15 text-ok" : "bg-white/10 text-paper-dim"
+            }`}
+          >
+            {freeAtivo ? "● ligado" : "○ desligado"}
+          </span>
+          <form action={alternarPlanoFree.bind(null, !freeAtivo)} className="ml-auto">
+            <button
+              type="submit"
+              className={`rounded-lg px-4 py-2 text-xs font-bold transition ${
+                freeAtivo
+                  ? "border border-white/15 text-paper hover:border-danger hover:text-danger"
+                  : "bg-brand text-white hover:bg-brand-2"
+              }`}
+            >
+              {freeAtivo ? "Desligar" : "Ligar"}
+            </button>
+          </form>
+        </div>
+        <p className="mt-2 text-sm text-paper-dim">
+          Ligado, quem se cadastra sem assinar cria{" "}
+          <b className="text-paper">{FREE_MAX_PAGINAS} página</b>, gerada{" "}
+          <b className="text-paper">uma única vez</b> a partir do primeiro pedido, e publica no
+          endereço interno — sem edição por chat, sem imagem por IA e sem domínio próprio. Desligado,
+          a conta abre mas o construtor pede assinatura. Vale na hora, sem redeploy.
+        </p>
+        <p className="mt-1 text-xs text-paper-dim">
+          Custo por degustação: até {emDolar(PLANOS.free.cota)} de IA (uma geração completa).
+        </p>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {stats.map((s) => (

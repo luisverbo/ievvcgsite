@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
-import { PLANOS, planoVigente, planoLibera } from "@/lib/painel/permissoes";
+import { PLANOS, planoVigente, planoLibera, planoFreeAtivo } from "@/lib/painel/permissoes";
 import { ehAdmin } from "@/lib/painel/admin";
 import { situacaoDaAssinatura, type AssinaturaRow } from "@/lib/pagamentos/estado";
 import { statusDaConta } from "@/lib/creditos/conta";
@@ -68,6 +68,10 @@ export default async function PainelHome() {
   const visitas30d = visitasRes.count ?? 0;
   const recentes = paginas.slice(0, 3);
 
+  // No grátis, tudo depende de o interruptor da degustação estar ligado.
+  const ehFree = !admin && plano === "free";
+  const freeAtivo = ehFree ? await planoFreeAtivo() : true;
+  const temConstrutor = admin || (planoLibera(plano, "construtor") && freeAtivo);
   const temProspeccao = admin || planoLibera(plano, "prospeccao");
 
   // Prospecção só é consultada para quem tem o recurso — senão é banco à toa.
@@ -113,12 +117,33 @@ export default async function PainelHome() {
           </p>
         </div>
         <Link
-          href="/app/ia"
+          href={temConstrutor ? "/app/ia" : "/app/assinatura"}
           className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand/25 transition hover:bg-brand-2"
         >
-          + Criar página com IA
+          {temConstrutor ? "+ Criar página com IA" : "Assinar para começar"}
         </Link>
       </div>
+
+      {/* degustação: deixa claro o que o grátis dá, antes de ele esbarrar no limite */}
+      {ehFree && freeAtivo && (
+        <div className="rounded-xl border border-brand-2/30 bg-brand/10 px-4 py-3 text-sm text-paper">
+          Você está no plano grátis: crie <b>1 página</b> com um único pedido e publique de graça no
+          endereço PáginaPro.{" "}
+          <Link href="/app/assinatura" className="font-bold text-brand-2 underline underline-offset-2">
+            Assinando
+          </Link>{" "}
+          você libera edição por chat, páginas ilimitadas, prospecção e domínio próprio.
+        </div>
+      )}
+      {ehFree && !freeAtivo && (
+        <div className="rounded-xl border border-white/15 bg-ink-2 px-4 py-3 text-sm text-paper">
+          Sua conta está criada, mas o acesso gratuito está fechado no momento.{" "}
+          <Link href="/app/assinatura" className="font-bold text-brand-2 underline underline-offset-2">
+            Assine o plano Agência
+          </Link>{" "}
+          para usar o construtor com IA, a prospecção e a hospedagem.
+        </div>
+      )}
 
       {/* o que precisa de atenção agora */}
       {situacao.aviso && (
@@ -192,16 +217,27 @@ export default async function PainelHome() {
         </h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Link
-            href="/app/ia"
-            className="group rounded-2xl border border-brand-2/30 bg-gradient-to-br from-brand/15 to-transparent p-5 transition hover:-translate-y-0.5 hover:border-brand-2/60"
+            href={temConstrutor ? "/app/ia" : "/app/assinatura"}
+            className={
+              temConstrutor
+                ? "group rounded-2xl border border-brand-2/30 bg-gradient-to-br from-brand/15 to-transparent p-5 transition hover:-translate-y-0.5 hover:border-brand-2/60"
+                : "group rounded-2xl border border-dashed border-white/15 bg-ink-2/60 p-5 transition hover:border-warn/50"
+            }
           >
-            <div className="text-2xl">✨</div>
-            <h3 className="mt-2 font-display text-lg font-extrabold text-paper">
+            <div className={`text-2xl ${temConstrutor ? "" : "opacity-60"}`}>
+              {temConstrutor ? "✨" : "🔒"}
+            </div>
+            <h3
+              className={`mt-2 font-display text-lg font-extrabold ${
+                temConstrutor ? "text-paper" : "text-paper-dim"
+              }`}
+            >
               Criador de páginas com IA
             </h3>
             <p className="mt-1 text-sm text-paper-dim">
-              Descreva o negócio e a IA escreve a página inteira — texto, design e imagens. Depois
-              é conversar até ficar do seu jeito.
+              {temConstrutor
+                ? "Descreva o negócio e a IA escreve a página inteira — texto, design e imagens. Depois é conversar até ficar do seu jeito."
+                : "Descreva o negócio e a IA escreve a página inteira. Disponível para assinantes — clique para conhecer o plano."}
             </p>
           </Link>
 

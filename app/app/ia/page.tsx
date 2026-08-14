@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { MODELOS_IA } from "@/lib/ia/modelos";
@@ -32,7 +32,9 @@ function desde30Dias() {
 }
 
 export default async function PaginasIAPage() {
-  if (!(await podeUsar("construtor"))) notFound();
+  // Rota principal do produto: quem não tem acesso (grátis desligado) é
+  // levado ao lugar onde resolve, não a um "não encontrado" que parece bug.
+  if (!(await podeUsar("construtor"))) redirect("/app/assinatura");
   const org = await getMinhaOrg();
   if (!org) notFound();
 

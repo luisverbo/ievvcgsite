@@ -11,6 +11,8 @@ import {
 } from "@/lib/ia/anthropic";
 import { SYSTEM_CONSTRUTOR, promptInicial } from "@/lib/ia/prompt";
 import { contaDaOrg, contaDeRespaldo, cobrar, podeGastar, type ContaIA } from "@/lib/creditos/conta";
+import { planoVigente, planoFreeAtivo } from "@/lib/painel/permissoes";
+import { ehAdmin } from "@/lib/painel/admin";
 import { subirImagemIA } from "@/lib/ia/imagens";
 import { emDolar } from "@/lib/creditos/precos";
 
@@ -84,6 +86,33 @@ export async function POST(req: Request) {
     .maybeSingle();
   const site = siteRow as { id: string; org_id: string; html: string; modelo: string } | null;
   if (!site) return erro("Página não encontrada.", 404);
+
+  /*
+   * Plano grátis = UMA geração, a do primeiro pedido.
+   *
+   * A régua é o html: existindo, a página já nasceu — a segunda mensagem é
+   * edição, e edição por chat é dos planos pagos. Se a primeira geração
+   * falhar (sem html), ele pode tentar de novo; o que não pode é iterar.
+   */
+  if (!(await ehAdmin())) {
+    const { data: orgRow } = await supabase
+      .from("organizacoes")
+      .select("plano")
+      .eq("id", site.org_id)
+      .maybeSingle();
+    const plano = await planoVigente(site.org_id, (orgRow as { plano: string } | null)?.plano ?? "free");
+    if (plano === "free") {
+      if (!(await planoFreeAtivo())) {
+        return erro("O plano grátis está desativado no momento. Assine para usar o construtor.", 402);
+      }
+      if (site.html) {
+        return erro(
+          "No plano grátis a página é gerada uma vez, a partir do primeiro pedido. Para editar conversando com a IA, assine o plano.",
+          402,
+        );
+      }
+    }
+  }
 
   // Chave própria do cliente ou a nossa descontando crédito — decidido aqui,
   // uma vez, e o resto da rota não precisa saber a diferença.
