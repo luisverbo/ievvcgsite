@@ -125,16 +125,39 @@ export default async function DominioPage({ params }: { params: Promise<{ id: st
                     <tbody>
                       <tr className="text-paper">
                         <td className="pr-6 pt-1 font-bold">{dns.tipo}</td>
-                        <td className="pr-6 pt-1 font-bold">{dns.nome}</td>
+                        <td className="pr-6 pt-1 font-bold">
+                          {dns.raiz ? (
+                            <span className="font-sans font-normal text-paper-dim">
+                              deixe em branco
+                            </span>
+                          ) : (
+                            dns.nome
+                          )}
+                        </td>
                         <td className="pt-1 font-bold">{dns.valor}</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
+                {dns.raiz && (
+                  <p className="mt-2 text-xs text-paper-dim">
+                    O campo <b className="text-paper">Nome</b> fica <b className="text-paper">vazio</b>{" "}
+                    mesmo — é assim que se diz &quot;o próprio domínio&quot;. No Registro.br, digitar{" "}
+                    <code className="text-paper">@</code> dá o erro &quot;Nome do record inválido&quot;.
+                    Só use <code className="text-paper">@</code> se o painel do seu registrador
+                    exigir alguma coisa no campo (GoDaddy e Hostinger pedem).
+                  </p>
+                )}
                 <p className="mt-2 text-xs text-paper-dim">
                   Depois de salvar lá, a propagação leva de minutos a algumas horas. O certificado
                   (https) é emitido sozinho quando o DNS chegar.
                 </p>
+                {dns.raiz && (
+                  <p className="mt-2 text-xs text-paper-dim">
+                    Dica: conecte também <b className="text-paper">www.{d.dominio}</b> aqui em cima —
+                    muita gente digita o endereço com &quot;www&quot; na frente.
+                  </p>
+                )}
                 {d.detalhe && <p className="mt-2 text-xs text-warn">{d.detalhe}</p>}
                 <form action={verificarDominio.bind(null, id, d.id)} className="mt-3">
                   <button

@@ -42,14 +42,30 @@ async function chamar(metodo: string, caminho: string, corpo?: unknown) {
   return { ok: res.ok, status: res.status, json };
 }
 
+export type InstrucaoDns = {
+  tipo: "A" | "CNAME";
+  /** O que digitar no campo "Nome"/"Host". Vazio quando é o domínio raiz. */
+  nome: string;
+  valor: string;
+  raiz: boolean;
+};
+
 /*
  * O que o cliente precisa configurar no registrador dele.
  *
  * Domínio raiz não aceita CNAME (regra do DNS, não nossa), então lá vai um
  * registro A. Subdomínio (www, site, etc.) vai de CNAME, que sobrevive a
  * mudanças de IP da Vercel.
+ *
+ * O nome do registro raiz vai VAZIO, não "@".
+ *
+ * "@" é uma abreviação que alguns painéis (GoDaddy, Cloudflare, Hostinger)
+ * aceitam como "o próprio domínio" — mas é convenção de painel, não parte do
+ * DNS. O Registro.br não aceita: ele já mostra o domínio ao lado do campo e
+ * responde "Nome do record inválido - @". Campo em branco funciona nos dois
+ * mundos, então é o que mandamos; o "@" fica só como observação na tela.
  */
-export function instrucaoDns(dominio: string): { tipo: "A" | "CNAME"; nome: string; valor: string } {
+export function instrucaoDns(dominio: string): InstrucaoDns {
   const partes = dominio.split(".");
   // "clinica.com.br" tem 3 partes mas é raiz (o .br registra em dois níveis);
   // "www.clinica.com.br" tem 4 e é subdomínio. "www" na frente decide sozinho.
@@ -57,9 +73,9 @@ export function instrucaoDns(dominio: string): { tipo: "A" | "CNAME"; nome: stri
     partes[0] !== "www" &&
     (partes.length === 2 || (partes.length === 3 && partes[partes.length - 1] === "br"));
   if (ehRaiz) {
-    return { tipo: "A", nome: "@", valor: "76.76.21.21" };
+    return { tipo: "A", nome: "", valor: "76.76.21.21", raiz: true };
   }
-  return { tipo: "CNAME", nome: partes[0], valor: "cname.vercel-dns.com" };
+  return { tipo: "CNAME", nome: partes[0], valor: "cname.vercel-dns.com", raiz: false };
 }
 
 export type ResultadoDominio =
