@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { MODELOS_IA } from "@/lib/ia/modelos";
+import Robo from "@/components/painel/Robo";
 import { listarImagensHtml } from "@/lib/ia/html-imagens";
 import PainelPixel from "./PainelPixel";
 import {
@@ -689,11 +690,29 @@ export default function Construtor({
               ))}
 
               {gerando && (
-                <div className="mr-6 rounded-xl border border-white/10 bg-white/5 p-3">
-                  <p className="mb-2 flex items-center gap-2 text-sm font-bold text-brand-2">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-brand-2" />
-                    Escrevendo a página…
-                  </p>
+                /*
+                 * O momento da mágica merece palco: o agente escrevendo, com o
+                 * código passando por trás. A borda aurora e o robô são o
+                 * "alguém está trabalhando para você" — sem eles isto é só um
+                 * spinner com outro nome.
+                 */
+                <div className="anim-entrada card-aurora mr-6 rounded-xl p-3">
+                  <div className="mb-2 flex items-center gap-2.5">
+                    <Robo estado="trabalhando" tamanho={34} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-brand-2">
+                        Seu agente está escrevendo a página{" "}
+                        <span className="pp-pontinhos">
+                          <span />
+                          <span />
+                          <span />
+                        </span>
+                      </p>
+                      <p className="text-[11px] text-paper-dim">
+                        texto, seções, cores e animações — aguarde um instante
+                      </p>
+                    </div>
+                  </div>
                   <pre
                     ref={tickerRef}
                     className="max-h-40 overflow-hidden whitespace-pre-wrap break-all rounded-lg bg-black/40 p-2 font-mono text-[10px] leading-relaxed text-paper-dim"
@@ -815,10 +834,24 @@ export default function Construtor({
               />
             </div>
           ) : (
-            <div className="flex h-full items-center justify-center">
-              <p className="max-w-xs text-center text-sm text-paper-dim">
-                A prévia aparece aqui assim que a IA escrever a primeira versão da página.
-              </p>
+            /* Vazio com vida: o robô do estado certo vale mais que uma frase só. */
+            <div className="flex h-full flex-col items-center justify-center gap-4">
+              <Robo estado={gerando ? "trabalhando" : "dormindo"} tamanho={96} />
+              {gerando ? (
+                <p className="max-w-xs text-center text-sm font-semibold text-brand-2">
+                  Construindo a sua página{" "}
+                  <span className="pp-pontinhos">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                </p>
+              ) : (
+                <p className="max-w-xs text-center text-sm text-paper-dim">
+                  A prévia aparece aqui assim que o seu agente escrever a primeira versão. Descreva a
+                  página no chat ao lado para acordá-lo. ✨
+                </p>
+              )}
             </div>
           )}
 
