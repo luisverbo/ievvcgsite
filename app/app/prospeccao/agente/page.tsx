@@ -43,7 +43,8 @@ const PASSOS: { titulo: string; texto: string; detalhe?: string }[] = [
     titulo: "Baixe o arquivo e descompacte",
     texto:
       "Use o botão azul aí em cima. Depois clique com o botão direito no arquivo baixado e escolha “Extrair tudo” (no Mac, dois cliques já extraem).",
-    detalhe: "Pode extrair na Área de Trabalho — o lugar não importa.",
+    detalhe:
+      "Extraia na Área de Trabalho. Evite pasta do Google Drive, OneDrive ou Dropbox — a nuvem atrapalha a instalação. E se acontecer sem querer, o instalador percebe e se muda sozinho para uma pasta local.",
   },
   {
     titulo: "Clique duas vezes em INSTALAR-AGENTE",

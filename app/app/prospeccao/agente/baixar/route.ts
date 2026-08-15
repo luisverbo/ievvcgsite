@@ -65,6 +65,10 @@ COMO USAR - SAO DOIS CLIQUES
 Nao precisa instalar mais nada nem digitar comando nenhum. Se faltar o Node
 (o programa que faz o agente rodar), o proprio instalador avisa e resolve.
 
+DICA: descompacte na Area de Trabalho. Evite pastas do Google Drive, OneDrive
+ou Dropbox — a nuvem mexe nos arquivos durante a instalacao e ela falha. Se
+acontecer sem querer, o instalador percebe e instala numa pasta local sozinho.
+
 
 ENQUANTO ESTIVER USANDO
 -----------------------
