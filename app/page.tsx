@@ -14,6 +14,7 @@ import {
 } from "@/lib/vendas";
 import { precoEmReais } from "@/lib/pagamentos/planos";
 import { videoDaLanding } from "@/lib/landing";
+import { TELAS } from "@/components/vendas/Telas";
 
 /*
  * A página é estática com revalidação: o vídeo e os preços vêm do servidor,
@@ -148,8 +149,9 @@ export default async function Home() {
             </h1>
 
             <p className="mx-auto mt-6 max-w-2xl text-lg text-paper-dim sm:text-xl">
-              A IA escreve a landing page inteira. O sistema encontra as empresas da sua cidade que
-              ainda não têm site e fala com elas no WhatsApp. Você só fecha e cobra.
+              A IA escreve a landing page inteira a partir de uma frase sua. E um agente encontra as
+              empresas da sua cidade que ainda não têm site e puxa conversa com elas no seu
+              WhatsApp. Você só responde, fecha e cobra.
             </p>
 
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -286,38 +288,113 @@ export default async function Home() {
             titulo="Quatro máquinas trabalhando juntas"
             subtitulo="Cada uma existiria como produto separado. Aqui elas conversam entre si: a prospecção alimenta o criador, o criador alimenta a hospedagem, e a hospedagem vira a sua mensalidade."
           />
-          <div className="mx-auto mt-14 flex max-w-5xl flex-col gap-8">
-            {PILARES.map((p, i) => (
-              <div
-                key={p.titulo}
-                className={`grid items-center gap-8 rounded-3xl border border-white/10 bg-ink-2/60 p-8 sm:p-10 lg:grid-cols-2 ${
-                  i % 2 === 1 ? "lg:[&>*:first-child]:order-2" : ""
-                }`}
-              >
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-[0.2em] text-brand-2">
-                    {p.chapeu}
-                  </span>
-                  <h3 className="mt-3 text-2xl leading-snug text-paper sm:text-3xl">
-                    {p.icone} {p.titulo}
-                  </h3>
-                  <p className="mt-4 text-base leading-relaxed text-paper-dim">{p.texto}</p>
+          <div className="mx-auto mt-14 flex max-w-6xl flex-col gap-8">
+            {PILARES.map((p, i) => {
+              const Tela = TELAS[p.tela];
+              return (
+                <div
+                  key={p.titulo}
+                  className={`grid items-center gap-8 rounded-3xl border border-white/10 bg-ink-2/60 p-6 sm:p-10 lg:grid-cols-2 ${
+                    i % 2 === 1 ? "lg:[&>*:first-child]:order-2" : ""
+                  }`}
+                >
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-brand-2">
+                      {p.chapeu}
+                    </span>
+                    <h3 className="mt-3 text-2xl leading-snug text-paper sm:text-3xl">
+                      {p.icone} {p.titulo}
+                    </h3>
+                    <p className="mt-4 text-base leading-relaxed text-paper-dim">{p.texto}</p>
+                    <ul className="mt-6 flex flex-col gap-2.5">
+                      {p.detalhes.map((d) => (
+                        <li key={d} className="flex items-start gap-3 text-sm text-paper-dim">
+                          <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-brand/25 text-xs font-bold text-brand-2">
+                            ✓
+                          </span>
+                          {d}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  {/* a tela do produto ao lado da explicação: ver é o que convence */}
+                  <Tela />
                 </div>
-                <ul className="flex flex-col gap-3">
-                  {p.detalhes.map((d) => (
-                    <li
-                      key={d}
-                      className="flex items-start gap-3 rounded-xl border border-white/10 bg-ink px-4 py-3 text-sm text-paper-dim"
-                    >
-                      <span className="mt-0.5 flex h-5 w-5 flex-none items-center justify-center rounded-full bg-brand/25 text-xs font-bold text-brand-2">
-                        ✓
-                      </span>
-                      {d}
-                    </li>
-                  ))}
-                </ul>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* -------------------------------------------------------------- */}
+        {/* o agente de IA — o diferencial que ninguém mais tem            */}
+        {/* -------------------------------------------------------------- */}
+        <section className="border-t border-white/10 bg-gradient-to-b from-brand/10 to-transparent px-5 py-24">
+          <div className="mx-auto max-w-4xl">
+            <div className="rounded-3xl border border-brand-2/40 bg-ink-2 p-8 sm:p-12">
+              <span className="inline-flex items-center gap-2 rounded-full border border-brand-2/40 bg-brand/15 px-4 py-1.5 text-xs font-bold text-brand-2">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-2" />
+                O que ninguém mais entrega
+              </span>
+
+              <h2 className="mt-6 text-3xl leading-tight sm:text-4xl">
+                Você não recebe só um programa.
+                <br />
+                <span className="text-brand-2">Recebe um agente de IA que trabalha por você.</span>
+              </h2>
+
+              <p className="mt-5 text-base leading-relaxed text-paper-dim sm:text-lg">
+                Todo criador de site do mercado faz uma coisa: espera você usar. Aqui é diferente —
+                você instala o agente uma vez e ele passa a trabalhar sozinho: varre o Google Maps
+                atrás de empresas sem site, lê o Instagram delas, monta a fila de abordagem e manda
+                as mensagens no seu WhatsApp, no ritmo que você definiu. Você abre o painel de manhã
+                e encontra a lista pronta e as conversas iniciadas.
+              </p>
+
+              <div className="mt-8 grid gap-4 sm:grid-cols-3">
+                {[
+                  {
+                    e: "🔎",
+                    t: "Busca sozinho",
+                    d: "Você deixa a busca na fila e vai dormir. Ele varre, pontua e organiza.",
+                  },
+                  {
+                    e: "📸",
+                    t: "Estuda a empresa",
+                    d: "Lê o Instagram dela e traz as fotos que vão para o site que você vai vender.",
+                  },
+                  {
+                    e: "💬",
+                    t: "Puxa conversa",
+                    d: "Manda a primeira mensagem, espera, e te avisa quem respondeu.",
+                  },
+                ].map((c) => (
+                  <div key={c.t} className="rounded-2xl border border-white/10 bg-ink p-5">
+                    <span className="text-2xl">{c.e}</span>
+                    <h3 className="mt-3 text-base font-bold text-paper">{c.t}</h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-paper-dim">{c.d}</p>
+                  </div>
+                ))}
               </div>
-            ))}
+
+              {/*
+                A parte que a concorrência esconderia. Dizer aqui evita a
+                descoberta ruim na primeira hora de uso — e, bem colocada,
+                vira argumento: o número e os dados são dele.
+              */}
+              <div className="mt-8 rounded-2xl border border-white/10 bg-ink p-5">
+                <h3 className="text-sm font-bold text-paper">
+                  Como funciona na prática, sem letra miúda
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-paper-dim">
+                  O agente é um programa que você baixa do painel e instala no seu computador (ou
+                  numa VPS, se quiser que rode 24h). É assim de propósito:{" "}
+                  <b className="text-paper">o WhatsApp é o seu número, na sua máquina</b> — nós
+                  nunca temos acesso à sua conta, e ninguém te bloqueia por usar um número
+                  compartilhado. A instalação é baixar, descompactar e dar dois cliques; o arquivo
+                  já vem configurado com a sua chave de acesso.
+                </p>
+              </div>
+            </div>
           </div>
         </section>
 

@@ -66,7 +66,7 @@ export const PASSOS: { numero: string; titulo: string; texto: string }[] = [
     numero: "04",
     titulo: "Quem responder, ganha o site pronto",
     texto:
-      "A IA cria a landing page inteira em minutos — com o texto do ramo dela, as fotos do Instagram dela e o botão de WhatsApp funcionando. Você manda o link e cobra.",
+      "Na lista, o botão “Gerar site” cria a landing page daquela empresa em um clique — com o texto do ramo dela, as fotos do Instagram dela e o botão de WhatsApp funcionando. Você revisa, manda o link e cobra.",
   },
 ];
 
@@ -77,6 +77,8 @@ export const PASSOS: { numero: string; titulo: string; texto: string }[] = [
  * -------------------------------------------------------------------------- */
 
 export const PILARES: {
+  /* Liga o pilar à tela desenhada em components/vendas/Telas.tsx. */
+  tela: "criador" | "buscador" | "whatsapp" | "dominio";
   icone: string;
   chapeu: string;
   titulo: string;
@@ -84,6 +86,7 @@ export const PILARES: {
   detalhes: string[];
 }[] = [
   {
+    tela: "criador",
     icone: "✨",
     chapeu: "Pilar 1 · Produção",
     titulo: "A IA escreve o site inteiro — e você conversa até ficar perfeito",
@@ -97,6 +100,7 @@ export const PILARES: {
     ],
   },
   {
+    tela: "buscador",
     icone: "🎯",
     chapeu: "Pilar 2 · Clientes",
     titulo: "O sistema encontra quem precisa de site na sua cidade",
@@ -110,6 +114,7 @@ export const PILARES: {
     ],
   },
   {
+    tela: "whatsapp",
     icone: "💬",
     chapeu: "Pilar 3 · Abordagem",
     titulo: "A primeira mensagem sai no WhatsApp, no seu ritmo",
@@ -123,6 +128,7 @@ export const PILARES: {
     ],
   },
   {
+    tela: "dominio",
     icone: "🌐",
     chapeu: "Pilar 4 · Recorrência",
     titulo: "Hospedagem no domínio do cliente — a sua mensalidade",
