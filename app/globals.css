@@ -110,6 +110,105 @@ textarea:focus-visible {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Vida do painel — animações compartilhadas                            */
+/*                                                                      */
+/* A regra: movimento CONTA UMA HISTÓRIA (o agente respira, a busca     */
+/* varre, o card chega) ou não existe. Nada de animação por animação.   */
+/* O bloco prefers-reduced-motion lá embaixo desliga tudo para quem     */
+/* enjoa com movimento — por isso nenhuma animação daqui pode carregar  */
+/* significado que não esteja também em texto.                          */
+/* ------------------------------------------------------------------ */
+
+/* Entrada: o conteúdo sobe suave ao carregar. Com .d1..d6, em cascata. */
+@keyframes pp-subir {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.anim-entrada {
+  animation: pp-subir 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.anim-entrada.d1 { animation-delay: 0.06s; }
+.anim-entrada.d2 { animation-delay: 0.12s; }
+.anim-entrada.d3 { animation-delay: 0.18s; }
+.anim-entrada.d4 { animation-delay: 0.24s; }
+.anim-entrada.d5 { animation-delay: 0.3s; }
+.anim-entrada.d6 { animation-delay: 0.36s; }
+
+/* Respiração de quem está VIVO (agente ligado, status ativo). */
+@keyframes pp-pulso {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(47, 191, 143, 0.35); }
+  50% { box-shadow: 0 0 0 7px rgba(47, 191, 143, 0); }
+}
+.anim-pulso-ok {
+  animation: pp-pulso 2.2s ease-out infinite;
+}
+
+/* O robô flutua de leve — parado ele parece desligado. */
+@keyframes pp-flutuar {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Antena/olhos piscando. */
+@keyframes pp-piscar {
+  0%, 90%, 100% { opacity: 1; }
+  95% { opacity: 0.15; }
+}
+
+/* Zzz subindo do robô que dorme. */
+@keyframes pp-zzz {
+  0% { opacity: 0; transform: translate(0, 4px) scale(0.7); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translate(6px, -12px) scale(1.1); }
+}
+
+/* Feixe de busca varrendo (agente trabalhando). */
+@keyframes pp-varrer {
+  0%, 100% { transform: rotate(-18deg); }
+  50% { transform: rotate(18deg); }
+}
+
+/* Brilho girando na borda de um card em destaque. */
+@keyframes pp-aurora {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.card-aurora {
+  position: relative;
+  background:
+    linear-gradient(var(--color-ink-2), var(--color-ink-2)) padding-box,
+    linear-gradient(120deg, rgba(108, 92, 231, 0.7), rgba(234, 92, 147, 0.4), rgba(47, 191, 143, 0.5), rgba(108, 92, 231, 0.7))
+      border-box;
+  background-size: 100% 100%, 300% 300%;
+  border: 1px solid transparent;
+  animation: pp-aurora 8s ease infinite;
+}
+
+/* Pontinhos de "digitando/trabalhando". */
+@keyframes pp-pontinho {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-3px); }
+}
+.pp-pontinhos span {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  margin-right: 3px;
+  animation: pp-pontinho 1.2s infinite;
+}
+.pp-pontinhos span:nth-child(2) { animation-delay: 0.15s; }
+.pp-pontinhos span:nth-child(3) { animation-delay: 0.3s; }
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;

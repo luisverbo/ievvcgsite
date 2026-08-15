@@ -7,23 +7,40 @@ import { ehAdmin } from "@/lib/painel/admin";
 import { situacaoDaAssinatura, type AssinaturaRow } from "@/lib/pagamentos/estado";
 import { statusDaConta } from "@/lib/creditos/conta";
 import { emDolar } from "@/lib/creditos/precos";
+import Robo, { type EstadoRobo } from "@/components/painel/Robo";
 
 /*
  * A home do painel — a visão do CLIENTE.
  *
- * Uma pergunta guia a tela inteira: "abri o painel, e agora?". Por isso ela
- * tem três andares, nesta ordem:
+ * Uma pergunta guia a tela inteira: "abri o painel, e agora?". Três andares:
  *
  *   1. o que precisa de atenção AGORA (pagamento atrasado);
  *   2. como está o negócio dele (páginas, visitas, crédito);
  *   3. para onde ir (as áreas, cada uma explicada em uma frase).
  *
- * O construtor por blocos não aparece: é ferramenta interna, mora em
- * /app/sites e só o admin enxerga.
+ * E uma regra de tom: isto não é um "sistema", é um time de agentes
+ * trabalhando para ele. O robô da prospecção tem estado (trabalhando,
+ * dormindo, esperando instalação) porque é assim que o cliente entende o que
+ * está acontecendo — "seu agente está dormindo" explica mais que qualquer
+ * badge cinza.
  */
 
 function desde30Dias() {
   return new Date(Date.now() - 30 * 86_400_000).toISOString();
+}
+
+// "Bom dia" às 7h de Brasília, mesmo com o servidor em UTC.
+function saudacao(): string {
+  const hora = Number(
+    new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      hour: "numeric",
+      hour12: false,
+    }).format(new Date()),
+  );
+  if (hora >= 5 && hora < 12) return "Bom dia";
+  if (hora >= 12 && hora < 18) return "Boa tarde";
+  return "Boa noite";
 }
 
 type PaginaIA = {
@@ -68,15 +85,29 @@ export default async function PainelHome() {
   const visitas30d = visitasRes.count ?? 0;
   const recentes = paginas.slice(0, 3);
 
-  // No grátis, tudo depende de o interruptor da degustação estar ligado.
-  const ehFree = !admin && plano === "free";
-  const freeAtivo = ehFree ? await planoFreeAtivo() : true;
-  const temConstrutor = admin || (planoLibera(plano, "construtor") && freeAtivo);
+  /*
+   * Grátis CONTRATADO x grátis por queda.
+   *
+   * `plano` (o vigente) também é "free" quando um assinante é suspenso — e aí
+   * os banners da degustação apareceriam para ele, brigando com o aviso de
+   * suspensão na mesma tela. A degustação só diz respeito a quem NUNCA
+   * assinou: org.plano === "free".
+   */
+  const ehFreeContratado = !admin && org.plano === "free";
+  const freeAtivo = !admin && plano === "free" ? await planoFreeAtivo() : true;
+  const temConstrutor = admin || (planoLibera(plano, "construtor") && (plano !== "free" || freeAtivo));
   const temProspeccao = admin || planoLibera(plano, "prospeccao");
+
+  // O rótulo do botão principal conta a situação real, não a genérica.
+  const acaoPrincipal = temConstrutor
+    ? { href: "/app/ia", rotulo: "+ Criar página com IA" }
+    : situacao.status === "suspensa" || situacao.status === "atrasada"
+      ? { href: "/app/assinatura", rotulo: "Regularizar pagamento" }
+      : { href: "/app/assinatura", rotulo: "Assinar para começar" };
 
   // Prospecção só é consultada para quem tem o recurso — senão é banco à toa.
   let empresas = 0;
-  let agenteOnline = false;
+  let estadoAgente: EstadoRobo = "novo";
   if (temProspeccao) {
     const [{ count }, { data: ag }] = await Promise.all([
       supabase.from("prospeccao").select("id", { count: "exact", head: true }).eq("org_id", org.id),
@@ -89,8 +120,12 @@ export default async function PainelHome() {
         .maybeSingle(),
     ]);
     empresas = count ?? 0;
-    const ultimo = (ag as { ultimo_contato: string | null } | null)?.ultimo_contato;
-    agenteOnline = !!ultimo && Date.now() - new Date(ultimo).getTime() < 15 * 60_000;
+    const linha = ag as { ultimo_contato: string | null } | null;
+    if (linha) {
+      const online =
+        !!linha.ultimo_contato && Date.now() - new Date(linha.ultimo_contato).getTime() < 15 * 60_000;
+      estadoAgente = online ? "trabalhando" : "dormindo";
+    }
   }
 
   const stats = [
@@ -104,246 +139,312 @@ export default async function PainelHome() {
   ];
 
   return (
-    <div className="painel-wrap flex flex-col gap-8">
-      {/* quem é, em que plano está */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-extrabold">{org.nome}</h1>
-          <p className="mt-1 text-sm text-paper-dim">
-            Plano{" "}
-            <span className="rounded-full bg-brand/20 px-2 py-0.5 text-xs font-bold text-brand-2">
-              {PLANOS[plano]?.rotulo ?? plano}
-            </span>
-          </p>
-        </div>
-        <Link
-          href={temConstrutor ? "/app/ia" : "/app/assinatura"}
-          className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand/25 transition hover:bg-brand-2"
-        >
-          {temConstrutor ? "+ Criar página com IA" : "Assinar para começar"}
-        </Link>
-      </div>
+    <div className="relative">
+      {/* brilho de fundo — profundidade sem pesar nada */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[28rem] opacity-50"
+        style={{
+          background:
+            "radial-gradient(60% 80% at 20% 0%, rgba(108,92,231,0.16), transparent 70%), radial-gradient(50% 70% at 85% 10%, rgba(234,92,147,0.08), transparent 70%)",
+        }}
+      />
 
-      {/* degustação: deixa claro o que o grátis dá, antes de ele esbarrar no limite */}
-      {ehFree && freeAtivo && (
-        <div className="rounded-xl border border-brand-2/30 bg-brand/10 px-4 py-3 text-sm text-paper">
-          Você está no plano grátis: crie <b>1 página</b> com um único pedido e publique de graça no
-          endereço PáginaPro.{" "}
-          <Link href="/app/assinatura" className="font-bold text-brand-2 underline underline-offset-2">
-            Assinando
-          </Link>{" "}
-          você libera edição por chat, páginas ilimitadas, prospecção e domínio próprio.
-        </div>
-      )}
-      {ehFree && !freeAtivo && (
-        <div className="rounded-xl border border-white/15 bg-ink-2 px-4 py-3 text-sm text-paper">
-          Sua conta está criada, mas o acesso gratuito está fechado no momento.{" "}
-          <Link href="/app/assinatura" className="font-bold text-brand-2 underline underline-offset-2">
-            Veja os planos
-          </Link>{" "}
-          para usar o construtor com IA, a hospedagem e a prospecção.
-        </div>
-      )}
-
-      {/* o que precisa de atenção agora */}
-      {situacao.aviso && (
-        <div
-          className={`rounded-xl border px-4 py-3 text-sm ${
-            situacao.status === "atrasada"
-              ? "border-warn/40 bg-warn/10 text-warn"
-              : "border-danger/40 bg-danger/10 text-danger"
-          }`}
-        >
-          {situacao.aviso}{" "}
-          <Link href="/app/assinatura" className="font-bold underline underline-offset-2">
-            Resolver agora
-          </Link>
-        </div>
-      )}
-
-      {/* como está o negócio */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {stats.map((s) => (
-          <div key={s.rotulo} className="rounded-xl border border-white/10 bg-ink-2 p-4">
-            <div className="text-2xl font-extrabold tabular-nums">{s.valor}</div>
-            <div className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-paper-dim">
-              {s.rotulo}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* continuar de onde parou */}
-      {recentes.length > 0 && (
-        <div>
-          <div className="mb-3 flex items-baseline justify-between gap-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-paper-dim">
-              Continuar de onde parou
-            </h2>
-            <Link href="/app/ia" className="text-xs font-semibold text-brand-2 hover:underline">
-              ver todas as páginas →
-            </Link>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {recentes.map((p) => (
-              <Link
-                key={p.id}
-                href={`/app/ia/${p.id}`}
-                className="group rounded-xl border border-white/10 bg-ink-2 p-4 transition hover:-translate-y-0.5 hover:border-brand-2/50"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="min-w-0 truncate text-sm font-bold text-paper">{p.titulo}</span>
-                  <span
-                    className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                      p.publicado ? "bg-ok/15 text-ok" : "bg-white/10 text-paper-dim"
-                    }`}
-                  >
-                    {p.publicado ? "no ar" : p.html ? "rascunho" : "vazia"}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-paper-dim">
-                  atualizada em {new Date(p.updated_at).toLocaleDateString("pt-BR")}
-                </p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* para onde ir */}
-      <div>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-paper-dim">
-          Suas ferramentas
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Link
-            href={temConstrutor ? "/app/ia" : "/app/assinatura"}
-            className={
-              temConstrutor
-                ? "group rounded-2xl border border-brand-2/30 bg-gradient-to-br from-brand/15 to-transparent p-5 transition hover:-translate-y-0.5 hover:border-brand-2/60"
-                : "group rounded-2xl border border-dashed border-white/15 bg-ink-2/60 p-5 transition hover:border-warn/50"
-            }
-          >
-            <div className={`text-2xl ${temConstrutor ? "" : "opacity-60"}`}>
-              {temConstrutor ? "✨" : "🔒"}
-            </div>
-            <h3
-              className={`mt-2 font-display text-lg font-extrabold ${
-                temConstrutor ? "text-paper" : "text-paper-dim"
-              }`}
-            >
-              Criador de páginas com IA
-            </h3>
-            <p className="mt-1 text-sm text-paper-dim">
-              {temConstrutor
-                ? "Descreva o negócio e a IA escreve a página inteira — texto, design e imagens. Depois é conversar até ficar do seu jeito."
-                : "Descreva o negócio e a IA escreve a página inteira. Disponível para assinantes — clique para conhecer o plano."}
+      <div className="painel-wrap flex flex-col gap-8">
+        {/* quem é, em que plano está */}
+        <div className="anim-entrada flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm text-paper-dim">{saudacao()} 👋</p>
+            <h1 className="mt-0.5 font-display text-3xl font-extrabold">{org.nome}</h1>
+            <p className="mt-1.5 text-sm text-paper-dim">
+              Plano{" "}
+              <span className="rounded-full bg-brand/20 px-2 py-0.5 text-xs font-bold text-brand-2">
+                {PLANOS[plano]?.rotulo ?? plano}
+              </span>
             </p>
+          </div>
+          <Link
+            href={acaoPrincipal.href}
+            className="rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white shadow-lg shadow-brand/30 transition hover:-translate-y-0.5 hover:bg-brand-2 hover:shadow-brand/50"
+          >
+            {acaoPrincipal.rotulo}
           </Link>
+        </div>
 
-          {temProspeccao ? (
-            <Link
-              href="/app/prospeccao"
-              className="group rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-0.5 hover:border-brand-2/50"
-            >
-              <div className="flex items-start justify-between">
-                <div className="text-2xl">🎯</div>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                    agenteOnline ? "bg-ok/15 text-ok" : "bg-white/10 text-paper-dim"
-                  }`}
-                >
-                  {agenteOnline ? "● agente ligado" : "○ agente desligado"}
-                </span>
-              </div>
-              <h3 className="mt-2 font-display text-lg font-extrabold text-paper">Prospecção</h3>
-              <p className="mt-1 text-sm text-paper-dim">
-                {empresas > 0
-                  ? `${empresas} empresas encontradas. Ache quem ainda não tem site e aborde no WhatsApp.`
-                  : "Encontre empresas sem site na sua cidade e aborde no WhatsApp — é seu vendedor automático."}
-              </p>
-            </Link>
+        {/* degustação — só para quem nunca assinou */}
+        {ehFreeContratado && situacao.status !== "suspensa" && situacao.status !== "atrasada" && (
+          freeAtivo ? (
+            <div className="anim-entrada d1 rounded-xl border border-brand-2/30 bg-brand/10 px-4 py-3 text-sm text-paper">
+              Você está no plano grátis: crie <b>1 página</b> com um único pedido e publique de graça
+              no endereço PáginaPro.{" "}
+              <Link
+                href="/app/assinatura"
+                className="font-bold text-brand-2 underline underline-offset-2"
+              >
+                Assinando
+              </Link>{" "}
+              você libera edição por chat, páginas ilimitadas, prospecção e domínio próprio.
+            </div>
           ) : (
-            <Link
-              href="/app/assinatura"
-              className="group rounded-2xl border border-dashed border-white/15 bg-ink-2/60 p-5 transition hover:border-warn/50"
+            <div className="anim-entrada d1 rounded-xl border border-white/15 bg-ink-2 px-4 py-3 text-sm text-paper">
+              Sua conta está criada, mas o acesso gratuito está fechado no momento.{" "}
+              <Link
+                href="/app/assinatura"
+                className="font-bold text-brand-2 underline underline-offset-2"
+              >
+                Veja os planos
+              </Link>{" "}
+              para usar o construtor com IA, a hospedagem e a prospecção.
+            </div>
+          )
+        )}
+
+        {/* o que precisa de atenção agora */}
+        {situacao.aviso && (
+          <div
+            className={`anim-entrada d1 rounded-xl border px-4 py-3 text-sm ${
+              situacao.status === "atrasada"
+                ? "border-warn/40 bg-warn/10 text-warn"
+                : "border-danger/40 bg-danger/10 text-danger"
+            }`}
+          >
+            {situacao.aviso}{" "}
+            <Link href="/app/assinatura" className="font-bold underline underline-offset-2">
+              Resolver agora
+            </Link>
+          </div>
+        )}
+
+        {/* como está o negócio */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {stats.map((s, i) => (
+            <div
+              key={s.rotulo}
+              className={`anim-entrada d${i + 1} group rounded-xl border border-white/10 bg-ink-2 p-4 transition hover:border-brand-2/40 hover:shadow-[0_10px_40px_-18px_rgba(108,92,231,0.7)]`}
             >
-              <div className="text-2xl opacity-60">🔒</div>
-              <h3 className="mt-2 font-display text-lg font-extrabold text-paper-dim">
-                Prospecção
+              <div className="font-display text-2xl font-extrabold tabular-nums transition group-hover:text-brand-2">
+                {s.valor}
+              </div>
+              <div className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-paper-dim">
+                {s.rotulo}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* continuar de onde parou */}
+        {recentes.length > 0 && (
+          <div className="anim-entrada d3">
+            <div className="mb-3 flex items-baseline justify-between gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-paper-dim">
+                Continuar de onde parou
+              </h2>
+              <Link href="/app/ia" className="text-xs font-semibold text-brand-2 hover:underline">
+                ver todas as páginas →
+              </Link>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {recentes.map((p) => (
+                <Link
+                  key={p.id}
+                  href={`/app/ia/${p.id}`}
+                  className="group rounded-xl border border-white/10 bg-ink-2 p-4 transition hover:-translate-y-0.5 hover:border-brand-2/50 hover:shadow-[0_12px_40px_-18px_rgba(108,92,231,0.8)]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm font-bold text-paper">{p.titulo}</span>
+                    <span
+                      className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        p.publicado ? "bg-ok/15 text-ok" : "bg-white/10 text-paper-dim"
+                      }`}
+                    >
+                      {p.publicado ? "● no ar" : p.html ? "rascunho" : "vazia"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-paper-dim">
+                    atualizada em {new Date(p.updated_at).toLocaleDateString("pt-BR")}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* para onde ir */}
+        <div>
+          <h2 className="anim-entrada d3 mb-3 text-sm font-semibold uppercase tracking-wide text-paper-dim">
+            Seus agentes e ferramentas
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Link
+              href={temConstrutor ? "/app/ia" : "/app/assinatura"}
+              className={
+                temConstrutor
+                  ? "anim-entrada d3 group card-aurora rounded-2xl p-5 transition hover:-translate-y-1 hover:shadow-[0_20px_60px_-20px_rgba(108,92,231,0.8)]"
+                  : "anim-entrada d3 group rounded-2xl border border-dashed border-white/15 bg-ink-2/60 p-5 transition hover:border-warn/50"
+              }
+            >
+              <div className={`text-2xl ${temConstrutor ? "" : "opacity-60"}`}>
+                {temConstrutor ? "✨" : "🔒"}
+              </div>
+              <h3
+                className={`mt-2 font-display text-lg font-extrabold ${
+                  temConstrutor ? "text-paper" : "text-paper-dim"
+                }`}
+              >
+                Criador de páginas com IA
               </h3>
               <p className="mt-1 text-sm text-paper-dim">
-                Encontre empresas sem site e aborde no WhatsApp. Disponível no plano{" "}
-                <span className="font-bold text-warn">Agência</span> — clique para conhecer.
+                {temConstrutor
+                  ? "Descreva o negócio e a IA escreve a página inteira — texto, design e imagens. Depois é conversar até ficar do seu jeito."
+                  : "Descreva o negócio e a IA escreve a página inteira. Disponível para assinantes — clique para conhecer o plano."}
               </p>
             </Link>
-          )}
 
-          <Link
-            href="/app/creditos"
-            className="group rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-0.5 hover:border-brand-2/50"
-          >
-            <div className="text-2xl">⚡</div>
-            <h3 className="mt-2 font-display text-lg font-extrabold text-paper">Créditos de IA</h3>
-            <p className="mt-1 text-sm text-paper-dim">
-              {conta.fonte === "propria"
-                ? "Você usa a sua própria chave da Anthropic — as gerações saem direto na sua conta."
-                : `Saldo atual: ${emDolar(conta.saldo)}. Compre mais no cartão ou Pix, ou use a sua própria chave.`}
-            </p>
-          </Link>
-
-          <Link
-            href="/app/assinatura"
-            className="group rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-0.5 hover:border-brand-2/50"
-          >
-            <div className="text-2xl">📄</div>
-            <h3 className="mt-2 font-display text-lg font-extrabold text-paper">Assinatura</h3>
-            <p className="mt-1 text-sm text-paper-dim">
-              {situacao.status === "ativa"
-                ? "Em dia. Veja faturas, troque o cartão ou gerencie o plano."
-                : situacao.status === "atrasada"
-                  ? "Pagamento pendente — resolva para não perder o acesso."
-                  : "Veja os planos e assine para liberar todos os recursos."}
-            </p>
-          </Link>
-
-          <Link
-            href="/app/conta"
-            className="group rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-0.5 hover:border-brand-2/50"
-          >
-            <div className="text-2xl">👤</div>
-            <h3 className="mt-2 font-display text-lg font-extrabold text-paper">Minha conta</h3>
-            <p className="mt-1 text-sm text-paper-dim">
-              Seu nome, e-mail de acesso e senha — e o resumo de tudo que você tem contratado.
-            </p>
-          </Link>
-        </div>
-      </div>
-
-      {/* ferramentas internas — só o dono enxerga */}
-      {admin && (
-        <div>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-warn">
-            Ferramentas internas (só você vê)
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {[
-              { href: "/app/sites", emoji: "🧱", titulo: "Sites por blocos" },
-              { href: "/app/templates", emoji: "🗂️", titulo: "Templates" },
-              { href: "/app/admin", emoji: "👑", titulo: "Admin" },
-            ].map((f) => (
+            {temProspeccao ? (
               <Link
-                key={f.href}
-                href={f.href}
-                className="flex items-center gap-3 rounded-xl border border-warn/25 bg-warn/5 px-4 py-3 text-sm font-bold text-paper transition hover:border-warn/50"
+                href="/app/prospeccao"
+                className="anim-entrada d4 group rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-1 hover:border-brand-2/50 hover:shadow-[0_20px_60px_-20px_rgba(108,92,231,0.6)]"
               >
-                <span>{f.emoji}</span>
-                {f.titulo}
+                <div className="flex items-start justify-between gap-3">
+                  <Robo estado={estadoAgente} tamanho={64} />
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                      estadoAgente === "trabalhando"
+                        ? "anim-pulso-ok bg-ok/15 text-ok"
+                        : estadoAgente === "dormindo"
+                          ? "bg-warn/15 text-warn"
+                          : "bg-white/10 text-paper-dim"
+                    }`}
+                  >
+                    {estadoAgente === "trabalhando"
+                      ? "● trabalhando agora"
+                      : estadoAgente === "dormindo"
+                        ? "◐ dormindo"
+                        : "○ esperando instalação"}
+                  </span>
+                </div>
+                <h3 className="mt-2 font-display text-lg font-extrabold text-paper">
+                  Agente de prospecção
+                </h3>
+                <p className="mt-1 text-sm text-paper-dim">
+                  {estadoAgente === "trabalhando" ? (
+                    <>
+                      Seu agente está varrendo o Google e cuidando do WhatsApp
+                      {empresas > 0 && (
+                        <>
+                          {" "}
+                          — <b className="text-paper">{empresas} empresas</b> na sua lista
+                        </>
+                      )}
+                      .{" "}
+                      <span className="pp-pontinhos text-ok">
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                    </>
+                  ) : estadoAgente === "dormindo" ? (
+                    <>
+                      Seu agente está dormindo. Abra o <b className="text-paper">LIGAR-AGENTE</b> no
+                      seu computador para acordá-lo — a fila de trabalho espera por ele.
+                    </>
+                  ) : (
+                    "Instale seu agente e ele passa a encontrar empresas sem site e a puxar conversa no WhatsApp — o vendedor que não dorme (só quando você deixa)."
+                  )}
+                </p>
               </Link>
-            ))}
+            ) : (
+              <Link
+                href="/app/assinatura"
+                className="anim-entrada d4 group rounded-2xl border border-dashed border-white/15 bg-ink-2/60 p-5 transition hover:border-warn/50"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <Robo estado="novo" tamanho={64} />
+                  <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-bold text-paper-dim">
+                    🔒 plano Agência
+                  </span>
+                </div>
+                <h3 className="mt-2 font-display text-lg font-extrabold text-paper-dim">
+                  Agente de prospecção
+                </h3>
+                <p className="mt-1 text-sm text-paper-dim">
+                  Um agente que encontra empresas sem site e aborda no WhatsApp por você. Disponível
+                  no plano <span className="font-bold text-warn">Agência</span> — clique para
+                  conhecer.
+                </p>
+              </Link>
+            )}
+
+            <Link
+              href="/app/creditos"
+              className="anim-entrada d5 group rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-1 hover:border-brand-2/50 hover:shadow-[0_20px_60px_-20px_rgba(108,92,231,0.6)]"
+            >
+              <div className="text-2xl">⚡</div>
+              <h3 className="mt-2 font-display text-lg font-extrabold text-paper">Créditos de IA</h3>
+              <p className="mt-1 text-sm text-paper-dim">
+                {conta.fonte === "propria"
+                  ? "Você usa a sua própria chave da Anthropic — as gerações saem direto na sua conta."
+                  : `Saldo atual: ${emDolar(conta.saldo)}. Compre mais no cartão ou Pix, ou use a sua própria chave.`}
+              </p>
+            </Link>
+
+            <Link
+              href="/app/assinatura"
+              className="anim-entrada d5 group rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-1 hover:border-brand-2/50 hover:shadow-[0_20px_60px_-20px_rgba(108,92,231,0.6)]"
+            >
+              <div className="text-2xl">📄</div>
+              <h3 className="mt-2 font-display text-lg font-extrabold text-paper">Assinatura</h3>
+              <p className="mt-1 text-sm text-paper-dim">
+                {situacao.status === "ativa"
+                  ? "Em dia. Veja faturas, troque o cartão ou gerencie o plano."
+                  : situacao.status === "atrasada"
+                    ? "Pagamento pendente — resolva para não perder o acesso."
+                    : situacao.status === "suspensa"
+                      ? "Suspensa por falta de pagamento — reative no cartão ou no Pix."
+                      : plano !== "free"
+                        ? "Seu plano foi liberado pelo suporte — tudo em dia, sem cobrança."
+                        : "Veja os planos e assine para liberar todos os recursos."}
+              </p>
+            </Link>
+
+            <Link
+              href="/app/conta"
+              className="anim-entrada d6 group rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-1 hover:border-brand-2/50 hover:shadow-[0_20px_60px_-20px_rgba(108,92,231,0.6)] sm:col-span-2"
+            >
+              <div className="text-2xl">👤</div>
+              <h3 className="mt-2 font-display text-lg font-extrabold text-paper">Minha conta</h3>
+              <p className="mt-1 text-sm text-paper-dim">
+                Seu nome, e-mail de acesso e senha — e o resumo de tudo que você tem contratado.
+              </p>
+            </Link>
           </div>
         </div>
-      )}
+
+        {/* ferramentas internas — só o dono enxerga */}
+        {admin && (
+          <div className="anim-entrada d6">
+            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-warn">
+              Ferramentas internas (só você vê)
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                { href: "/app/sites", emoji: "🧱", titulo: "Sites por blocos" },
+                { href: "/app/templates", emoji: "🗂️", titulo: "Templates" },
+                { href: "/app/admin", emoji: "👑", titulo: "Admin" },
+              ].map((f) => (
+                <Link
+                  key={f.href}
+                  href={f.href}
+                  className="flex items-center gap-3 rounded-xl border border-warn/25 bg-warn/5 px-4 py-3 text-sm font-bold text-paper transition hover:border-warn/50"
+                >
+                  <span>{f.emoji}</span>
+                  {f.titulo}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

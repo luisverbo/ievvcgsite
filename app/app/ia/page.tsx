@@ -87,19 +87,21 @@ export default async function PaginasIAPage() {
 
   return (
     <div className="painel-wrap flex flex-col gap-6">
-      <div>
+      <div className="anim-entrada">
         <Link href="/app" className="text-sm text-paper-dim hover:text-paper">
           ← Painel
         </Link>
-        <h1 className="mt-2 text-2xl font-extrabold">Construtor de páginas com IA ✨</h1>
+        <h1 className="mt-2 font-display text-3xl font-extrabold">
+          Construtor de páginas com IA ✨
+        </h1>
         <p className="mt-1 text-sm text-paper-dim">
           Aqui a IA escreve o site inteiro — sem blocos, com liberdade total de layout, efeitos e
           animações. Você conversa com ela até a página ficar do jeito que quer.
         </p>
       </div>
 
-      <div className={cardClass}>
-        <h2 className="mb-4 text-lg font-bold">Nova página</h2>
+      <div className="anim-entrada d1 card-aurora rounded-xl p-5">
+        <h2 className="mb-4 text-lg font-bold">✨ Nova página</h2>
         <NovaPagina contaPronta={conta.pronta} aviso={conta.aviso} admin={admin} />
       </div>
 
@@ -110,9 +112,14 @@ export default async function PaginasIAPage() {
             { rotulo: "No ar", valor: noAr },
             { rotulo: "Visitas (30d)", valor: totalVisitas },
             { rotulo: "Cliques (30d)", valor: totalCliques },
-          ].map((s) => (
-            <div key={s.rotulo} className="rounded-xl border border-white/10 bg-ink-2 p-4">
-              <div className="text-2xl font-extrabold tabular-nums">{s.valor}</div>
+          ].map((s, i) => (
+            <div
+              key={s.rotulo}
+              className={`anim-entrada d${i + 2} group rounded-xl border border-white/10 bg-ink-2 p-4 transition hover:border-brand-2/40`}
+            >
+              <div className="font-display text-2xl font-extrabold tabular-nums transition group-hover:text-brand-2">
+                {s.valor}
+              </div>
               <div className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-paper-dim">
                 {s.rotulo}
               </div>
@@ -134,7 +141,7 @@ export default async function PaginasIAPage() {
           </p>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {paginas.map((p) => {
+            {paginas.map((p, i) => {
               const m = porPagina.get(p.id) ?? { visitas: 0, cliques: 0 };
               const [c1, c2] = capaDaPagina(p.id);
               // Taxa de clique: o número que realmente diz se a página vende.
@@ -142,7 +149,7 @@ export default async function PaginasIAPage() {
               return (
                 <div
                   key={p.id}
-                  className="group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-ink-2 transition hover:-translate-y-1 hover:border-brand-2/50 hover:shadow-2xl"
+                  className={`anim-entrada d${Math.min(i + 1, 6)} group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-ink-2 transition hover:-translate-y-1 hover:border-brand-2/50 hover:shadow-[0_20px_60px_-20px_rgba(108,92,231,0.7)]`}
                 >
                   <Link href={`/app/ia/${p.id}`} className="block">
                     <div
