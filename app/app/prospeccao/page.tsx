@@ -188,22 +188,74 @@ export default async function ProspeccaoPage({
         </div>
       )}
 
-      <Link
-        href="/app/prospeccao/agente"
-        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-ink-2 px-5 py-4 transition hover:border-brand-2"
-      >
-        <span>
-          <b className="text-paper">🤖 Meu agente</b>
-          <span className="ml-2 text-sm text-paper-dim">
-            {agenteAtivo
-              ? "ligado — as buscas do Google saem na hora"
-              : "desligado: instale ou abra o programa no seu computador para as buscas rodarem"}
+      {/*
+        Três estados, três tamanhos — e nunca a palavra errada.
+        Antes, quem já tinha instalado o agente e só o tinha fechado lia
+        "Instalar", ia à tela de instalação e não entendia o que fazer ali. O
+        que falta em cada caso é uma coisa diferente, e o aviso tem que dizer
+        qual: instalar (nunca teve), ligar (tem e está fechado), ou nada.
+      */}
+      {agenteAtivo ? (
+        <Link
+          href="/app/prospeccao/agente"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ok/30 bg-ok/5 px-5 py-3.5 transition hover:border-ok/60"
+        >
+          <span className="text-sm">
+            <b className="text-ok">✓ Agente ligado</b>
+            <span className="ml-2 text-paper-dim">as buscas do Google saem na hora</span>
           </span>
-        </span>
-        <span className="rounded-lg border border-white/15 px-4 py-2 text-sm font-bold text-paper">
-          {agenteAtivo ? "Ver" : "Instalar →"}
-        </span>
-      </Link>
+          <span className="text-xs font-bold text-paper-dim">Ver detalhes →</span>
+        </Link>
+      ) : temAgente ? (
+        <div className="rounded-2xl border border-warn/40 bg-warn/10 p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="font-display text-xl font-extrabold text-warn">
+                ⏸ Seu agente está desligado
+              </h2>
+              <p className="mt-1.5 max-w-xl text-sm text-paper">
+                Ele já está instalado no seu computador — só não está aberto agora. Abra a pasta{" "}
+                <b className="font-mono">paginapro-agente</b> e clique duas vezes em{" "}
+                <b className="font-mono text-paper">LIGAR-AGENTE</b>.
+              </p>
+              <p className="mt-1.5 text-sm text-paper-dim">
+                Enquanto isso, o que você pedir fica esperando na fila e sai sozinho assim que ele
+                ligar. Nada se perde.
+              </p>
+            </div>
+            <Link
+              href="/app/prospeccao/agente"
+              className="flex-none rounded-lg bg-warn px-5 py-2.5 text-sm font-bold text-ink transition hover:opacity-90"
+            >
+              Como ligar →
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-brand-2/50 bg-gradient-to-br from-brand/20 to-transparent p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 className="font-display text-xl font-extrabold text-paper">
+                🤖 Instale o agente para começar
+              </h2>
+              <p className="mt-1.5 max-w-xl text-sm text-paper">
+                A busca no Google e o envio no WhatsApp rodam num programa no{" "}
+                <b>seu computador</b> — é o que faz o WhatsApp ser o seu número. Sem ele, esta tela
+                funciona pela metade.
+              </p>
+              <p className="mt-1.5 text-sm text-paper-dim">
+                São dois cliques e uns 10 minutos, uma vez só.
+              </p>
+            </div>
+            <Link
+              href="/app/prospeccao/agente"
+              className="flex-none rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand/25 transition hover:bg-brand-2"
+            >
+              Instalar agora →
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div className={cardClass}>
         <h2 className="mb-4 text-lg font-bold">🔎 Buscar empresas</h2>

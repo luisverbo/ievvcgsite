@@ -87,8 +87,8 @@ export default function Busca({
             <p className="mt-2 text-[11px] text-paper-dim">
               {temAgente ? (
                 <>
-                  ⚠️ Seu agente está desligado no momento. A busca entra na fila e sai sozinha
-                  assim que você abrir o programa no seu computador.
+                  ⚠️ Seu agente está desligado. A busca entra na fila e sai sozinha assim que você
+                  clicar em <b className="font-mono text-paper">LIGAR-AGENTE</b> no seu computador.
                 </>
               ) : (
                 <>

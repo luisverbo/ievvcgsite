@@ -92,28 +92,42 @@ export default async function MeuAgentePage() {
         </p>
       </div>
 
-      {/* estado */}
-      <div className={cardClass}>
-        {algumOnline ? (
-          <p className="text-sm font-bold text-ok">✓ Agente ligado e conversando com o painel</p>
-        ) : agentes.length > 0 ? (
-          <>
-            <p className="text-sm font-bold text-warn">⚠️ Nenhum agente ligado agora</p>
-            <p className="mt-1 text-sm text-paper-dim">
-              As buscas ficam esperando na fila e saem assim que você abrir o programa no seu
-              computador.
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="text-sm font-bold text-paper">Você ainda não instalou o agente</p>
-            <p className="mt-1 text-sm text-paper-dim">
-              Sem ele, a busca no Google e o envio no WhatsApp não funcionam. Leva uns 10 minutos,
-              uma vez só.
-            </p>
-          </>
-        )}
-      </div>
+      {/* estado — quem já instalou precisa LIGAR, não instalar de novo */}
+      {algumOnline ? (
+        <div className="rounded-xl border border-ok/40 bg-ok/10 p-5">
+          <p className="font-display text-lg font-extrabold text-ok">
+            ✓ Agente ligado e conversando com o painel
+          </p>
+          <p className="mt-1 text-sm text-paper-dim">
+            Pode fechar esta tela e ir buscar empresas — está tudo funcionando.
+          </p>
+        </div>
+      ) : agentes.length > 0 ? (
+        <div className="rounded-xl border border-warn/40 bg-warn/10 p-5">
+          <p className="font-display text-lg font-extrabold text-warn">
+            ⏸ O agente está instalado, mas desligado
+          </p>
+          <p className="mt-2 text-sm text-paper">
+            Não precisa instalar de novo. Abra a pasta{" "}
+            <b className="font-mono">paginapro-agente</b> no seu computador e clique duas vezes em{" "}
+            <b className="font-mono text-paper">LIGAR-AGENTE</b> — a janela preta abre e o painel
+            reconhece em alguns segundos.
+          </p>
+          <p className="mt-2 text-sm text-paper-dim">
+            As buscas que você pedir ficam na fila e saem sozinhas quando ele ligar.
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-brand-2/40 bg-brand/10 p-5">
+          <p className="font-display text-lg font-extrabold text-paper">
+            🤖 Você ainda não instalou o agente
+          </p>
+          <p className="mt-1 text-sm text-paper-dim">
+            Sem ele, a busca no Google e o envio no WhatsApp não funcionam. Leva uns 10 minutos, uma
+            vez só — e o passo a passo está logo abaixo.
+          </p>
+        </div>
+      )}
 
       {/* download — o caminho principal, um clique */}
       <div className="rounded-xl border border-brand-2/40 bg-brand/10 p-5">
