@@ -74,15 +74,21 @@ export default async function PainelLayout({ children }: { children: React.React
               </>
             )}
           </nav>
-          <div className="ml-auto flex items-center gap-3 text-sm">
-            {user?.email && (
-              <span className="hidden items-center gap-2 text-paper-dim md:flex">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand/25 text-xs font-bold text-brand-2">
-                  {user.email[0]?.toUpperCase()}
-                </span>
-                {user.email}
+          <div className="ml-auto flex items-center gap-2 text-sm">
+            {/*
+              O e-mail no topo é onde todo mundo procura a conta — então ele é
+              o link, e não um texto decorativo. No celular sobra só o avatar.
+            */}
+            <Link
+              href="/app/conta"
+              title="Minha conta"
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-paper-dim transition hover:bg-white/8 hover:text-paper"
+            >
+              <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-brand/25 text-xs font-bold text-brand-2">
+                {(user?.email?.[0] ?? "?").toUpperCase()}
               </span>
-            )}
+              <span className="hidden max-w-[16ch] truncate md:block">{user?.email}</span>
+            </Link>
             <form action={sair}>
               <button
                 type="submit"

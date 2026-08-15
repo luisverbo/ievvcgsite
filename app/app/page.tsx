@@ -306,6 +306,17 @@ export default async function PainelHome() {
                   : "Veja os planos e assine para liberar todos os recursos."}
             </p>
           </Link>
+
+          <Link
+            href="/app/conta"
+            className="group rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-0.5 hover:border-brand-2/50"
+          >
+            <div className="text-2xl">👤</div>
+            <h3 className="mt-2 font-display text-lg font-extrabold text-paper">Minha conta</h3>
+            <p className="mt-1 text-sm text-paper-dim">
+              Seu nome, e-mail de acesso e senha — e o resumo de tudo que você tem contratado.
+            </p>
+          </Link>
         </div>
       </div>
 
