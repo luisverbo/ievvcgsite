@@ -9,7 +9,7 @@ import { semearBlocosComConfig } from "@/lib/painel/seed";
 import { LANDING_PAGINAS, LANDING_TEMA } from "@/lib/templates/paginapro-landing";
 import { salvarAnthropicKey } from "@/lib/ia/anthropic";
 import { ehAdmin as checarAdmin } from "@/lib/painel/admin";
-import { cotaDoPlano } from "@/lib/painel/permissoes";
+import { cotaDoPlano, PLANOS } from "@/lib/painel/permissoes";
 
 // Reexportado para as telas de admin que já importam daqui. A definição vive
 // em lib/painel/admin.ts — veja lá o porquê.
@@ -20,13 +20,81 @@ export async function ehAdmin(): Promise<boolean> {
 export async function alterarPlano(orgId: string, novoPlano: "free" | "pro" | "agencia") {
   if (!(await ehAdmin())) return;
   const admin = createAdminClient();
+
+  const { data: antes } = await admin
+    .from("organizacoes")
+    .select("plano")
+    .eq("id", orgId)
+    .maybeSingle();
+  const planoAntigo = (antes as { plano: string } | null)?.plano ?? "free";
+
   // A cota de IA acompanha o plano: trocar um sem o outro deixaria o cliente
   // pagando o plano cheio e recebendo o crédito do plano velho.
   await admin
     .from("organizacoes")
     .update({ plano: novoPlano, cota_mensal: cotaDoPlano(novoPlano) })
     .eq("id", orgId);
+
+  /*
+   * Subiu de plano no meio do mês: entrega a diferença de crédito agora.
+   *
+   * `cota_mensal` sozinho não muda saldo nenhum — renovar_cota credita uma vez
+   * a cada 30 dias, e a cota deste mês já foi entregue pelo plano anterior.
+   * Sem isto, promover alguém aqui não dá crédito nenhum até o mês virar.
+   */
+  const diferenca = cotaDoPlano(novoPlano) - cotaDoPlano(planoAntigo);
+  if (diferenca > 0) {
+    await admin.rpc("creditar", {
+      p_org: orgId,
+      p_valor: diferenca,
+      p_tipo: "cota",
+      p_descricao: `Crédito adicional pela mudança para o plano ${PLANOS[novoPlano]?.rotulo ?? novoPlano}`,
+    });
+  }
+
   revalidatePath("/app/admin");
+  revalidatePath("/app");
+}
+
+/* --------------------------- ajuste de crédito ----------------------------- */
+
+export type AjusteState = { ok?: string; error?: string } | undefined;
+
+/*
+ * Crédito na mão, para os casos que nenhuma regra cobre: cortesia, um erro
+ * nosso, uma compensação, um teste. Aceita valor negativo para estornar.
+ *
+ * Passa pelo mesmo `creditar` das demais entradas, então o lançamento aparece
+ * no extrato do cliente — ajuste invisível é o tipo de coisa que ninguém
+ * consegue explicar três meses depois.
+ */
+export async function ajustarCredito(
+  orgId: string,
+  _prev: AjusteState,
+  formData: FormData,
+): Promise<AjusteState> {
+  if (!(await ehAdmin())) return { error: "Sem permissão." };
+
+  const dolares = Number(String(formData.get("dolares") ?? "").replace(",", "."));
+  if (!Number.isFinite(dolares) || dolares === 0) {
+    return { error: "Informe um valor em dólares (ex.: 10 ou -5)." };
+  }
+  if (Math.abs(dolares) > 500) return { error: "Valor alto demais para um ajuste manual." };
+
+  const micro = Math.round(dolares * 1_000_000);
+  const motivo = String(formData.get("motivo") ?? "").trim().slice(0, 120);
+
+  const admin = createAdminClient();
+  const { error } = await admin.rpc("creditar", {
+    p_org: orgId,
+    p_valor: micro,
+    p_tipo: "ajuste",
+    p_descricao: motivo || "Ajuste manual do suporte",
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/admin");
+  return { ok: `${dolares > 0 ? "Creditado" : "Debitado"} US$ ${Math.abs(dolares)}.` };
 }
 
 /* ------------------------------ plano grátis ------------------------------- */

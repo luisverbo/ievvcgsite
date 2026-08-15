@@ -57,6 +57,14 @@ export default async function PainelLayout({ children }: { children: React.React
             <Link href="/app/assinatura" className={`hidden sm:block ${linkClass}`}>
               Assinatura
             </Link>
+            {/*
+              "Minha conta" escrito por extenso no menu. O avatar com e-mail no
+              canto direito parecia enfeite: ninguém adivinha que aquilo é
+              clicável, e a tela de conta ficava invisível.
+            */}
+            <Link href="/app/conta" className={`hidden md:block ${linkClass}`}>
+              Minha conta
+            </Link>
             {admin && (
               <>
                 <Link
@@ -79,15 +87,17 @@ export default async function PainelLayout({ children }: { children: React.React
               O e-mail no topo é onde todo mundo procura a conta — então ele é
               o link, e não um texto decorativo. No celular sobra só o avatar.
             */}
+            {/* Mesma porta, com cara de botão: borda e ⚙ dizem que clica. */}
             <Link
               href="/app/conta"
               title="Minha conta"
-              className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-paper-dim transition hover:bg-white/8 hover:text-paper"
+              className="flex items-center gap-2 rounded-lg border border-white/10 px-2.5 py-1.5 text-paper-dim transition hover:border-brand-2 hover:text-paper"
             >
-              <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-brand/25 text-xs font-bold text-brand-2">
+              <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-brand/25 text-[11px] font-bold text-brand-2">
                 {(user?.email?.[0] ?? "?").toUpperCase()}
               </span>
-              <span className="hidden max-w-[16ch] truncate md:block">{user?.email}</span>
+              <span className="hidden max-w-[14ch] truncate lg:block">{user?.email}</span>
+              <span className="text-xs">⚙</span>
             </Link>
             <form action={sair}>
               <button

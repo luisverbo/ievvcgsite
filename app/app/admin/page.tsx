@@ -6,6 +6,7 @@ import CriarLanding from "./CriarLanding";
 import ChaveAnthropic from "./ChaveAnthropic";
 import Diagnostico from "./Diagnostico";
 import VideoLanding from "./VideoLanding";
+import AjusteCredito from "./AjusteCredito";
 import ChaveForm from "./ebooks/ChaveForm";
 import { getAnthropicKey } from "@/lib/ia/anthropic";
 import { getOpenAIKey } from "@/lib/ebooks/openai";
@@ -17,7 +18,14 @@ import { cardClass } from "@/components/painel/ui";
 // Acesso restrito ao email em ADMIN_EMAIL (variável de ambiente).
 
 type Plano = "free" | "pro" | "agencia";
-type OrgRow = { id: string; nome: string; plano: Plano; created_at: string };
+type OrgRow = {
+  id: string;
+  nome: string;
+  plano: Plano;
+  created_at: string;
+  creditos: number;
+  cota_mensal: number;
+};
 
 export default async function AdminPage() {
   if (!(await ehAdmin())) notFound();
@@ -37,7 +45,10 @@ export default async function AdminPage() {
     freeAtivo,
     { data: videoRow },
   ] = await Promise.all([
-    admin.from("organizacoes").select("id, nome, plano, created_at").order("created_at"),
+    admin
+      .from("organizacoes")
+      .select("id, nome, plano, created_at, creditos, cota_mensal")
+      .order("created_at"),
     admin.from("sites").select("org_id, publicado"),
     admin.from("membros").select("org_id, user_id"),
     admin.auth.admin.listUsers({ perPage: 1000 }),
@@ -335,9 +346,30 @@ export default async function AdminPage() {
                         >
                           {PLANOS[org.plano]?.rotulo ?? org.plano}
                         </span>
+                        {/*
+                          Saldo REAL ao lado do que o plano promete. Antes só
+                          aparecia a promessa do plano — e foi assim que um
+                          upgrade sem crédito passou despercebido: a tela dizia
+                          US$15/mês enquanto a conta tinha US$5.
+                        */}
                         <div className="mt-0.5 text-[11px] text-paper-dim">
-                          {emDolar(PLANOS[org.plano]?.cota ?? 0)}/mês de IA
+                          saldo{" "}
+                          <b
+                            className={
+                              org.creditos < (PLANOS[org.plano]?.cota ?? 0) / 3
+                                ? "text-warn"
+                                : "text-paper"
+                            }
+                          >
+                            {emDolar(org.creditos ?? 0)}
+                          </b>{" "}
+                          · cota {emDolar(org.cota_mensal ?? 0)}/mês
                         </div>
+                        {(org.cota_mensal ?? 0) !== (PLANOS[org.plano]?.cota ?? 0) && (
+                          <div className="mt-0.5 text-[10px] font-bold text-warn">
+                            ⚠ cota não bate com o plano
+                          </div>
+                        )}
                       </td>
                       <td className="px-5 py-3.5">
                         {/* Um botão por plano: com três planos, alternar num
@@ -358,6 +390,9 @@ export default async function AdminPage() {
                               </button>
                             </form>
                           ))}
+                        </div>
+                        <div className="mt-2 flex justify-end">
+                          <AjusteCredito orgId={org.id} />
                         </div>
                       </td>
                     </tr>

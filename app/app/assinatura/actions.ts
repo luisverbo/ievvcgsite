@@ -168,12 +168,39 @@ export async function subirDePlano(alvoBruto: string): Promise<void> {
     .update({ plano: alvo!, cota_mensal: cotaDoPlano(alvo!) })
     .eq("id", org!.id);
 
+  /*
+   * O crédito da diferença, agora.
+   *
+   * Trocar `cota_mensal` sozinho não aumenta o saldo: renovar_cota credita uma
+   * vez a cada 30 dias, e a cota deste mês JÁ foi entregue quando ele era do
+   * plano anterior. Sem esta parte, o cliente paga a diferença hoje e continua
+   * com o crédito do plano velho até o mês virar — foi exatamente o que
+   * aconteceu no primeiro upgrade real.
+   *
+   * A diferença inteira, e não a proporcional aos dias: mesquinhar dez dólares
+   * com quem acabou de subir de plano é o pior momento possível para
+   * economizar.
+   */
+  const diferenca = cotaDoPlano(alvo!) - cotaDoPlano(atual);
+  if (diferenca > 0) {
+    const { error } = await admin.rpc("creditar", {
+      p_org: org!.id,
+      p_valor: diferenca,
+      p_tipo: "cota",
+      p_descricao: `Crédito adicional pela mudança para o plano ${alvo === "agencia" ? "Agência" : "Pro"}`,
+    });
+    // Falhar aqui não desfaz o upgrade (ele já pagou): fica no log para acerto.
+    if (error) console.error("[assinatura] falha ao creditar diferença:", error.message);
+  }
+
   revalidatePath("/app/assinatura");
   revalidatePath("/app");
+  revalidatePath("/app/conta");
+  revalidatePath("/app/creditos");
   voltarCom(
     "/app/assinatura",
     "ok",
-    "Plano alterado! A diferença proporcional deste mês foi cobrada no seu cartão, e tudo já está liberado.",
+    "Plano alterado! A diferença proporcional deste mês foi cobrada no seu cartão, o crédito de IA já foi ajustado e tudo está liberado.",
   );
 }
 
