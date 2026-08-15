@@ -59,7 +59,7 @@ export default async function AbordagemPage() {
 
   return (
     <div className="painel-wrap flex flex-col gap-6">
-      <div>
+      <div className="anim-entrada">
         <Link href="/app/prospeccao" className="text-sm text-paper-dim hover:text-paper">
           ← Prospecção
         </Link>

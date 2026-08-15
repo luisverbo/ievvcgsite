@@ -50,14 +50,14 @@ export default async function ContaPage() {
         <Link href="/app" className="text-sm text-paper-dim hover:text-paper">
           ← Painel
         </Link>
-        <h1 className="mt-2 font-display text-3xl font-extrabold">Minha conta</h1>
+        <h1 className="mt-2 font-display text-3xl font-extrabold">Minha conta 👤</h1>
         <p className="mt-1 text-sm text-paper-dim">
           Seus dados de acesso e o resumo da sua assinatura.
         </p>
       </div>
 
       {/* resumo — o que ele quer conferir de relance */}
-      <div className={cardClass}>
+      <div className={`anim-entrada d1 ${cardClass}`}>
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-paper-dim">Plano</p>
@@ -116,7 +116,7 @@ export default async function ContaPage() {
         <p className="mt-1 text-sm text-paper-dim">
           Para cancelar a assinatura, use{" "}
           <Link href="/app/assinatura" className="font-semibold text-brand-2 hover:underline">
-            Assinatura → Trocar cartão / ver faturas
+            Assinatura → Cartão e faturas
           </Link>{" "}
           — o cancelamento é em dois cliques, e o que você já pagou vale até o fim do mês. Suas
           páginas e domínios continuam salvos.

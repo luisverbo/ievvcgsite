@@ -59,7 +59,7 @@ export default async function CreditosPage({
         <Link href="/app" className="text-sm text-paper-dim hover:text-paper">
           ← Painel
         </Link>
-        <h1 className="mt-2 font-display text-3xl font-extrabold">Créditos de IA 💳</h1>
+        <h1 className="mt-2 font-display text-3xl font-extrabold">Créditos de IA ⚡</h1>
         <p className="mt-1 text-sm text-paper-dim">
           Toda página e ebook criados com IA consomem créditos. Você escolhe:{" "}
           <b className="text-paper">usar os créditos daqui</b> ou{" "}
@@ -80,7 +80,7 @@ export default async function CreditosPage({
       )}
 
       {/* saldo */}
-      <div className={cardClass}>
+      <div className="anim-entrada d1 rounded-xl border border-brand-2/30 bg-gradient-to-br from-brand/15 to-transparent p-5">
         {usandoPropria ? (
           <>
             <p className="text-sm font-bold text-ok">✓ Você está usando a sua própria chave</p>
@@ -112,10 +112,10 @@ export default async function CreditosPage({
       <div>
         <h2 className="mb-2 text-sm font-bold">Comprar créditos</h2>
         <div className="grid gap-3 sm:grid-cols-3">
-          {PACOTES.map((p) => (
+          {PACOTES.map((p, i) => (
             <div
               key={p.dolares}
-              className="rounded-xl border border-white/10 bg-ink-2 p-4 transition hover:border-brand-2/50"
+              className={`anim-entrada d${i + 2} rounded-xl border border-white/10 bg-ink-2 p-4 transition hover:-translate-y-0.5 hover:border-brand-2/50 hover:shadow-[0_14px_44px_-22px_rgba(108,92,231,0.7)]`}
             >
               <p className="font-display text-2xl font-extrabold text-paper">US$ {p.dolares}</p>
               <p className="text-xs text-paper-dim">{p.rotulo}</p>

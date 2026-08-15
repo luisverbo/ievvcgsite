@@ -18,6 +18,7 @@ import { MODELO_PADRAO } from "@/lib/prospeccao/mensagem";
 import { faixa, type ProspectoRow } from "@/lib/prospeccao/tipos";
 import { acharNicho } from "@/lib/prospeccao/nichos";
 import { inputClass, labelClass, cardClass } from "@/components/painel/ui";
+import Robo from "@/components/painel/Robo";
 
 const ROTULO_MSG: Record<string, string> = {
   pendente: "Aguardando",
@@ -123,25 +124,84 @@ export default function Painel({
 
   return (
     <div className="flex flex-col gap-6">
+      {/*
+        O agente conversando é o produto acontecendo — merece o palco de cima.
+        Só aparece quando a fila automática está andando de verdade.
+      */}
+      {temFilaAuto && config.whatsapp_status === "conectado" && (
+        <div className="anim-entrada card-aurora rounded-2xl p-5">
+          <div className="flex flex-wrap items-center gap-4">
+            <Robo estado="trabalhando" tamanho={64} />
+            <div className="min-w-0 flex-1">
+              <h2 className="font-display text-lg font-extrabold text-paper">
+                Seu agente está no WhatsApp agora{" "}
+                <span className="pp-pontinhos text-ok">
+                  <span />
+                  <span />
+                  <span />
+                </span>
+              </h2>
+              <p className="mt-0.5 text-sm text-paper-dim">
+                <b className="text-paper">{pendentes.filter((m) => m.modo === "auto").length}</b> na
+                fila · <b className="text-paper">{enviadasHoje}</b> de {config.limite_diario}{" "}
+                enviadas hoje — no ritmo humano que você definiu. Pode fechar esta tela: ele segue
+                sozinho.
+              </p>
+              <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${Math.min(100, Math.max(4, Math.round((enviadasHoje / Math.max(1, config.limite_diario)) * 100)))}%`,
+                    background: "linear-gradient(90deg, #2fbf8f, #8e7bff, #2fbf8f)",
+                    backgroundSize: "200% 100%",
+                    animation: "pp-aurora 2.4s linear infinite",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --------------------------- WhatsApp --------------------------- */}
-      <div className={cardClass}>
+      <div
+        className={`anim-entrada d1 rounded-xl border bg-ink-2 p-5 ${
+          config.whatsapp_status === "conectado"
+            ? "border-ok/30"
+            : config.whatsapp_status === "erro"
+              ? "border-danger/40"
+              : "border-white/10"
+        }`}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold">
-              WhatsApp do agente ·{" "}
-              <span className={corStatus}>
-                {config.whatsapp_status === "conectado"
-                  ? "conectado"
+          <div className="flex min-w-0 items-center gap-3">
+            <Robo
+              estado={
+                config.whatsapp_status === "conectado"
+                  ? "trabalhando"
                   : config.whatsapp_status === "aguardando_qr"
-                    ? "aguardando leitura do QR"
-                    : config.whatsapp_status === "erro"
-                      ? "com problema"
-                      : "desconectado"}
-              </span>
-            </h2>
-            {config.whatsapp_mensagem && (
-              <p className="mt-0.5 text-sm text-paper-dim">{config.whatsapp_mensagem}</p>
-            )}
+                    ? "novo"
+                    : "dormindo"
+              }
+              tamanho={48}
+            />
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold">
+                WhatsApp do agente ·{" "}
+                <span className={corStatus}>
+                  {config.whatsapp_status === "conectado"
+                    ? "conectado"
+                    : config.whatsapp_status === "aguardando_qr"
+                      ? "aguardando leitura do QR"
+                      : config.whatsapp_status === "erro"
+                        ? "com problema"
+                        : "desconectado"}
+                </span>
+              </h2>
+              {config.whatsapp_mensagem && (
+                <p className="mt-0.5 text-sm text-paper-dim">{config.whatsapp_mensagem}</p>
+              )}
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <form action={conectarWhatsapp}>
@@ -196,7 +256,7 @@ export default function Painel({
       </div>
 
       {/* ------------------------- a mensagem --------------------------- */}
-      <form action={salvarCfg} className={cardClass}>
+      <form action={salvarCfg} className={`anim-entrada d2 ${cardClass}`}>
         <h2 className="mb-1 text-lg font-bold">A mensagem</h2>
         <p className="mb-3 text-sm text-paper-dim">
           Use <code className="text-paper">{"{empresa}"}</code>,{" "}
@@ -314,7 +374,7 @@ export default function Painel({
       </form>
 
       {/* ------------------------- escolher ----------------------------- */}
-      <form action={prepararFila} className={cardClass}>
+      <form action={prepararFila} className={`anim-entrada d3 ${cardClass}`}>
         <h2 className="mb-1 text-lg font-bold">Quem abordar ({candidatos.length} disponíveis)</h2>
         <p className="mb-3 text-sm text-paper-dim">
           Só aparecem empresas com celular e que ainda não foram abordadas, da maior nota para a
@@ -430,7 +490,7 @@ export default function Painel({
 
       {/* ------------------------- semi: enviar ------------------------- */}
       {semi.length > 0 && (
-        <div className={cardClass}>
+        <div className={`anim-entrada d2 ${cardClass}`}>
           <h2 className="mb-3 text-lg font-bold">Prontas para você enviar ({semi.length})</h2>
           <div className="flex flex-col gap-2">
             {semi.map((m) => (
@@ -476,7 +536,7 @@ export default function Painel({
 
       {/* --------------------------- histórico -------------------------- */}
       {mensagens.length > 0 && (
-        <div className={cardClass}>
+        <div className={`anim-entrada d4 ${cardClass}`}>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-bold">Histórico</h2>
             <form action={limparEnviadas}>
