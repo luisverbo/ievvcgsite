@@ -74,9 +74,18 @@ export function emDolar(micro: number): string {
  * Serve para a frase "dá para umas 8 páginas" no painel, que é o que o cliente
  * entende — saldo em dólar sozinho não diz nada para quem nunca usou API.
  */
-// Medido: uma página cheia no Fable 5 dá ~US$1,06; no Opus 5, ~US$0,51.
-// Usamos o caso caro, para a conta nunca prometer mais do que entrega.
-export const CUSTO_TIPICO_PAGINA = 1_100_000;
+/*
+ * Medido: uma página cheia no Opus 5 dá ~US$0,51 (no Fable 5, ~US$1,06).
+ *
+ * A conta usa o Opus com uma folga, porque é o modelo que o CLIENTE usa —
+ * desde que o seletor virou coisa de admin, todo site dele sai no Opus.
+ * Estimar pelo Fable aqui faria a tela prometer metade das páginas que o
+ * crédito realmente entrega, e o plano parecer mesquinho à toa.
+ *
+ * A folga (0,55 em vez de 0,51) cobre página longa e ajuste que regenera o
+ * documento inteiro — melhor entregar uma página a mais que uma a menos.
+ */
+export const CUSTO_TIPICO_PAGINA = 550_000;
 
 export function paginasRestantes(micro: number): number {
   return Math.floor(micro / CUSTO_TIPICO_PAGINA);
@@ -93,10 +102,11 @@ export function paginasRestantes(micro: number): number {
  */
 export const COTACAO_VENDA = 8.5; // R$ por dólar de crédito (câmbio + margem)
 
+// Os rótulos seguem CUSTO_TIPICO_PAGINA — mudou o custo, mude os três juntos.
 export const PACOTES: { dolares: number; preco: number; rotulo: string }[] = [
-  { dolares: 10, preco: 85, rotulo: "≈ 9 páginas" },
-  { dolares: 25, preco: 199, rotulo: "≈ 22 páginas" },
-  { dolares: 50, preco: 379, rotulo: "≈ 45 páginas" },
+  { dolares: 10, preco: 85, rotulo: "≈ 18 páginas" },
+  { dolares: 25, preco: 199, rotulo: "≈ 45 páginas" },
+  { dolares: 50, preco: 379, rotulo: "≈ 90 páginas" },
 ];
 
 export function pacoteValido(dolares: number) {

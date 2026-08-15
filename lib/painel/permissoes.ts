@@ -29,9 +29,10 @@ export type Recurso =
 /*
  * `cota` é o crédito de IA que entra todo mês, em microdólares.
  *
- * Referência para calibrar: uma página cheia custa ~US$1,06 no Fable 5 e
- * ~US$0,51 no Opus 5. US$15 no plano Agência dá umas 14 páginas por mês antes
- * de o cliente precisar comprar crédito — e é o que sobra de margem nos R$300.
+ * Referência para calibrar: uma página cheia custa ~US$0,51 no Opus 5 (o
+ * modelo do cliente) e ~US$1,06 no Fable 5 (só admin). US$15 no Agência dá
+ * umas 27 páginas por mês antes de o cliente precisar comprar crédito — e é
+ * o que sobra de margem nos R$300.
  */
 /*
  * `sites` é quantos sites o plano hospeda em domínio próprio, sem custo extra.
