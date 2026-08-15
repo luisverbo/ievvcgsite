@@ -49,3 +49,30 @@ export function priceIdDaStripe(plano: PlanoVendido): string | null {
 export function planoDaMetadata(meta: Record<string, string> | null | undefined): PlanoVendido {
   return planoVendidoValido(meta?.plano ?? "") ?? "agencia";
 }
+
+/*
+ * Que plano é este price da Stripe?
+ *
+ * Existe para o webhook poder confiar no que foi REALMENTE COBRADO, e não só
+ * na metadata. Numa troca de plano são duas escritas na Stripe (o item e a
+ * metadata) e elas podem não acontecer juntas — se ficássemos só na metadata,
+ * uma falha no meio entregaria Agência para quem pagou Pro, ou o contrário.
+ * O preço cobrado é o único fato indiscutível.
+ */
+export function planoDoPriceId(priceId: string | null | undefined): PlanoVendido | null {
+  if (!priceId) return null;
+  if (priceId === process.env.STRIPE_PRICE_PRO?.trim()) return "pro";
+  if (priceId === process.env.STRIPE_PRICE_AGENCIA?.trim()) return "agencia";
+  return null;
+}
+
+/*
+ * Só se sobe de plano pelo painel.
+ *
+ * Descer é para o suporte, de propósito: quem tem 10 sites hospedados e cai
+ * para uma cota de 3 vira um problema que a tela não resolve sozinha (o que
+ * fazer com os 7 excedentes?), e é a conversa em que se retém o cliente.
+ */
+export function podeSubirPara(atual: PlanoVendido, alvo: PlanoVendido): boolean {
+  return atual === "pro" && alvo === "agencia";
+}

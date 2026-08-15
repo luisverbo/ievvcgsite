@@ -5,11 +5,22 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMinhaOrg } from "@/lib/painel/queries";
-import { checkoutAssinatura, checkoutCredito, portalDoCliente } from "@/lib/pagamentos/stripe";
+import {
+  checkoutAssinatura,
+  checkoutCredito,
+  portalDoCliente,
+  trocarPlanoDaAssinatura,
+} from "@/lib/pagamentos/stripe";
 import { criarPix, mpConfigurado, motivoIndisponivel } from "@/lib/pagamentos/mercadopago";
 import { ehAdmin } from "@/lib/painel/admin";
 import { situacaoDaAssinatura, periodoDe, type AssinaturaRow } from "@/lib/pagamentos/estado";
-import { planoVendidoValido, precoCentavos, priceIdDaStripe } from "@/lib/pagamentos/planos";
+import {
+  planoVendidoValido,
+  precoCentavos,
+  priceIdDaStripe,
+  podeSubirPara,
+} from "@/lib/pagamentos/planos";
+import { cotaDoPlano } from "@/lib/painel/permissoes";
 import { pacoteValido, MICRO } from "@/lib/creditos/precos";
 
 /*
@@ -80,6 +91,90 @@ export async function assinar(planoBruto: string): Promise<void> {
     voltarCom("/app/assinatura", "erro", (e as Error).message);
   }
   redirect(destino);
+}
+
+/* ------------------------------ subir de plano ---------------------------- */
+
+/*
+ * Pro → Agência, na assinatura que já existe.
+ *
+ * Só sobe. Descer é pelo suporte de propósito: um cliente com 10 sites
+ * hospedados caindo para a cota de 3 cria uma pergunta que a tela não sabe
+ * responder — e é justamente a conversa em que dá para segurar o cliente.
+ */
+export async function subirDePlano(alvoBruto: string): Promise<void> {
+  const alvo = planoVendidoValido(alvoBruto);
+  if (!alvo) voltarCom("/app/assinatura", "erro", "Plano inválido.");
+
+  const org = await getMinhaOrg();
+  if (!org) voltarCom("/app/assinatura", "erro", "Faça login de novo.");
+
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("assinaturas")
+    .select("plano, pago_ate, status, falhou_em, stripe_subscription_id")
+    .eq("org_id", org.id)
+    .maybeSingle();
+  const assinatura = data as (AssinaturaRow & { stripe_subscription_id: string | null }) | null;
+
+  const atual = planoVendidoValido(assinatura?.plano ?? "") ?? "agencia";
+  if (!podeSubirPara(atual, alvo!)) {
+    voltarCom("/app/assinatura", "erro", "Esta troca de plano precisa passar pelo suporte.");
+  }
+  if (!assinatura?.stripe_subscription_id) {
+    voltarCom(
+      "/app/assinatura",
+      "erro",
+      "Não encontramos sua assinatura no cartão. Fale com o suporte.",
+    );
+  }
+  // Assinatura suspensa não sobe de plano: primeiro regulariza o que deve.
+  if (!situacaoDaAssinatura(assinatura).liberado) {
+    voltarCom(
+      "/app/assinatura",
+      "erro",
+      "Regularize o pagamento em aberto antes de mudar de plano.",
+    );
+  }
+
+  const precoAtual = priceIdDaStripe(atual);
+  const precoNovo = priceIdDaStripe(alvo!);
+  if (!precoAtual || !precoNovo) {
+    voltarCom("/app/assinatura", "erro", "Este plano está indisponível no momento. Fale com o suporte.");
+  }
+
+  const r = await trocarPlanoDaAssinatura({
+    subscriptionId: assinatura!.stripe_subscription_id!,
+    precoAtual: precoAtual!,
+    precoNovo: precoNovo!,
+    orgId: org!.id,
+    planoNovo: alvo!,
+  });
+  if (!r.ok) voltarCom("/app/assinatura", "erro", r.motivo);
+
+  /*
+   * Libera na hora, sem esperar o webhook.
+   *
+   * O webhook da fatura vai gravar o mesmo plano segundos depois — escrever
+   * duas vezes o mesmo valor não faz mal. O que faria mal é o cliente pagar a
+   * diferença e continuar vendo o plano antigo até o webhook chegar.
+   */
+  await admin
+    .from("assinaturas")
+    .update({ plano: alvo!, updated_at: new Date().toISOString() })
+    .eq("org_id", org!.id);
+  await admin
+    .from("organizacoes")
+    .update({ plano: alvo!, cota_mensal: cotaDoPlano(alvo!) })
+    .eq("id", org!.id);
+
+  revalidatePath("/app/assinatura");
+  revalidatePath("/app");
+  voltarCom(
+    "/app/assinatura",
+    "ok",
+    "Plano alterado! A diferença proporcional deste mês foi cobrada no seu cartão, e tudo já está liberado.",
+  );
 }
 
 // Trocar cartão, ver faturas, cancelar — tudo no portal da Stripe.

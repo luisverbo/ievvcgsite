@@ -216,7 +216,7 @@ export const PERGUNTAS: { pergunta: string; resposta: string }[] = [
   {
     pergunta: "Como funciona o crédito de IA?",
     resposta:
-      "Todo mês entram US$15 de crédito no seu plano, o suficiente para umas 14 páginas completas. Se precisar de mais, compra crédito avulso no cartão ou no Pix. E se você já tem conta na Anthropic, pode colar a sua própria chave: o sistema passa a usar ela, e se algum dia ela ficar sem crédito, cai automaticamente no crédito da plataforma para o seu trabalho não travar.",
+      "Todo mês entra crédito novo no seu plano: US$5 no Pro e US$15 no Agência. Como uma página completa custa cerca de US$0,50, isso dá aproximadamente 10 páginas por mês no Pro e quase 30 no Agência — e ajustes no chat custam bem menos que uma página nova. Se precisar de mais, compra crédito avulso no cartão ou no Pix. E se você já tem conta na Anthropic, pode colar a sua própria chave: o sistema passa a usar ela, e se algum dia ela ficar sem crédito, cai automaticamente no crédito da plataforma para o seu trabalho não travar.",
   },
   {
     pergunta: "A prospecção é legal? Meu número pode ser bloqueado?",
@@ -265,7 +265,7 @@ export const PERGUNTAS: { pergunta: string; resposta: string }[] = [
 // Precisa bater com PLANOS.pro em lib/painel/permissoes.ts.
 export const NO_PRO: string[] = [
   "Páginas com IA ilimitadas, editadas no chat",
-  "US$5 de crédito de IA por mês",
+  "US$5 de crédito de IA por mês (~10 páginas)",
   "Hospedagem de 3 sites em domínio próprio",
   "Fotos reais, versões e download em .zip",
   "Métricas de visitas e pixel do Facebook",
@@ -273,7 +273,7 @@ export const NO_PRO: string[] = [
 
 export const NO_PLANO: string[] = [
   "Sites com IA ilimitados",
-  "US$15 de crédito de IA por mês",
+  "US$15 de crédito de IA por mês (~30 páginas)",
   "Prospecção no Google Maps",
   "Abordagem no WhatsApp (manual e automática)",
   "Captura de Instagram das empresas",

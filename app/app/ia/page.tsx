@@ -5,6 +5,7 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { MODELOS_IA } from "@/lib/ia/modelos";
 import { statusDaConta } from "@/lib/creditos/conta";
 import { podeUsar } from "@/lib/painel/permissoes";
+import { ehAdmin } from "@/lib/painel/admin";
 import NovaPagina from "./NovaPagina";
 import { excluirPaginaIA, type SiteIA } from "./actions";
 import { cardClass } from "@/components/painel/ui";
@@ -38,7 +39,11 @@ export default async function PaginasIAPage() {
   const org = await getMinhaOrg();
   if (!org) notFound();
 
-  const [conta, supabase] = await Promise.all([statusDaConta(org.id), createClient()]);
+  const [conta, supabase, admin] = await Promise.all([
+    statusDaConta(org.id),
+    createClient(),
+    ehAdmin(),
+  ]);
   const { data } = await supabase
     .from("sites_ia")
     .select("*")
@@ -95,7 +100,7 @@ export default async function PaginasIAPage() {
 
       <div className={cardClass}>
         <h2 className="mb-4 text-lg font-bold">Nova página</h2>
-        <NovaPagina contaPronta={conta.pronta} aviso={conta.aviso} />
+        <NovaPagina contaPronta={conta.pronta} aviso={conta.aviso} admin={admin} />
       </div>
 
       {paginas.length > 0 && (

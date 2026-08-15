@@ -5,7 +5,20 @@ import { criarPaginaIA, type NovaPaginaState } from "./actions";
 import { MODELOS_IA, MODELO_PADRAO } from "@/lib/ia/modelos";
 import { inputClass } from "@/components/painel/ui";
 
-export default function NovaPagina({ contaPronta, aviso }: { contaPronta: boolean; aviso: string | null }) {
+/*
+ * `admin` decide se o seletor de modelo aparece. Para o cliente ele não
+ * existe: toda página nasce no MODELO_PADRAO, e o servidor confirma isso —
+ * campo escondido em formulário não é segurança.
+ */
+export default function NovaPagina({
+  contaPronta,
+  aviso,
+  admin = false,
+}: {
+  contaPronta: boolean;
+  aviso: string | null;
+  admin?: boolean;
+}) {
   const [state, formAction, pending] = useActionState<NovaPaginaState, FormData>(
     criarPaginaIA,
     undefined,
@@ -20,13 +33,15 @@ export default function NovaPagina({ contaPronta, aviso }: { contaPronta: boolea
           className={`${inputClass} flex-1`}
           required
         />
-        <select name="modelo" defaultValue={MODELO_PADRAO} className={inputClass}>
-          {Object.entries(MODELOS_IA).map(([id, m]) => (
-            <option key={id} value={id}>
-              {m.rotulo}
-            </option>
-          ))}
-        </select>
+        {admin && (
+          <select name="modelo" defaultValue={MODELO_PADRAO} className={inputClass}>
+            {Object.entries(MODELOS_IA).map(([id, m]) => (
+              <option key={id} value={id}>
+                {m.rotulo}
+              </option>
+            ))}
+          </select>
+        )}
         <button
           type="submit"
           disabled={pending}
@@ -36,8 +51,9 @@ export default function NovaPagina({ contaPronta, aviso }: { contaPronta: boolea
         </button>
       </div>
       <p className="text-xs text-paper-dim">
-        {MODELOS_IA[MODELO_PADRAO].nota} · dá para trocar o modelo depois, a
-        qualquer momento.
+        {admin
+          ? `${MODELOS_IA[MODELO_PADRAO].nota} · dá para trocar o modelo depois, a qualquer momento.`
+          : "Descreva a página no chat e a IA escreve tudo — texto, seções, cores e animações."}
       </p>
       {!contaPronta && (
         <p className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">

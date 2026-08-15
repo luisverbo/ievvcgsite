@@ -171,6 +171,60 @@ export async function portalDoCliente(customerId: string): Promise<string> {
 }
 
 /*
+ * Sobe o cliente de plano na assinatura que ele já tem.
+ *
+ * Troca o PREÇO do item do plano — não cria assinatura nova. Assim o cliente
+ * mantém um cartão, uma fatura e uma data de renovação; duas assinaturas em
+ * paralelo seria a receita para ele pagar dois planos sem perceber.
+ *
+ * `always_invoice` cobra a diferença proporcional na hora, no cartão que já
+ * está cadastrado: ele usou meio mês de Pro, paga só o que falta para o
+ * Agência até a renovação. Sem isso ele teria o plano caro de graça até o
+ * mês virar.
+ *
+ * O item do site extra (quando existe) NÃO é tocado: identificamos o item do
+ * plano pelo price, nunca por posição na lista.
+ */
+export async function trocarPlanoDaAssinatura(opcoes: {
+  subscriptionId: string;
+  precoAtual: string;
+  precoNovo: string;
+  orgId: string;
+  planoNovo: string;
+}): Promise<{ ok: true } | { ok: false; motivo: string }> {
+  try {
+    const s = stripe();
+    const assinatura = await s.subscriptions.retrieve(opcoes.subscriptionId);
+    const item = assinatura.items.data.find((i) => i.price?.id === opcoes.precoAtual);
+    if (!item) {
+      return {
+        ok: false,
+        motivo:
+          "Não encontrei o plano atual dentro da sua assinatura. Fale com o suporte para trocarmos na mão.",
+      };
+    }
+
+    /*
+     * Ordem importa: primeiro o dinheiro, depois a etiqueta.
+     *
+     * Se a metadata falhasse depois de a cobrança passar, o webhook ainda
+     * acerta o plano pelo preço da fatura (planoDoPriceId). O contrário —
+     * etiqueta trocada e cobrança que não passou — entregaria plano de graça.
+     */
+    await s.subscriptionItems.update(item.id, {
+      price: opcoes.precoNovo,
+      proration_behavior: "always_invoice",
+    });
+    await s.subscriptions.update(opcoes.subscriptionId, {
+      metadata: { org_id: opcoes.orgId, plano: opcoes.planoNovo },
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, motivo: traduzirErro(e).message };
+  }
+}
+
+/*
  * Sites extras hospedados: quantos o cliente paga por mês, além dos que o
  * plano já inclui.
  *

@@ -8,6 +8,7 @@ import { slugify } from "@/lib/format";
 import { podeUsar, planoVigente, FREE_MAX_PAGINAS } from "@/lib/painel/permissoes";
 import { ehAdmin } from "@/lib/painel/admin";
 import { modeloValido, MEDIA_TYPES_IMAGEM } from "@/lib/ia/anthropic";
+import { MODELO_PADRAO } from "@/lib/ia/modelos";
 import { contaDaOrg, cobrarFixo, statusDaConta } from "@/lib/creditos/conta";
 import { CUSTO_IMAGEM } from "@/lib/creditos/precos";
 import { gerarImagemLanding, subirImagemIA } from "@/lib/ia/imagens";
@@ -85,15 +86,19 @@ export async function criarPaginaIA(
   const base = slugify(titulo) || "pagina";
   const slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
 
+  /*
+   * O modelo do formulário só vale para o admin. Para o cliente é sempre o
+   * padrão — o seletor não aparece na tela dele, mas quem garante isso é aqui:
+   * campo escondido no HTML é sugestão, não trava.
+   */
+  const modelo = (await ehAdmin())
+    ? modeloValido(String(formData.get("modelo") ?? ""))
+    : MODELO_PADRAO;
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("sites_ia")
-    .insert({
-      org_id: org.id,
-      titulo,
-      slug,
-      modelo: modeloValido(String(formData.get("modelo") ?? "")),
-    })
+    .insert({ org_id: org.id, titulo, slug, modelo })
     .select("id")
     .single();
 
@@ -110,6 +115,8 @@ export async function excluirPaginaIA(id: string) {
 
 export async function trocarModelo(id: string, modelo: string) {
   if (!(await podeUsar("construtor"))) return;
+  // Trocar de modelo é do dono do sistema: é o que muda o custo por página.
+  if (!(await ehAdmin())) return;
   const supabase = await createClient();
   await supabase
     .from("sites_ia")

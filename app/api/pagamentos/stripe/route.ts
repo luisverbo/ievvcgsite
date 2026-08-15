@@ -4,7 +4,37 @@ import { stripe } from "@/lib/pagamentos/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { periodoDe, fimDoPeriodo } from "@/lib/pagamentos/estado";
 import { cotaDoPlano } from "@/lib/painel/permissoes";
-import { planoDaMetadata } from "@/lib/pagamentos/planos";
+import { planoDaMetadata, planoDoPriceId, type PlanoVendido } from "@/lib/pagamentos/planos";
+
+/*
+ * Qual plano esta fatura realmente cobrou.
+ *
+ * Numa troca de plano a fatura traz duas linhas: o estorno proporcional do
+ * plano velho (valor negativo) e a cobrança do novo (positivo). Somando por
+ * plano e pegando o maior positivo, sobra o que ele passou a pagar.
+ *
+ * Linha de site extra é ignorada sozinha: o price dela não é de plano nenhum.
+ */
+function planoDaFatura(f: Stripe.Invoice): PlanoVendido | null {
+  const soma = new Map<PlanoVendido, number>();
+  for (const linha of f.lines?.data ?? []) {
+    const priceId =
+      (linha as { price?: { id?: string } }).price?.id ??
+      (linha as { pricing?: { price_details?: { price?: string } } }).pricing?.price_details?.price;
+    const plano = planoDoPriceId(priceId);
+    if (!plano) continue;
+    soma.set(plano, (soma.get(plano) ?? 0) + (linha.amount ?? 0));
+  }
+  let melhor: PlanoVendido | null = null;
+  let maior = 0;
+  for (const [plano, valor] of soma) {
+    if (valor > maior) {
+      maior = valor;
+      melhor = plano;
+    }
+  }
+  return melhor;
+}
 
 /*
  * Webhook da Stripe — é AQUI que o dinheiro vira acesso.
@@ -92,15 +122,17 @@ export async function POST(req: Request) {
         });
 
         /*
-         * O plano vem da metadata da assinatura, gravada no checkout. É o que
-         * permite vender Pro e Agência pelo MESMO webhook: cada renovação
-         * repete a metadata, então até o upgrade futuro fica correto — a
-         * fatura seguinte traz o plano novo e a promoção acompanha.
+         * Que plano entregar. O preço COBRADO manda; a metadata é o plano B.
+         *
+         * Assim o upgrade fica correto mesmo que a gravação da metadata falhe
+         * no meio da troca: o cliente recebe exatamente o plano que pagou.
          */
-        const planoPago = planoDaMetadata(
-          (f as { subscription_details?: { metadata?: Record<string, string> } })
-            .subscription_details?.metadata ?? f.metadata ?? undefined,
-        );
+        const planoPago =
+          planoDaFatura(f) ??
+          planoDaMetadata(
+            (f as { subscription_details?: { metadata?: Record<string, string> } })
+              .subscription_details?.metadata ?? f.metadata ?? undefined,
+          );
 
         // Guarda os ids para o portal e para o Pix saber qual fatura quitar.
         const sub = typeof f.subscription === "string" ? f.subscription : f.subscription?.id;

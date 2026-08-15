@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { podeUsar } from "@/lib/painel/permissoes";
+import { ehAdmin } from "@/lib/painel/admin";
 import { statusDaConta } from "@/lib/creditos/conta";
 import Construtor from "./Construtor";
 import type { MensagemRow, SiteIA, VersaoRow } from "../actions";
@@ -55,7 +56,7 @@ export default async function ConstrutorPage({
     empresa = (p as EmpresaVinculada) ?? null;
   }
 
-  const conta = await statusDaConta(site.org_id);
+  const [conta, admin] = await Promise.all([statusDaConta(site.org_id), ehAdmin()]);
 
   // Endereço público completo, para o link ser copiável e clicável.
   const h = await headers();
@@ -73,6 +74,7 @@ export default async function ConstrutorPage({
       urlPublica={urlPublica}
       pedidoInicial={pedido?.slice(0, 4000) ?? ""}
       empresa={empresa}
+      admin={admin}
     />
   );
 }

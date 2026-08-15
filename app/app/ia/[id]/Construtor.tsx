@@ -123,6 +123,7 @@ export default function Construtor({
   urlPublica,
   pedidoInicial = "",
   empresa = null,
+  admin = false,
 }: {
   site: SiteIA;
   mensagensIniciais: MensagemRow[];
@@ -132,6 +133,8 @@ export default function Construtor({
   urlPublica: string;
   pedidoInicial?: string;
   empresa?: EmpresaVinculada;
+  /* Seletor de modelo é do dono do sistema — veja lib/ia/modelos.ts. */
+  admin?: boolean;
 }) {
   const [html, setHtml] = useState(site.html);
   const [modelo, setModelo] = useState(site.modelo);
@@ -449,21 +452,23 @@ export default function Construtor({
           <p className="truncate text-xs text-paper-dim">/ia/{site.slug}</p>
         </div>
 
-        <select
-          value={modelo}
-          onChange={(e) => {
-            setModelo(e.target.value);
-            trocarModelo(site.id, e.target.value);
-          }}
-          className="rounded-lg border border-white/10 bg-ink px-3 py-1.5 text-xs text-paper outline-none focus-visible:border-brand-2"
-          title="Modelo usado nas próximas mensagens"
-        >
-          {Object.entries(MODELOS_IA).map(([id, m]) => (
-            <option key={id} value={id}>
-              {m.rotulo}
-            </option>
-          ))}
-        </select>
+        {admin && (
+          <select
+            value={modelo}
+            onChange={(e) => {
+              setModelo(e.target.value);
+              trocarModelo(site.id, e.target.value);
+            }}
+            className="rounded-lg border border-warn/30 bg-ink px-3 py-1.5 text-xs text-paper outline-none focus-visible:border-brand-2"
+            title="Modelo usado nas próximas mensagens (só você vê)"
+          >
+            {Object.entries(MODELOS_IA).map(([id, m]) => (
+              <option key={id} value={id}>
+                {m.rotulo}
+              </option>
+            ))}
+          </select>
+        )}
 
         <div className="flex flex-none rounded-lg border border-white/10 p-0.5">
           <button

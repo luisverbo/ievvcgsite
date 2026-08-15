@@ -2,11 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMinhaOrg } from "@/lib/painel/queries";
-import { assinar, abrirPortal, pixDaMensalidade } from "./actions";
+import { assinar, abrirPortal, pixDaMensalidade, subirDePlano } from "./actions";
 import CodigoPix from "./CodigoPix";
 import { situacaoDaAssinatura, periodoDe, type AssinaturaRow } from "@/lib/pagamentos/estado";
 import { PLANOS, sitesDoPlano } from "@/lib/painel/permissoes";
-import { precoEmReais, planoVendidoValido } from "@/lib/pagamentos/planos";
+import { precoEmReais, planoVendidoValido, podeSubirPara } from "@/lib/pagamentos/planos";
 import { emDolar } from "@/lib/creditos/precos";
 import { cardClass } from "@/components/painel/ui";
 
@@ -62,6 +62,10 @@ export default async function AssinaturaPage({
     }[] | null) ?? [];
 
   const podePix = s.status === "atrasada" || s.status === "suspensa";
+
+  // Quem está no Pro e em dia pode subir para o Agência aqui mesmo.
+  const planoAtual = planoVendidoValido(assinatura?.plano ?? "") ?? "agencia";
+  const podeSubir = s.liberado && podeSubirPara(planoAtual, "agencia");
 
   return (
     <div className="painel-wrap flex flex-col gap-6">
@@ -162,9 +166,11 @@ export default async function AssinaturaPage({
                   : "—"}
                 . Inclui {emDolar(PLANOS[assinatura?.plano ?? "agencia"]?.cota ?? 0)} de IA por mês.
               </p>
-              <p className="mt-1 text-xs text-paper-dim">
-                Quer mudar de plano? Fale com o suporte — a troca vale já na próxima fatura.
-              </p>
+              {!podeSubir && (
+                <p className="mt-1 text-xs text-paper-dim">
+                  Quer mudar de plano? Fale com o suporte — a troca vale já na próxima fatura.
+                </p>
+              )}
             </>
           )}
 
@@ -233,6 +239,43 @@ export default async function AssinaturaPage({
               confirmado, a cobrança do cartão deste mês é cancelada, sem risco de pagar duas vezes.
             </p>
           )}
+        </div>
+      )}
+
+      {/*
+        Convite ao upgrade — só para quem está no Pro e em dia.
+        Fica FORA do card de estado para não competir com "trocar cartão":
+        é oferta, não manutenção de conta.
+      */}
+      {podeSubir && (
+        <div className="rounded-xl border border-brand-2/40 bg-gradient-to-br from-brand/15 to-transparent p-5">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <h2 className="font-display text-lg font-extrabold text-paper">
+              Subir para o Agência
+            </h2>
+            <span className="text-sm text-paper-dim">
+              R$ {precoEmReais("agencia")}/mês
+            </span>
+          </div>
+          <p className="mt-2 text-sm text-paper-dim">
+            O que muda: o sistema passa a <b className="text-paper">encontrar clientes para você</b>{" "}
+            — prospecção no Google Maps com nota de potencial, abordagem automática no WhatsApp e
+            fotos do Instagram das empresas. Sua cota sobe de {sitesDoPlano("pro")} para{" "}
+            {sitesDoPlano("agencia")} sites hospedados e o crédito de IA de{" "}
+            {emDolar(PLANOS.pro.cota)} para {emDolar(PLANOS.agencia.cota)} por mês.
+          </p>
+          <form action={subirDePlano.bind(null, "agencia")} className="mt-4">
+            <button
+              type="submit"
+              className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2"
+            >
+              Fazer upgrade agora
+            </button>
+          </form>
+          <p className="mt-2 text-xs text-paper-dim">
+            Vale na hora. Você paga só a diferença proporcional aos dias que faltam deste mês, no
+            mesmo cartão — e a partir da próxima fatura, o valor do Agência.
+          </p>
         </div>
       )}
 
