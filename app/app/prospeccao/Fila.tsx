@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { cancelarTarefa, limparTarefas } from "./actions";
 import { ROTULO_TAREFA, type TarefaRow } from "@/lib/prospeccao/tipos";
 import { acharNicho } from "@/lib/prospeccao/nichos";
+import Robo from "@/components/painel/Robo";
 
 const COR: Record<string, string> = {
   pendente: "text-paper-dim",
@@ -29,10 +30,25 @@ export default function Fila({ tarefas }: { tarefas: TarefaRow[] }) {
   if (tarefas.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-white/10 bg-ink-2 p-4">
+    <div
+      className={`anim-entrada d3 rounded-xl border bg-ink-2 p-4 ${
+        ativa ? "border-brand-2/40" : "border-white/10"
+      }`}
+    >
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-sm font-bold">
-          Fila do agente {ativa && <span className="text-brand-2">· trabalhando</span>}
+        <h2 className="flex items-center gap-2 text-sm font-bold">
+          {ativa && <Robo estado="trabalhando" tamanho={30} />}
+          Fila do agente{" "}
+          {ativa && (
+            <span className="text-brand-2">
+              · trabalhando{" "}
+              <span className="pp-pontinhos">
+                <span />
+                <span />
+                <span />
+              </span>
+            </span>
+          )}
         </h2>
         <form action={limparTarefas}>
           <button
@@ -85,9 +101,16 @@ export default function Fila({ tarefas }: { tarefas: TarefaRow[] }) {
 
               {t.status === "rodando" && (
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+                  {/* gradiente correndo dentro da barra: dá para VER que anda */}
                   <div
-                    className="h-full rounded-full bg-brand-2 transition-all"
-                    style={{ width: `${Math.max(4, pct)}%` }}
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.max(6, pct)}%`,
+                      background:
+                        "linear-gradient(90deg, #6c5ce7, #8e7bff, #ea5c93, #8e7bff, #6c5ce7)",
+                      backgroundSize: "200% 100%",
+                      animation: "pp-aurora 2.4s linear infinite",
+                    }}
                   />
                 </div>
               )}

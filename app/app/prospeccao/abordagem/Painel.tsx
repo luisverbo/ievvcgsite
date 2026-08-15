@@ -393,7 +393,7 @@ export default function Painel({
                   onChange={() => alternar(p.id)}
                   className="h-4 w-4 flex-none accent-[var(--color-brand)]"
                 />
-                <span className={`w-8 flex-none text-sm font-extrabold text-${fx.cor}`}>
+                <span className={`w-8 flex-none text-sm font-extrabold ${fx.classe}`}>
                   {p.pontuacao}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm">{p.nome}</span>

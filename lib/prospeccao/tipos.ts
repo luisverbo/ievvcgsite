@@ -97,10 +97,24 @@ export const ROTULO_STATUS: Record<StatusProspecto, string> = {
 
 // Faixas de prioridade, para o painel dizer o que fazer em vez de só mostrar
 // um número.
+/*
+ * `classe` vem escrita por extenso ("text-ok"), nunca montada como
+ * `text-${cor}`: o Tailwind só gera classes que encontra literais no código.
+ * As montadas em runtime funcionavam por coincidência — outra tela usava o
+ * mesmo nome — e quebrariam em silêncio no dia em que essa outra tela mudasse.
+ */
 export function faixa(pontuacao: number) {
-  if (pontuacao >= 75) return { rotulo: "Ligar hoje", cor: "ok", emoji: "🟢" };
-  if (pontuacao >= 50) return { rotulo: "Vale tentar", cor: "brand-2", emoji: "🟡" };
-  return { rotulo: "Baixa prioridade", cor: "paper-dim", emoji: "🔴" };
+  if (pontuacao >= 75)
+    return { rotulo: "Ligar hoje", cor: "ok", classe: "text-ok", barra: "#2fbf8f", emoji: "🟢" };
+  if (pontuacao >= 50)
+    return { rotulo: "Vale tentar", cor: "brand-2", classe: "text-brand-2", barra: "#8e7bff", emoji: "🟡" };
+  return {
+    rotulo: "Baixa prioridade",
+    cor: "paper-dim",
+    classe: "text-paper-dim",
+    barra: "#a6adbd",
+    emoji: "🔴",
+  };
 }
 
 /* -------------------------- fila de tarefas do agente --------------------- */

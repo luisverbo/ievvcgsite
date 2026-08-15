@@ -5,6 +5,8 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
 import Busca from "./Busca";
 import Fila from "./Fila";
+import Vigia from "./Vigia";
+import Robo from "@/components/painel/Robo";
 import {
   capturarInstagram,
   excluirProspecto,
@@ -162,8 +164,23 @@ export default async function ProspeccaoPage({
   ];
 
   return (
-    <div className="painel-wrap flex flex-col gap-6">
-      <div>
+    <div className="relative">
+      {/* brilho de fundo — o mesmo tom de profundidade da home */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[26rem] opacity-50"
+        style={{
+          background:
+            "radial-gradient(55% 75% at 15% 0%, rgba(108,92,231,0.15), transparent 70%), radial-gradient(45% 65% at 90% 5%, rgba(47,191,143,0.08), transparent 70%)",
+        }}
+      />
+
+      {/* Atualiza o estado sozinho: rápido enquanto espera o agente acordar,
+          devagar quando é só vigiar. */}
+      <Vigia modo={agenteAtivo ? "vigiando" : "esperando"} />
+
+      <div className="painel-wrap flex flex-col gap-6">
+      <div className="anim-entrada">
         <Link href="/app" className="text-sm text-paper-dim hover:text-paper">
           ← Painel
         </Link>
@@ -177,9 +194,14 @@ export default async function ProspeccaoPage({
 
       {todos.length > 0 && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {stats.map((s) => (
-            <div key={s.rotulo} className="rounded-xl border border-white/10 bg-ink-2 p-4">
-              <div className="text-2xl font-extrabold tabular-nums">{s.valor}</div>
+          {stats.map((s, i) => (
+            <div
+              key={s.rotulo}
+              className={`anim-entrada d${i + 1} group rounded-xl border border-white/10 bg-ink-2 p-4 transition hover:border-brand-2/40`}
+            >
+              <div className="font-display text-2xl font-extrabold tabular-nums transition group-hover:text-brand-2">
+                {s.valor}
+              </div>
               <div className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-paper-dim">
                 {s.rotulo}
               </div>
@@ -198,45 +220,57 @@ export default async function ProspeccaoPage({
       {agenteAtivo ? (
         <Link
           href="/app/prospeccao/agente"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ok/30 bg-ok/5 px-5 py-3.5 transition hover:border-ok/60"
+          className="anim-entrada d2 group flex flex-wrap items-center gap-4 rounded-2xl border border-ok/30 bg-ok/5 px-5 py-3 transition hover:border-ok/60"
         >
-          <span className="text-sm">
-            <b className="text-ok">✓ Agente ligado</b>
-            <span className="ml-2 text-paper-dim">as buscas do Google saem na hora</span>
+          <Robo estado="trabalhando" tamanho={52} />
+          <span className="min-w-0 flex-1 text-sm">
+            <b className="text-ok">● Agente trabalhando</b>
+            <span className="ml-2 text-paper-dim">
+              conectado ao seu computador — as buscas saem na hora
+            </span>{" "}
+            <span className="pp-pontinhos text-ok">
+              <span />
+              <span />
+              <span />
+            </span>
           </span>
-          <span className="text-xs font-bold text-paper-dim">Ver detalhes →</span>
+          <span className="text-xs font-bold text-paper-dim transition group-hover:text-paper">
+            Ver detalhes →
+          </span>
         </Link>
       ) : temAgente ? (
-        <div className="rounded-2xl border border-warn/40 bg-warn/10 p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0">
+        <div className="anim-entrada d2 rounded-2xl border border-warn/40 bg-warn/10 p-6">
+          <div className="flex flex-wrap items-center gap-5">
+            <Robo estado="dormindo" tamanho={84} />
+            <div className="min-w-0 flex-1">
               <h2 className="font-display text-xl font-extrabold text-warn">
-                ⏸ Seu agente está desligado
+                Seu agente está dormindo
               </h2>
               <p className="mt-1.5 max-w-xl text-sm text-paper">
-                Ele já está instalado no seu computador — só não está aberto agora. Abra a pasta{" "}
+                Ele já mora no seu computador — só não está aberto. Abra a pasta{" "}
                 <b className="font-mono">paginapro-agente</b> e clique duas vezes em{" "}
-                <b className="font-mono text-paper">LIGAR-AGENTE</b>.
+                <b className="font-mono text-paper">LIGAR-AGENTE</b> para acordá-lo.
               </p>
               <p className="mt-1.5 text-sm text-paper-dim">
-                Enquanto isso, o que você pedir fica esperando na fila e sai sozinho assim que ele
-                ligar. Nada se perde.
+                Esta tela percebe sozinha quando ele acordar. E nada se perde: a fila de trabalho
+                espera por ele.
               </p>
             </div>
             <Link
               href="/app/prospeccao/agente"
-              className="flex-none rounded-lg bg-warn px-5 py-2.5 text-sm font-bold text-ink transition hover:opacity-90"
+              className="flex-none rounded-xl bg-warn px-5 py-2.5 text-sm font-bold text-ink transition hover:-translate-y-0.5 hover:opacity-90"
             >
-              Como ligar →
+              Como acordar →
             </Link>
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-brand-2/50 bg-gradient-to-br from-brand/20 to-transparent p-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0">
+        <div className="anim-entrada d2 card-aurora rounded-2xl p-6">
+          <div className="flex flex-wrap items-center gap-5">
+            <Robo estado="novo" tamanho={84} />
+            <div className="min-w-0 flex-1">
               <h2 className="font-display text-xl font-extrabold text-paper">
-                🤖 Instale o agente para começar
+                Seu agente está esperando para nascer
               </h2>
               <p className="mt-1.5 max-w-xl text-sm text-paper">
                 A busca no Google e o envio no WhatsApp rodam num programa no{" "}
@@ -249,7 +283,7 @@ export default async function ProspeccaoPage({
             </div>
             <Link
               href="/app/prospeccao/agente"
-              className="flex-none rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand/25 transition hover:bg-brand-2"
+              className="flex-none rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand/25 transition hover:-translate-y-0.5 hover:bg-brand-2"
             >
               Instalar agora →
             </Link>
@@ -257,7 +291,7 @@ export default async function ProspeccaoPage({
         </div>
       )}
 
-      <div className={cardClass}>
+      <div className={`anim-entrada d3 ${cardClass}`}>
         <h2 className="mb-4 text-lg font-bold">🔎 Buscar empresas</h2>
         <Busca agenteAtivo={agenteAtivo} temAgente={temAgente} />
       </div>
@@ -267,7 +301,7 @@ export default async function ProspeccaoPage({
       {todos.length > 0 && (
         <Link
           href="/app/prospeccao/abordagem"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-2/40 bg-brand/10 px-5 py-4 transition hover:border-brand-2"
+          className="anim-entrada d4 group flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-2/40 bg-brand/10 px-5 py-4 transition hover:-translate-y-0.5 hover:border-brand-2 hover:shadow-[0_16px_50px_-20px_rgba(108,92,231,0.8)]"
         >
           <span>
             <b className="text-paper">💬 Abordar no WhatsApp</b>
@@ -275,7 +309,9 @@ export default async function ProspeccaoPage({
               manda a primeira mensagem — manual ou automático
             </span>
           </span>
-          <span className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white">Abrir →</span>
+          <span className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition group-hover:bg-brand-2">
+            Abrir →
+          </span>
         </Link>
       )}
 
@@ -338,7 +374,7 @@ export default async function ProspeccaoPage({
         </p>
       ) : (
         <div className="flex flex-col gap-3">
-          {lista.map((p) => {
+          {lista.map((p, idx) => {
             const fx = faixa(p.pontuacao);
             const zap = linkWhatsapp(p.telefone);
             // Bloqueio e erro são temporários: cabe tentar de novo. Perfil
@@ -349,12 +385,21 @@ export default async function ProspeccaoPage({
             return (
               <div
                 key={p.id}
-                className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-ink-2 p-4 transition hover:border-white/20 sm:flex-row"
+                className={`anim-entrada d${Math.min(idx + 1, 6)} flex flex-col gap-3 rounded-2xl border border-white/10 bg-ink-2 p-4 transition hover:border-brand-2/40 hover:shadow-[0_14px_44px_-22px_rgba(108,92,231,0.7)] sm:flex-row`}
               >
-                {/* nota */}
-                <div className="flex flex-none flex-row items-center gap-3 sm:w-28 sm:flex-col sm:items-start">
-                  <div className={`text-4xl font-extrabold tabular-nums text-${fx.cor}`}>
+                {/* nota + barra de potencial: o número E o quanto ele enche */}
+                <div className="flex flex-none flex-row items-center gap-3 sm:w-28 sm:flex-col sm:items-stretch sm:gap-1.5">
+                  <div className={`font-display text-4xl font-extrabold tabular-nums ${fx.classe}`}>
                     {p.pontuacao}
+                  </div>
+                  <div className="hidden h-1.5 overflow-hidden rounded-full bg-white/10 sm:block">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.max(4, Math.min(100, p.pontuacao))}%`,
+                        background: `linear-gradient(90deg, ${fx.barra}66, ${fx.barra})`,
+                      }}
+                    />
                   </div>
                   <div className="text-xs font-bold text-paper-dim">
                     {fx.emoji} {fx.rotulo}
@@ -551,12 +596,13 @@ export default async function ProspeccaoPage({
       )}
 
       <p className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-paper-dim">
-        ℹ️ A busca daqui usa o <b className="text-paper">OpenStreetMap</b> — gratuito e sem
-        bloqueio, porém com menos cadastros. Para resultados do{" "}
-        <b className="text-paper">Google Maps</b>, com avaliações e nota, rode o agente local no seu
-        computador: <code className="text-paper">cd agente && npm run prospectar -- --nicho=dentista
-        --local=&quot;Barra da Tijuca, RJ&quot;</code>. As empresas caem nesta mesma lista.
+        ℹ️ <b className="text-paper">Duas buscas, dois alcances:</b> a do{" "}
+        <b className="text-paper">Google Maps</b> traz o resultado completo — avaliações, nota e
+        situação do site — e por isso roda no seu agente. A do{" "}
+        <b className="text-paper">OpenStreetMap</b> sai na hora, aqui mesmo, mas enxerga menos
+        cadastros. As empresas das duas caem nesta mesma lista.
       </p>
+      </div>
     </div>
   );
 }
