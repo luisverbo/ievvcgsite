@@ -30,29 +30,33 @@ function online(ultimo: string | null) {
   return !!ultimo && Date.now() - new Date(ultimo).getTime() < 15 * 60_000;
 }
 
-const PASSOS = [
+/*
+ * Três passos, nenhum comando digitado.
+ *
+ * O passo "abra o terminal dentro da pasta" saiu daqui: era onde a instalação
+ * morria para quem não é técnico. O .zip agora traz INSTALAR-AGENTE e
+ * LIGAR-AGENTE, que descobrem sozinhos a pasta certa — descompactou onde
+ * quiser, funciona igual.
+ */
+const PASSOS: { titulo: string; texto: string; detalhe?: string }[] = [
   {
-    titulo: "Instale o Node",
-    texto: "Baixe em nodejs.org e instale (versão 22 ou maior). É o programa que faz o agente rodar.",
-  },
-  {
-    titulo: "Baixe o agente",
+    titulo: "Baixe o arquivo e descompacte",
     texto:
-      "Use o botão azul acima. O arquivo já vem com o seu código dentro — descompacte em qualquer lugar do computador, a Área de Trabalho serve.",
+      "Use o botão azul aí em cima. Depois clique com o botão direito no arquivo baixado e escolha “Extrair tudo” (no Mac, dois cliques já extraem).",
+    detalhe: "Pode extrair na Área de Trabalho — o lugar não importa.",
   },
   {
-    titulo: "Abra o terminal na pasta e rode a instalação",
-    texto: "npm install && npm run instalar-navegador",
-    codigo: true,
+    titulo: "Clique duas vezes em INSTALAR-AGENTE",
+    texto:
+      "Uma janela preta abre e faz tudo sozinha: baixa o que falta e prepara o agente. Leva alguns minutos na primeira vez — pode deixar rodando.",
+    detalhe:
+      "Se faltar o Node no seu computador, essa mesma janela avisa e se oferece para instalar. É só responder S.",
   },
   {
-    titulo: "Nada para configurar",
-    texto: "O seu código já veio pronto dentro do arquivo. Pode pular direto para o passo 5.",
-  },
-  {
-    titulo: "Ligue",
-    texto: "npm run servico",
-    codigo: true,
+    titulo: "Clique duas vezes em LIGAR-AGENTE",
+    texto:
+      "Pronto: o agente está no ar e o painel já mostra “agente ligado”. Daqui pra frente, é só este clique — o INSTALAR foi uma vez só.",
+    detalhe: "Deixe a janela preta aberta enquanto estiver usando.",
   },
 ];
 
@@ -114,8 +118,8 @@ export default async function MeuAgentePage() {
       <div className="rounded-xl border border-brand-2/40 bg-brand/10 p-5">
         <h2 className="text-sm font-bold text-paper">Baixar o agente</h2>
         <p className="mt-1 text-sm text-paper-dim">
-          O arquivo já vem <b className="text-paper">com o seu código dentro</b>. Você não precisa
-          copiar nem colar nada — é só descompactar e ligar.
+          O arquivo já vem <b className="text-paper">com o seu código dentro</b> e com o instalador
+          pronto. Você não digita comando nenhum — descompacta e clica duas vezes.
         </p>
         <a
           href="/app/prospeccao/agente/baixar"
@@ -123,6 +127,9 @@ export default async function MeuAgentePage() {
         >
           ⬇ Baixar o agente (.zip)
         </a>
+        <p className="mt-2 text-xs text-paper-dim">
+          Funciona no Windows e no Mac. Serve para os dois — o instalador certo já está lá dentro.
+        </p>
         <p className="mt-2 text-xs text-paper-dim">
           Não compartilhe o arquivo: dentro dele vai o código que dá acesso à sua conta.
         </p>
@@ -156,21 +163,68 @@ export default async function MeuAgentePage() {
               </span>
               <div className="min-w-0">
                 <h3 className="text-sm font-bold text-paper">{p.titulo}</h3>
-                {p.codigo ? (
-                  <pre className="mt-1.5 overflow-x-auto rounded-lg bg-ink px-3 py-2 font-mono text-xs text-brand-2">
-                    {p.texto}
-                  </pre>
-                ) : (
-                  <p className="mt-1 text-sm text-paper-dim">{p.texto}</p>
+                <p className="mt-1 text-sm text-paper-dim">{p.texto}</p>
+                {p.detalhe && (
+                  <p className="mt-1.5 text-xs text-paper-dim/70">💡 {p.detalhe}</p>
                 )}
               </div>
             </li>
           ))}
         </ol>
         <p className="mt-3 text-xs text-paper-dim">
-          Deixe a janela do terminal aberta enquanto estiver usando. Fechou, o agente para — e volta
-          quando você abrir de novo. Nada se perde: a fila espera.
+          Fechou a janela, o agente para — e volta quando você abrir de novo. Nada se perde: a fila
+          espera por ele.
         </p>
+
+        {/* O Node só aparece se der problema — antes disso é detalhe técnico. */}
+        <details className="mt-4 rounded-xl border border-white/10 bg-ink-2 p-4">
+          <summary className="cursor-pointer text-sm font-bold text-paper-dim">
+            A janela preta pediu para instalar o Node — o que é isso?
+          </summary>
+          <div className="mt-3 text-sm text-paper-dim">
+            <p>
+              O Node é um programa gratuito da comunidade, o mesmo que roda por trás de meio
+              milhão de sites. O agente precisa dele para funcionar, e normalmente o próprio
+              instalador resolve para você. Se preferir instalar na mão, baixe a{" "}
+              <b className="text-paper">versão LTS</b> (a recomendada, do lado esquerdo da página):
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a
+                href="https://nodejs.org/en/download"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-lg border border-white/15 px-4 py-2 text-xs font-bold text-paper transition hover:border-brand-2 hover:text-brand-2"
+              >
+                🪟 Baixar para Windows
+              </a>
+              <a
+                href="https://nodejs.org/en/download"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-lg border border-white/15 px-4 py-2 text-xs font-bold text-paper transition hover:border-brand-2 hover:text-brand-2"
+              >
+                 Baixar para Mac
+              </a>
+            </div>
+            <p className="mt-3 text-xs text-paper-dim/70">
+              Na página, escolha o seu sistema e clique no instalador. Depois de instalar, feche a
+              janela preta e clique em INSTALAR-AGENTE de novo.
+            </p>
+          </div>
+        </details>
+
+        {/* O aviso do Gatekeeper: o Mac assusta na primeira abertura. */}
+        <details className="mt-2 rounded-xl border border-white/10 bg-ink-2 p-4">
+          <summary className="cursor-pointer text-sm font-bold text-paper-dim">
+            Estou no Mac e apareceu “desenvolvedor não identificado”
+          </summary>
+          <p className="mt-3 text-sm text-paper-dim">
+            É o aviso padrão do Mac para qualquer programa baixado fora da App Store. Clique com o{" "}
+            <b className="text-paper">botão direito</b> no arquivo INSTALAR-AGENTE.command, escolha{" "}
+            <b className="text-paper">Abrir</b> e confirme <b className="text-paper">Abrir</b> na
+            janela que aparecer. Acontece só na primeira vez.
+          </p>
+        </details>
       </div>
 
       {/* agentes criados */}

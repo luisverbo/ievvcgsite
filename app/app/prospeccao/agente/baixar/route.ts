@@ -6,6 +6,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
 import { gerarToken, hashDoToken } from "@/lib/agente/token";
+import {
+  INSTALAR_BAT,
+  LIGAR_BAT,
+  INSTALAR_COMMAND,
+  LIGAR_COMMAND,
+} from "@/lib/agente/instaladores";
 
 /*
  * Baixar o agente, já configurado.
@@ -27,39 +33,53 @@ import { gerarToken, hashDoToken } from "@/lib/agente/token";
 
 export const maxDuration = 60;
 
-const LEIAME = `AGENTE DO PÁGINAPRO
-====================
+const LEIAME = `AGENTE DO PAGINAPRO
+===================
 
 Este programa faz duas coisas, aqui do SEU computador:
 
   1. busca empresas no Google Maps;
   2. envia a primeira mensagem no SEU WhatsApp.
 
-É por isso que ele roda aqui e não no servidor: o número é o seu, e a busca
-sai do seu endereço de internet, sem dividir com mais ninguém.
+E por isso que ele roda aqui e nao no nosso servidor: o numero e o seu, e a
+busca sai do seu endereco de internet, sem dividir com mais ninguem.
 
-O QUE FAZER
------------
 
-1. Instale o Node 22 ou maior: https://nodejs.org
+COMO USAR - SAO DOIS CLIQUES
+----------------------------
 
-2. Abra o terminal DENTRO da pasta "agente" e rode:
+  NO WINDOWS
 
-       npm install
-       npm run instalar-navegador
+    1. Clique duas vezes em  INSTALAR-AGENTE.bat   (so na primeira vez)
+    2. Clique duas vezes em  LIGAR-AGENTE.bat      (toda vez que for usar)
 
-3. Ligue:
+  NO MAC
 
-       npm run servico
+    1. Clique duas vezes em  INSTALAR-AGENTE.command   (so na primeira vez)
+    2. Clique duas vezes em  LIGAR-AGENTE.command      (toda vez que for usar)
 
-Pronto. Deixe essa janela aberta enquanto estiver usando. Se fechar, o agente
-para — e volta quando você abrir de novo. Nada se perde: a fila espera.
+    Se o Mac disser que o arquivo e de um "desenvolvedor nao identificado":
+    clique com o botao direito no arquivo, escolha Abrir, e confirme Abrir.
+    Isso acontece so na primeira vez.
 
-O seu código de acesso já está configurado no arquivo agente/.env. Não precisa
-colar nada.
+Nao precisa instalar mais nada nem digitar comando nenhum. Se faltar o Node
+(o programa que faz o agente rodar), o proprio instalador avisa e resolve.
 
-NÃO COMPARTILHE a pasta com ninguém: o arquivo .env tem o código que dá acesso
-à sua conta.
+
+ENQUANTO ESTIVER USANDO
+-----------------------
+
+Deixe a janela preta aberta. Se fechar, o agente para - e volta quando voce
+abrir de novo. Nada se perde: a fila espera por ele.
+
+
+IMPORTANTE
+----------
+
+O seu codigo de acesso ja esta configurado dentro do arquivo agente/.env.
+Voce nao precisa copiar nem colar nada.
+
+NAO COMPARTILHE esta pasta com ninguem: esse codigo da acesso a sua conta.
 `;
 
 export async function GET() {
@@ -113,9 +133,32 @@ export async function GET() {
       "",
     ].join("\n"),
   );
+  /*
+   * Os instaladores de duplo clique — o que tira o terminal do caminho.
+   *
+   * Ficam na RAIZ do .zip, ao lado do LEIA-ME: é o primeiro lugar onde a
+   * pessoa olha depois de descompactar. Os .command saem com permissão de
+   * execução, senão o Finder do Mac ignora o duplo clique.
+   */
+  raiz.file("INSTALAR-AGENTE.bat", INSTALAR_BAT);
+  raiz.file("LIGAR-AGENTE.bat", LIGAR_BAT);
+  raiz.file("INSTALAR-AGENTE.command", INSTALAR_COMMAND, { unixPermissions: 0o755 });
+  raiz.file("LIGAR-AGENTE.command", LIGAR_COMMAND, { unixPermissions: 0o755 });
   raiz.file("LEIA-ME.txt", LEIAME);
 
-  const buffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+  /*
+   * platform "UNIX" é obrigatório aqui, não é enfeite.
+   *
+   * É o que faz o .zip carregar as permissões dos arquivos. No padrão ("DOS")
+   * o unixPermissions dos .command é descartado em silêncio, eles chegam sem
+   * bit de execução — e no Mac o duplo clique simplesmente não faz nada, sem
+   * mensagem de erro nenhuma. O Windows ignora este campo, então não custa.
+   */
+  const buffer = await zip.generateAsync({
+    type: "nodebuffer",
+    compression: "DEFLATE",
+    platform: "UNIX",
+  });
 
   return new NextResponse(new Uint8Array(buffer), {
     headers: {
