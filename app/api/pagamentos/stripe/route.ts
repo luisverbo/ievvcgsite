@@ -111,15 +111,42 @@ export async function POST(req: Request) {
         const inicio = f.period_start ? new Date(f.period_start * 1000) : new Date();
         const periodo = periodoDe(inicio);
 
-        await admin.rpc("pagar_assinatura", {
-          p_org: orgId,
-          p_provedor: "stripe",
-          p_evento: evento.id,
-          p_valor: f.amount_paid ?? 0,
-          p_periodo: periodo,
-          p_ate: fimDoPeriodo(periodo).toISOString(),
-          p_descricao: "Mensalidade no cartão",
-        });
+        /*
+         * Fatura de troca de plano (o rateio dos dias) x mensalidade.
+         *
+         * A diferença importa: a mensalidade passa por `pagar_assinatura`, que
+         * tem a trava de "um mês só pode ser pago uma vez" — a proteção contra
+         * pagar o mesmo mês no Pix e no cartão. Só que a fatura do upgrade cai
+         * no MESMO mês da mensalidade e batia nessa trava, sumindo do extrato
+         * em silêncio mesmo com o dinheiro já cobrado.
+         *
+         * Então ela entra como tipo 'upgrade', fora da trava. A idempotência
+         * continua garantida pelo UNIQUE em (provedor, evento_id).
+         */
+        if (f.billing_reason === "subscription_update") {
+          const { error } = await admin.from("pagamentos").insert({
+            org_id: orgId,
+            provedor: "stripe",
+            evento_id: evento.id,
+            tipo: "upgrade",
+            valor_centavos: f.amount_paid ?? 0,
+            periodo,
+            status: "pago",
+            descricao: "Diferença da troca de plano",
+          });
+          // 23505 = webhook repetido. É o comportamento esperado, não é falha.
+          if (error && error.code !== "23505") throw new Error(error.message);
+        } else {
+          await admin.rpc("pagar_assinatura", {
+            p_org: orgId,
+            p_provedor: "stripe",
+            p_evento: evento.id,
+            p_valor: f.amount_paid ?? 0,
+            p_periodo: periodo,
+            p_ate: fimDoPeriodo(periodo).toISOString(),
+            p_descricao: "Mensalidade no cartão",
+          });
+        }
 
         /*
          * Que plano entregar. O preço COBRADO manda; a metadata é o plano B.
