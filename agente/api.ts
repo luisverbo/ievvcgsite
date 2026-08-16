@@ -105,7 +105,16 @@ export type ConfigAbordagem = {
 };
 
 export const abordagemEstado = () =>
-  chamar<{ config: ConfigAbordagem; enviadasHoje: number; pendentes: number }>("abordagem_estado");
+  chamar<{ config: ConfigAbordagem; enviadasHoje: number; pendentes: number; aguardando: number }>(
+    "abordagem_estado",
+  );
+
+/* --------------------------------- escuta --------------------------------- */
+export const aguardandoResposta = () =>
+  chamar<{ numeros: string[] }>("aguardando_resposta").then((r) => r.numeros);
+
+export const respostaRecebida = (telefone: string, texto: string) =>
+  chamar<{ ok: boolean; classe: string | null }>("resposta_recebida", { telefone, texto });
 
 export const zapEstado = (estado: string, mensagem?: string, qr?: string | null) =>
   chamar("zap_estado", { estado, mensagem, ...(qr !== undefined ? { qr } : {}) });

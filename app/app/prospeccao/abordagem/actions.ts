@@ -123,8 +123,18 @@ export async function prepararAbordagem(
 
   const linhas: Record<string, unknown>[] = [];
   let semZap = 0;
+  let optOut = 0;
 
   for (const p of prospectos) {
+    /*
+     * Opt-out é sagrado: quem pediu para não receber não entra em fila
+     * NENHUMA, nem se for selecionado na tela. A trava mora aqui, no
+     * servidor — a interface pode errar; esta linha não.
+     */
+    if (p.nao_perturbar) {
+      optOut++;
+      continue;
+    }
     const telefone = telefoneWhatsapp(p.telefone);
     if (!telefone) {
       semZap++;
@@ -143,7 +153,12 @@ export async function prepararAbordagem(
   }
 
   if (linhas.length === 0) {
-    return { error: "Nenhuma das empresas escolhidas tem celular com WhatsApp." };
+    return {
+      error:
+        optOut > 0
+          ? "Todas as escolhidas ou não têm celular ou pediram para não receber mensagens."
+          : "Nenhuma das empresas escolhidas tem celular com WhatsApp.",
+    };
   }
 
   // ignoreDuplicates evita abordar duas vezes quem já está na fila.
@@ -153,7 +168,11 @@ export async function prepararAbordagem(
   if (error) return { error: error.message };
 
   revalidatePath("/app/prospeccao/abordagem");
-  const aviso = semZap > 0 ? ` (${semZap} sem celular foram puladas)` : "";
+  const pulos = [
+    semZap > 0 ? `${semZap} sem celular` : "",
+    optOut > 0 ? `${optOut} que pediram para não receber` : "",
+  ].filter(Boolean);
+  const aviso = pulos.length > 0 ? ` (puladas: ${pulos.join(" e ")})` : "";
   return {
     ok:
       modo === "auto"

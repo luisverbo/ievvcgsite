@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { agenteDaRequisicao } from "@/lib/agente/token";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pontuarEGravar } from "@/lib/prospeccao/gravar";
+import { classificarResposta } from "@/lib/prospeccao/classificar";
+import { funcaoLigada } from "@/lib/painel/flags";
 import type { EmpresaEncontrada } from "@/lib/prospeccao/tipos";
 
 /*
@@ -192,6 +194,23 @@ export async function POST(req: Request) {
           .eq("status", "pendente")
           .eq("modo", "auto");
 
+        /*
+         * `aguardando` = de quantos números esperamos resposta. É o que faz o
+         * agente abrir o WhatsApp mesmo sem fila de envio — para ESCUTAR.
+         * Com a função desligada no Admin, devolve 0 e o agente nem tenta.
+         */
+        let aguardando = 0;
+        if (await funcaoLigada("escuta")) {
+          const { count: c } = await admin
+            .from("prospeccao_mensagens")
+            .select("id", { count: "exact", head: true })
+            .eq("org_id", org)
+            .eq("status", "enviada")
+            .is("resposta_em", null)
+            .gte("enviada_em", new Date(Date.now() - 14 * 86_400_000).toISOString());
+          aguardando = c ?? 0;
+        }
+
         return j({
           config: cfgRaw ?? {
             org_id: org,
@@ -203,7 +222,75 @@ export async function POST(req: Request) {
           },
           enviadasHoje: count ?? 0,
           pendentes: pendentes ?? 0,
+          aguardando,
         });
+      }
+
+      /*
+       * De quem estamos esperando resposta — os números que o agente vai
+       * conferir na lista de conversas. Só mensagens dos últimos 14 dias:
+       * resposta depois disso é rara e conferir para sempre seria varrer a
+       * lista inteira todo dia.
+       */
+      case "aguardando_resposta": {
+        if (!(await funcaoLigada("escuta"))) return j({ numeros: [] });
+        const { data } = await admin
+          .from("prospeccao_mensagens")
+          .select("telefone")
+          .eq("org_id", org)
+          .eq("status", "enviada")
+          .is("resposta_em", null)
+          .gte("enviada_em", new Date(Date.now() - 14 * 86_400_000).toISOString())
+          .order("enviada_em", { ascending: false })
+          .limit(60);
+        const numeros = [...new Set(((data as { telefone: string }[] | null) ?? []).map((m) => m.telefone))];
+        return j({ numeros });
+      }
+
+      /*
+       * O lead respondeu. Guarda o texto na mensagem que originou a conversa,
+       * classifica com a IA e mexe no prospecto: vira "respondeu" — e recusa
+       * vira opt-out DEFINITIVO (nao_perturbar), que nenhuma fila futura pode
+       * atropelar.
+       */
+      case "resposta_recebida": {
+        const telefone = String(corpo.telefone ?? "").replace(/\D/g, "");
+        const texto = String(corpo.texto ?? "").slice(0, 800);
+        if (!telefone || !texto) return j({ erro: "Faltou telefone ou texto." }, 400);
+
+        const { data: msgRaw } = await admin
+          .from("prospeccao_mensagens")
+          .select("id, prospecto_id")
+          .eq("org_id", org)
+          .eq("status", "enviada")
+          .eq("telefone", telefone)
+          .is("resposta_em", null)
+          .order("enviada_em", { ascending: false })
+          .limit(1);
+        const msg = (msgRaw as { id: string; prospecto_id: string }[] | null)?.[0];
+        // Sem mensagem esperando: resposta duplicada ou conversa antiga. Nada a fazer.
+        if (!msg) return j({ ok: true, classe: null });
+
+        const classe = await classificarResposta(org, texto);
+
+        await admin
+          .from("prospeccao_mensagens")
+          .update({ resposta_texto: texto, resposta_em: agora(), resposta_classe: classe })
+          .eq("id", msg.id)
+          .eq("org_id", org);
+
+        await admin
+          .from("prospeccao")
+          .update({
+            status: "respondeu",
+            ...(classe === "recusa" ? { nao_perturbar: true } : {}),
+          })
+          .eq("id", msg.prospecto_id)
+          .eq("org_id", org)
+          // Fechou é estado final: uma mensagem atrasada não pode rebaixá-lo.
+          .neq("status", "fechou");
+
+        return j({ ok: true, classe });
       }
 
       case "zap_estado": {

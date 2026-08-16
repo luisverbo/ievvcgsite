@@ -86,6 +86,47 @@ export default async function ProspeccaoPage({
   const { data } = await q;
   const lista = (data as ProspectoRow[] | null) ?? [];
 
+  /*
+   * A resposta que o agente escutou, por prospecto — para o card mostrar O QUE
+   * o lead disse, não só que disse. É a diferença entre "respondeu" e
+   * "respondeu PERGUNTANDO O PREÇO: liga agora".
+   */
+  const respostaPorProspecto = new Map<
+    string,
+    { texto: string; classe: string | null; em: string }
+  >();
+  if (lista.length > 0) {
+    const { data: respRaw } = await supabase
+      .from("prospeccao_mensagens")
+      .select("prospecto_id, resposta_texto, resposta_classe, resposta_em")
+      .eq("org_id", org.id)
+      .not("resposta_em", "is", null)
+      .in("prospecto_id", lista.map((p) => p.id))
+      .order("resposta_em", { ascending: false });
+    for (const r of (respRaw as {
+      prospecto_id: string;
+      resposta_texto: string;
+      resposta_classe: string | null;
+      resposta_em: string;
+    }[] | null) ?? []) {
+      if (!respostaPorProspecto.has(r.prospecto_id)) {
+        respostaPorProspecto.set(r.prospecto_id, {
+          texto: r.resposta_texto,
+          classe: r.resposta_classe,
+          em: r.resposta_em,
+        });
+      }
+    }
+  }
+
+  const ROTULO_CLASSE: Record<string, { rotulo: string; classe: string }> = {
+    interesse: { rotulo: "🎯 interessado", classe: "bg-ok/15 text-ok" },
+    preco: { rotulo: "💰 perguntou o preço", classe: "bg-warn/15 text-warn" },
+    duvida: { rotulo: "❓ tem dúvida", classe: "bg-brand/20 text-brand-2" },
+    recusa: { rotulo: "🚫 recusou", classe: "bg-danger/15 text-danger" },
+    outro: { rotulo: "💬 respondeu", classe: "bg-white/10 text-paper-dim" },
+  };
+
   // Todas as pesquisas já feitas, para montar os atalhos.
   const { data: buscasRaw } = await supabase
     .from("prospeccao")
@@ -421,6 +462,39 @@ export default async function ProspeccaoPage({
                   </div>
 
                   {p.endereco && <p className="mt-0.5 text-xs text-paper-dim">📍 {p.endereco}</p>}
+
+                  {/* a resposta que o agente escutou — a informação mais quente do card */}
+                  {(() => {
+                    const resp = respostaPorProspecto.get(p.id);
+                    if (!resp) return null;
+                    const visual = ROTULO_CLASSE[resp.classe ?? "outro"] ?? ROTULO_CLASSE.outro;
+                    return (
+                      <div className="mt-2 rounded-lg border border-ok/30 bg-ok/5 p-2.5">
+                        <p className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className={`rounded-full px-2 py-0.5 font-bold ${visual.classe}`}>
+                            {visual.rotulo}
+                          </span>
+                          <span className="text-paper-dim">
+                            {new Date(resp.em).toLocaleString("pt-BR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </p>
+                        <p className="mt-1 line-clamp-2 whitespace-pre-line text-xs italic text-paper">
+                          “{resp.texto}”
+                        </p>
+                      </div>
+                    );
+                  })()}
+
+                  {p.nao_perturbar && (
+                    <p className="mt-1.5 text-xs font-bold text-danger">
+                      🚫 Pediu para não receber mais mensagens — o agente respeita sozinho.
+                    </p>
+                  )}
 
                   {p.avaliacoes !== null && (
                     <p className="mt-0.5 text-xs text-paper-dim">

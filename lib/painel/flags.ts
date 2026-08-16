@@ -18,6 +18,12 @@ export const FUNCOES_NOVAS: Record<
   string,
   { rotulo: string; descricao: string; pronta: boolean }
 > = {
+  escuta: {
+    rotulo: "Agente escuta as respostas",
+    descricao:
+      "O agente detecta quando um lead abordado responde no WhatsApp, a IA classifica (interesse, preço, dúvida, recusa) e o painel marca sozinho. Recusa vira opt-out definitivo.",
+    pronta: true,
+  },
   fechador: {
     rotulo: "Fechador (site automático na resposta)",
     descricao:

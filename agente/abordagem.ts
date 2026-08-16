@@ -16,6 +16,7 @@ import {
   abrirWhatsapp,
   aguardarConexao,
   enviarMensagem,
+  lerRespostas,
   PERFIL_ZAP,
   type EstadoZap,
 } from "./whatsapp.ts";
@@ -40,6 +41,10 @@ let sessao: { page: Page; fechar: () => Promise<void> } | null = null;
 // Não vale perguntar o estado da abordagem a cada volta de 8s do serviço.
 let proximaChecagemEm = 0;
 
+// A escuta tem relógio próprio: conferir a lista de conversas a cada volta
+// seria movimento demais na conta — a cada ~2 minutos é ritmo de gente.
+let proximaEscutaEm = 0;
+
 export async function rodarAbordagem(headless: boolean, log: (m: string) => void): Promise<void> {
   const agoraMs = Date.now();
   // Ainda no intervalo entre mensagens: nada a fazer, e a fila de buscas
@@ -47,7 +52,7 @@ export async function rodarAbordagem(headless: boolean, log: (m: string) => void
   if (agoraMs < proximoEnvioEm && agoraMs < proximaChecagemEm) return;
   proximaChecagemEm = agoraMs + 20_000;
 
-  const { config: cfg, enviadasHoje, pendentes } = await api.abordagemEstado();
+  const { config: cfg, enviadasHoje, pendentes, aguardando = 0 } = await api.abordagemEstado();
 
   // Pedido de desconexão vem primeiro: apaga a sessão para poder entrar com
   // outro número.
@@ -63,21 +68,31 @@ export async function rodarAbordagem(headless: boolean, log: (m: string) => void
     return;
   }
 
-  // Duas razões para abrir o WhatsApp: o painel pediu conexão (status
-  // 'aguardando_qr') ou existe mensagem esperando na fila.
+  /*
+   * Três razões para abrir o WhatsApp: o painel pediu conexão, existe
+   * mensagem para ENVIAR, ou existe resposta para ESCUTAR (números abordados
+   * ainda sem retorno). A escuta só reabre o navegador se a sessão já esteve
+   * conectada antes — sem sessão salva, abrir só para escutar mostraria um QR
+   * que ninguém pediu.
+   */
   const pedidoConexao = cfg.whatsapp_status === "aguardando_qr";
-  if (!pedidoConexao && pendentes === 0) return;
+  const escutar = aguardando > 0 && Date.now() >= proximaEscutaEm && cfg.whatsapp_status === "conectado";
+  if (!pedidoConexao && pendentes === 0 && !escutar) return;
 
   // Só um pedido de conexão, com a sessão já de pé: nada a fazer além de
   // confirmar no painel.
-  if (pedidoConexao && sessao && pendentes === 0) {
+  if (pedidoConexao && sessao && pendentes === 0 && !escutar) {
     await api.zapEstado("conectado", "WhatsApp já está conectado.", null);
     return;
   }
 
-  // O limite só bloqueia envio; um pedido de conexão passa, senão você não
-  // conseguiria reconectar depois de bater a cota do dia.
-  if (!pedidoConexao && enviadasHoje >= cfg.limite_diario) {
+  /*
+   * O limite diário só bloqueia ENVIO. Conexão passa (senão você não
+   * reconectaria depois da cota) e a escuta também: parar de ouvir quem
+   * respondeu porque a cota de envio acabou seria surdez voluntária.
+   */
+  const podeEnviar = enviadasHoje < cfg.limite_diario;
+  if (!pedidoConexao && !escutar && !podeEnviar) {
     log(`limite diário atingido (${enviadasHoje}/${cfg.limite_diario}) — abordagem pausada até amanhã`);
     return;
   }
@@ -114,8 +129,29 @@ export async function rodarAbordagem(headless: boolean, log: (m: string) => void
     await api.zapEstado("conectado", "WhatsApp conectado.", null);
   }
 
-  // Era só para conectar — sem mensagem na fila, o trabalho acaba aqui.
-  if (pendentes === 0) return;
+  /*
+   * ESCUTA antes de enviar: quem já respondeu não pode esperar atrás da fila.
+   * O relógio próprio (2 min) segura o ritmo; uma falha aqui não derruba o
+   * envio — escutar é bônus, mandar é a obrigação.
+   */
+  if (escutar && sessao) {
+    proximaEscutaEm = Date.now() + 120_000;
+    try {
+      const numeros = await api.aguardandoResposta();
+      if (numeros.length > 0) {
+        const respostas = await lerRespostas(sessao.page, numeros, log);
+        for (const r of respostas) {
+          const { classe } = await api.respostaRecebida(r.telefone, r.texto);
+          log(`💬 ${r.telefone} respondeu${classe ? ` → ${classe}` : ""} — painel atualizado`);
+        }
+      }
+    } catch (e) {
+      log(`escuta falhou (segue o baile): ${(e as Error).message}`);
+    }
+  }
+
+  // Sem mensagem na fila (ou cota do dia esgotada), o trabalho acaba aqui.
+  if (pendentes === 0 || !podeEnviar) return;
 
   // Ainda dentro do intervalo da mensagem anterior.
   if (Date.now() < proximoEnvioEm) return;

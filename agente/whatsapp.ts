@@ -168,6 +168,101 @@ export type ResultadoEnvio =
   | { ok: true }
   | { ok: false; motivo: string; semWhatsapp?: boolean; pararTudo?: boolean };
 
+/*
+ * Escuta: quais dos números que abordamos responderam?
+ *
+ * A leitura é pela LISTA de conversas, não abrindo cada chat: o WhatsApp
+ * marca com um selo as conversas com mensagem nova, e cada linha carrega o
+ * título (o número, para contato não salvo) e a prévia da última mensagem.
+ * Só abrimos o chat quando o selo diz que tem novidade — abrir marca como
+ * lida, e isso o lead vê (os dois tracinhos azuis), então só fazemos quando
+ * vamos de fato processar a resposta.
+ *
+ * Seletores defensivos de propósito: o WhatsApp Web muda o DOM sem avisar.
+ * Se nada casar, a função devolve vazio — nunca derruba o serviço.
+ */
+export type RespostaLida = { telefone: string; texto: string };
+
+const soDigitos = (s: string) => s.replace(/\D/g, "");
+
+// O número da conversa e o número que discamos podem diferir no nono dígito
+// (o WhatsApp normaliza). Comparar pelos últimos 8 resolve os dois lados.
+function mesmoNumero(a: string, b: string): boolean {
+  const da = soDigitos(a);
+  const db = soDigitos(b);
+  return da.length >= 8 && db.length >= 8 && da.slice(-8) === db.slice(-8);
+}
+
+export async function lerRespostas(
+  page: Page,
+  numerosEsperados: string[],
+  log: (m: string) => void = () => {},
+): Promise<RespostaLida[]> {
+  const saida: RespostaLida[] = [];
+  if (numerosEsperados.length === 0) return saida;
+  if (!(await estaConectado(page))) return saida;
+
+  // Garante a tela inicial (a lista) — pode ter ficado num chat do envio.
+  if (!page.url().includes("web.whatsapp.com")) {
+    await page.goto("https://web.whatsapp.com", { waitUntil: "domcontentloaded", timeout: 60_000 }).catch(() => {});
+    await espera(4000);
+  }
+
+  const linhas = page.locator('#pane-side [role="listitem"], div[aria-label*="Lista de conversas"] [role="listitem"]');
+  const total = Math.min(await linhas.count().catch(() => 0), 40);
+
+  // Primeiro coleta os alvos, depois abre um a um: clicar muda a lista.
+  const alvos: string[] = [];
+  for (let i = 0; i < total; i++) {
+    const linha = linhas.nth(i);
+    // Selo de não lida: "1 mensagem não lida", "2 unread messages"…
+    const naoLida = await linha
+      .locator('[aria-label*="não lida" i], [aria-label*="unread" i]')
+      .count()
+      .catch(() => 0);
+    if (naoLida === 0) continue;
+
+    const titulo = (await linha.locator("span[title]").first().getAttribute("title").catch(() => "")) ?? "";
+    const numero = numerosEsperados.find((n) => mesmoNumero(n, titulo));
+    if (numero && !alvos.includes(numero)) alvos.push(numero);
+    if (alvos.length >= 5) break; // um punhado por volta chega; a próxima pega o resto
+  }
+
+  for (const numero of alvos) {
+    try {
+      // Abrir pelo endereço é o caminho mais estável de chegar no chat certo.
+      await page.goto(`https://web.whatsapp.com/send?phone=${numero}`, {
+        waitUntil: "domcontentloaded",
+        timeout: 60_000,
+      });
+      const caixa = page
+        .locator('div[contenteditable="true"][data-tab="10"], footer div[contenteditable="true"]')
+        .first();
+      const inicio = Date.now();
+      while (Date.now() - inicio < 30_000 && (await caixa.count()) === 0) await espera(1200);
+      if ((await caixa.count()) === 0) continue;
+      await espera(1500);
+
+      // As últimas bolhas RECEBIDAS (message-in), de trás para frente até a
+      // nossa última enviada — é a resposta inteira mesmo quando vem picada
+      // em três mensagens curtas, como todo mundo escreve no WhatsApp.
+      const textos = await page
+        .locator("div.message-in span.selectable-text")
+        .allInnerTexts()
+        .catch(() => [] as string[]);
+      const texto = textos.slice(-3).join("\n").trim();
+      if (texto) {
+        saida.push({ telefone: numero, texto: texto.slice(0, 800) });
+        log(`💬 resposta detectada de ${numero}`);
+      }
+    } catch {
+      // Um chat problemático não pode impedir a leitura dos outros.
+    }
+  }
+
+  return saida;
+}
+
 export async function enviarMensagem(
   page: Page,
   telefone: string,

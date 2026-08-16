@@ -76,6 +76,8 @@ export type ProspectoRow = {
   ig_capturado_em: string | null;
   anotacao: string | null;
   site_ia_id: string | null;
+  // Opt-out definitivo: pediu para não receber mais nada. Nenhuma fila passa.
+  nao_perturbar: boolean;
   created_at: string;
 };
 
