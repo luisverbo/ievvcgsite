@@ -117,6 +117,23 @@ export async function alternarPlanoFree(ativo: boolean) {
   revalidatePath("/app");
 }
 
+/* --------------------------- funções novas --------------------------------- */
+
+/*
+ * Liga/desliga uma função nova para TODOS os clientes, na hora.
+ * O freio de mão do dono — ver lib/painel/flags.ts.
+ */
+export async function alternarFuncao(nome: string, ligada: boolean) {
+  if (!(await ehAdmin())) return;
+  const admin = createAdminClient();
+  await admin.from("config_sistema").upsert({
+    chave: `funcao_${nome}`,
+    valor: ligada ? "1" : "0",
+    updated_at: new Date().toISOString(),
+  });
+  revalidatePath("/app/admin");
+}
+
 /* --------------------------- vídeo da landing ------------------------------ */
 
 export type VideoLandingState = { ok?: string; error?: string } | undefined;

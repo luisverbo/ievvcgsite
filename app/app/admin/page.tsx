@@ -6,6 +6,7 @@ import CriarLanding from "./CriarLanding";
 import ChaveAnthropic from "./ChaveAnthropic";
 import Diagnostico from "./Diagnostico";
 import VideoLanding from "./VideoLanding";
+import FuncoesNovas from "./FuncoesNovas";
 import AjusteCredito from "./AjusteCredito";
 import ChaveForm from "./ebooks/ChaveForm";
 import { getAnthropicKey } from "@/lib/ia/anthropic";
@@ -127,17 +128,27 @@ export default async function AdminPage() {
   return (
     <div className="painel-wrap flex flex-col gap-8">
       {/* --------------------------- cabeçalho --------------------------- */}
-      <div>
-        <h1 className="font-display text-3xl font-extrabold">Admin do sistema 👑</h1>
-        <p className="mt-1 text-sm text-paper-dim">
-          Suas ferramentas de IA, chaves de API e a visão de todas as contas. Só você (ADMIN_EMAIL)
-          enxerga esta página.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl font-extrabold">Admin do sistema 👑</h1>
+          <p className="mt-1 text-sm text-paper-dim">
+            Suas ferramentas de IA, chaves de API e a visão de todas as contas. Só você (ADMIN_EMAIL)
+            enxerga esta página.
+          </p>
+        </div>
+        <Link
+          href="/app/admin/negocio"
+          className="rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white shadow-lg shadow-brand/30 transition hover:-translate-y-0.5 hover:bg-brand-2"
+        >
+          📊 Painel do negócio
+        </Link>
       </div>
 
       <Diagnostico />
 
       <VideoLanding atual={videoAtual} />
+
+      <FuncoesNovas />
 
       {/* ------------------------- plano grátis -------------------------- */}
       <div className={cardClass}>
