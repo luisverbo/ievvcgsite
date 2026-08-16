@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
+import { funcaoLigada } from "@/lib/painel/flags";
 import Painel from "./Painel";
 import type { ConfigAbordagem, MensagemRow } from "./actions";
 import { telefoneWhatsapp } from "@/lib/prospeccao/mensagem";
@@ -31,7 +32,8 @@ export default async function AbordagemPage() {
       .limit(200),
   ]);
 
-  const config: ConfigAbordagem = (cfgRaw as ConfigAbordagem | null) ?? {
+  const bruto = cfgRaw as (Partial<ConfigAbordagem> & { org_id: string }) | null;
+  const config: ConfigAbordagem = {
     org_id: org.id,
     remetente_nome: null,
     modelo_mensagem: null,
@@ -42,6 +44,14 @@ export default async function AbordagemPage() {
     whatsapp_qr: null,
     whatsapp_mensagem: null,
     whatsapp_em: null,
+    // Padrões do Fechador valem também para quem ainda não rodou a migração —
+    // a tela abre normal e só o salvar exige as colunas novas.
+    fechador_nivel: "desligado",
+    fechador_teto_micro: 5_000_000,
+    fechador_gasto_micro: 0,
+    fechador_msg_modelo: null,
+    fechador_autorizado_em: null,
+    ...(bruto ?? {}),
   };
 
   const mensagens = (msgsRaw as MensagemRow[] | null) ?? [];
@@ -83,6 +93,7 @@ export default async function AbordagemPage() {
         candidatos={candidatos}
         mensagens={mensagens}
         nomePorProspecto={nomePorProspecto}
+        fechadorLigado={await funcaoLigada("fechador")}
       />
     </div>
   );

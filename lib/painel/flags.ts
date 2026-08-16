@@ -27,8 +27,8 @@ export const FUNCOES_NOVAS: Record<
   fechador: {
     rotulo: "Fechador (site automático na resposta)",
     descricao:
-      "Quando o lead responde no WhatsApp, o agente classifica a resposta e — conforme o nível escolhido pelo cliente — prepara ou envia o site pronto.",
-    pronta: false,
+      "Quando o lead responde com interesse, o sistema gera o site com as fotos do Instagram dele e — conforme o nível do cliente — prepara ou envia a mensagem com o link. Com teto de gasto mensal.",
+    pronta: true,
   },
   followup: {
     rotulo: "Follow-up automático",

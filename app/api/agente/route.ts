@@ -3,6 +3,7 @@ import { agenteDaRequisicao } from "@/lib/agente/token";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pontuarEGravar } from "@/lib/prospeccao/gravar";
 import { classificarResposta } from "@/lib/prospeccao/classificar";
+import { dispararFechador } from "@/lib/prospeccao/fechador";
 import { funcaoLigada } from "@/lib/painel/flags";
 import type { EmpresaEncontrada } from "@/lib/prospeccao/tipos";
 
@@ -290,6 +291,16 @@ export async function POST(req: Request) {
           // Fechou é estado final: uma mensagem atrasada não pode rebaixá-lo.
           .neq("status", "fechou");
 
+        /*
+         * Interesse aciona o Fechador — que decide sozinho se faz algo,
+         * conforme o nível configurado, o teto do mês e o interruptor do
+         * Admin. Aguardamos aqui de propósito: a rota tem 300s, a geração
+         * leva 1-2 min, e o agente está num intervalo de escuta mesmo.
+         */
+        if (classe === "interesse") {
+          await dispararFechador(org, msg.prospecto_id);
+        }
+
         return j({ ok: true, classe });
       }
 
@@ -343,11 +354,14 @@ export async function POST(req: Request) {
             .eq("id", id)
             .eq("org_id", org);
           if (corpo.prospecto_id) {
+            // Só sobe de "novo" para "contactado". A entrega do FECHAMENTO
+            // chega aqui também — e não pode rebaixar quem já "respondeu".
             await admin
               .from("prospeccao")
               .update({ status: "contactado", contactado_em: agora() })
               .eq("id", String(corpo.prospecto_id))
-              .eq("org_id", org);
+              .eq("org_id", org)
+              .eq("status", "novo");
           }
         } else {
           await admin

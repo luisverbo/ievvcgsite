@@ -23,6 +23,11 @@ export type ConfigAbordagem = {
   whatsapp_qr: string | null;
   whatsapp_mensagem: string | null;
   whatsapp_em: string | null;
+  fechador_nivel: "desligado" | "avisar" | "preparar" | "fechar";
+  fechador_teto_micro: number;
+  fechador_gasto_micro: number;
+  fechador_msg_modelo: string | null;
+  fechador_autorizado_em: string | null;
 };
 
 export type MensagemRow = {
@@ -77,6 +82,73 @@ export async function salvarConfig(
 
   revalidatePath("/app/prospeccao/abordagem");
   return { ok: "Configuração salva." };
+}
+
+/*
+ * Configuração do Fechador — o site automático na resposta.
+ *
+ * O nível 'fechar' (o agente envia sozinho) só liga com o "de acordo"
+ * explícito, e a data desse sim fica guardada: mandar mensagem sozinho no
+ * WhatsApp de alguém é decisão do dono do número, documentada.
+ */
+export async function salvarFechador(
+  _prev: EstadoAbordagem,
+  formData: FormData,
+): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const nivel = String(formData.get("fechador_nivel") ?? "desligado");
+  if (!["desligado", "avisar", "preparar", "fechar"].includes(nivel)) {
+    return { error: "Nível inválido." };
+  }
+
+  // Teto em dólares na tela, microdólares no banco.
+  const tetoDolar = Number(String(formData.get("fechador_teto") ?? "").replace(",", "."));
+  if (!Number.isFinite(tetoDolar) || tetoDolar < 1 || tetoDolar > 200) {
+    return { error: "O teto mensal precisa estar entre US$1 e US$200." };
+  }
+
+  const modelo = String(formData.get("fechador_msg") ?? "").trim().slice(0, 600);
+  if (modelo && !modelo.includes("{link}")) {
+    return { error: "A mensagem do site precisa conter {link} — sem ele o lead não recebe o endereço." };
+  }
+
+  const supabase = await createClient();
+  const { data: atualRaw } = await supabase
+    .from("prospeccao_config")
+    .select("fechador_autorizado_em")
+    .eq("org_id", org.id)
+    .maybeSingle();
+  const jaAutorizado = (atualRaw as { fechador_autorizado_em: string | null } | null)
+    ?.fechador_autorizado_em;
+
+  const autorizouAgora = String(formData.get("autorizo") ?? "") === "1";
+  if (nivel === "fechar" && !jaAutorizado && !autorizouAgora) {
+    return {
+      error:
+        "Para o agente enviar sozinho, marque o de acordo — é o seu número de WhatsApp em jogo.",
+    };
+  }
+
+  const { error } = await supabase.from("prospeccao_config").upsert(
+    {
+      org_id: org.id,
+      fechador_nivel: nivel,
+      fechador_teto_micro: Math.round(tetoDolar * 1_000_000),
+      fechador_msg_modelo: modelo || null,
+      ...(autorizouAgora && !jaAutorizado
+        ? { fechador_autorizado_em: new Date().toISOString() }
+        : {}),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "org_id" },
+  );
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/prospeccao/abordagem");
+  return { ok: "Fechador configurado." };
 }
 
 /*
@@ -161,11 +233,29 @@ export async function prepararAbordagem(
     };
   }
 
-  // ignoreDuplicates evita abordar duas vezes quem já está na fila.
-  const { error } = await supabase
+  /*
+   * Quem já tem abordagem não entra de novo. Antes isto era um upsert com
+   * onConflict — mas a trava virou índice parcial (só tipo='abordagem', para
+   * o fechamento poder ser a segunda mensagem), e ON CONFLICT não enxerga
+   * índice parcial sem o predicado. Filtrar antes resolve, e o índice
+   * continua lá como rede de segurança contra corrida.
+   */
+  const { data: jaExistem } = await supabase
     .from("prospeccao_mensagens")
-    .upsert(linhas, { onConflict: "org_id,prospecto_id", ignoreDuplicates: true });
-  if (error) return { error: error.message };
+    .select("prospecto_id")
+    .eq("org_id", org.id)
+    .eq("tipo", "abordagem")
+    .in("prospecto_id", linhas.map((l) => l.prospecto_id as string));
+  const abordados = new Set(
+    ((jaExistem as { prospecto_id: string }[] | null) ?? []).map((l) => l.prospecto_id),
+  );
+  const novas = linhas.filter((l) => !abordados.has(l.prospecto_id as string));
+  if (novas.length === 0) {
+    return { error: "Todas as escolhidas já estão na fila ou já foram abordadas." };
+  }
+
+  const { error } = await supabase.from("prospeccao_mensagens").insert(novas);
+  if (error && error.code !== "23505") return { error: error.message };
 
   revalidatePath("/app/prospeccao/abordagem");
   const pulos = [
@@ -176,8 +266,8 @@ export async function prepararAbordagem(
   return {
     ok:
       modo === "auto"
-        ? `${linhas.length} mensagens na fila${aviso}. O agente começa a enviar em instantes.`
-        : `${linhas.length} mensagens prontas${aviso}. Abra uma a uma aqui embaixo.`,
+        ? `${novas.length} mensagens na fila${aviso}. O agente começa a enviar em instantes.`
+        : `${novas.length} mensagens prontas${aviso}. Abra uma a uma aqui embaixo.`,
   };
 }
 

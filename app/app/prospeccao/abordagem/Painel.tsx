@@ -10,6 +10,7 @@ import {
   conectarWhatsapp,
   desconectarWhatsapp,
   salvarConfig,
+  salvarFechador,
   type ConfigAbordagem,
   type EstadoAbordagem,
   type MensagemRow,
@@ -33,11 +34,14 @@ export default function Painel({
   candidatos,
   mensagens,
   nomePorProspecto,
+  fechadorLigado = false,
 }: {
   config: ConfigAbordagem;
   candidatos: ProspectoRow[];
   mensagens: MensagemRow[];
   nomePorProspecto: Record<string, string>;
+  /* O interruptor do Admin: desligado, o card do Fechador nem aparece. */
+  fechadorLigado?: boolean;
 }) {
   const router = useRouter();
   const [cfgEstado, salvarCfg, salvandoCfg] = useActionState<EstadoAbordagem, FormData>(
@@ -48,6 +52,11 @@ export default function Painel({
     prepararAbordagem,
     undefined,
   );
+  const [fechadorEstado, salvarFech, salvandoFech] = useActionState<EstadoAbordagem, FormData>(
+    salvarFechador,
+    undefined,
+  );
+  const [nivelFech, setNivelFech] = useState(config.fechador_nivel);
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
 
   // Controlados para a tela mostrar, ao vivo, quanto tempo o envio vai levar —
@@ -372,6 +381,160 @@ export default function Painel({
         {cfgEstado?.error && <p className="mt-2 text-sm text-danger">{cfgEstado.error}</p>}
         {cfgEstado?.ok && <p className="mt-2 text-sm text-ok">{cfgEstado.ok}</p>}
       </form>
+
+      {/* ------------------------- o Fechador ---------------------------- */}
+      {fechadorLigado && (
+        <form action={salvarFech} className="anim-entrada d2 card-aurora rounded-xl p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <Robo estado={nivelFech === "desligado" ? "novo" : "trabalhando"} tamanho={44} />
+            <div>
+              <h2 className="text-lg font-bold">O Fechador 🤝</h2>
+              <p className="text-sm text-paper-dim">
+                Quando um lead responder com interesse, o agente pode gerar o site dele — com as
+                fotos do Instagram — e mandar o link na mesma conversa. Você escolhe até onde ele
+                vai sozinho.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                {
+                  valor: "desligado",
+                  rotulo: "Desligado",
+                  desc: "O agente só marca quem respondeu. Nada além disso.",
+                },
+                {
+                  valor: "avisar",
+                  rotulo: "Só me avisar",
+                  desc: "O painel destaca a resposta classificada — você faz o resto.",
+                },
+                {
+                  valor: "preparar",
+                  rotulo: "Preparar o site ⭐",
+                  desc: "Gera o site sozinho e deixa a mensagem PRONTA — você revisa e envia com 1 clique.",
+                },
+                {
+                  valor: "fechar",
+                  rotulo: "Fechar sozinho",
+                  desc: "Gera E envia o link na conversa, sem você. Exige o de acordo abaixo.",
+                },
+              ] as const
+            ).map((n) => (
+              <label
+                key={n.valor}
+                className={`flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 transition ${
+                  nivelFech === n.valor
+                    ? "border-brand-2 bg-brand/15"
+                    : "border-white/10 hover:border-white/25"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="fechador_nivel"
+                  value={n.valor}
+                  checked={nivelFech === n.valor}
+                  onChange={() => setNivelFech(n.valor)}
+                  className="mt-1 h-4 w-4 flex-none accent-[var(--color-brand)]"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-paper">{n.rotulo}</span>
+                  <span className="mt-0.5 block text-xs text-paper-dim">{n.desc}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+
+          {nivelFech === "fechar" && !config.fechador_autorizado_em && (
+            <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2.5">
+              <input
+                type="checkbox"
+                name="autorizo"
+                value="1"
+                className="mt-0.5 h-4 w-4 flex-none accent-[var(--color-brand)]"
+              />
+              <span className="text-xs text-paper">
+                Autorizo o agente a <b>enviar mensagens sozinho</b> no meu WhatsApp quando um lead
+                responder com interesse — no máximo uma por lead, sempre com o site junto.
+              </span>
+            </label>
+          )}
+
+          {(nivelFech === "preparar" || nivelFech === "fechar") && (
+            <>
+              <div className="mt-4">
+                <label className={labelClass} htmlFor="fechador_msg">
+                  A mensagem que acompanha o site ({"{empresa}"} e {"{link}"} são trocados na hora)
+                </label>
+                <textarea
+                  id="fechador_msg"
+                  name="fechador_msg"
+                  rows={3}
+                  defaultValue={
+                    config.fechador_msg_modelo ??
+                    "Que bom! 😊 Preparei uma prévia rápida para a {empresa}, já com as fotos de vocês: {link}\n\nDá uma olhada e me diz o que achou — qualquer ajuste é rápido de fazer."
+                  }
+                  className={`${inputClass} mt-1 w-full resize-y text-xs`}
+                />
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <label className={labelClass} htmlFor="fechador_teto">
+                  Gastar no máximo
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm text-paper-dim">US$</span>
+                  <input
+                    id="fechador_teto"
+                    name="fechador_teto"
+                    inputMode="decimal"
+                    defaultValue={(config.fechador_teto_micro / 1_000_000).toString()}
+                    className={`${inputClass} w-20 text-center`}
+                  />
+                  <span className="text-sm text-paper-dim">por mês em sites automáticos</span>
+                </div>
+              </div>
+
+              <p className="mt-3 rounded-lg border border-brand-2/30 bg-brand/10 px-3 py-2.5 text-xs text-paper-dim">
+                💡 <b className="text-paper">Quanto custa:</b> cada site automático sai do seu
+                crédito de IA (~US$0,55 — só é gerado para quem <b className="text-paper">já
+                respondeu com interesse</b>, o melhor lead possível). As fotos são as do Instagram
+                do lead: custo zero. Gasto neste mês:{" "}
+                <b className="text-paper">
+                  US$ {(config.fechador_gasto_micro / 1_000_000).toFixed(2).replace(".", ",")}
+                </b>{" "}
+                de US$ {(config.fechador_teto_micro / 1_000_000).toFixed(0)} — bateu o teto, ele
+                para e avisa.
+              </p>
+            </>
+          )}
+
+          {nivelFech !== "preparar" && nivelFech !== "fechar" && (
+            <>
+              {/* os campos continuam viajando para o servidor mesmo escondidos */}
+              <input type="hidden" name="fechador_msg" value={config.fechador_msg_modelo ?? ""} />
+              <input
+                type="hidden"
+                name="fechador_teto"
+                value={(config.fechador_teto_micro / 1_000_000).toString()}
+              />
+            </>
+          )}
+
+          <button
+            type="submit"
+            disabled={salvandoFech}
+            className="mt-4 rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+          >
+            {salvandoFech ? "Salvando…" : "Salvar o Fechador"}
+          </button>
+          {fechadorEstado?.error && (
+            <p className="mt-2 text-sm text-danger">{fechadorEstado.error}</p>
+          )}
+          {fechadorEstado?.ok && <p className="mt-2 text-sm text-ok">✅ {fechadorEstado.ok}</p>}
+        </form>
+      )}
 
       {/* ------------------------- escolher ----------------------------- */}
       <form action={prepararFila} className={`anim-entrada d3 ${cardClass}`}>
