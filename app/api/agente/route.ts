@@ -173,6 +173,33 @@ export async function POST(req: Request) {
         return j({ ok: true, fotos: fotos.length });
       }
 
+      /* ------------------------------ espelho ------------------------------ */
+      case "gravar_espelho": {
+        const id = String(corpo.id);
+        if (!corpo.ok) {
+          // Print que falhou não apaga um que já deu certo — só encerra a tarefa.
+          return j({ ok: true });
+        }
+        const buf = Buffer.from(String(corpo.base64 ?? ""), "base64");
+        if (buf.byteLength < 10_000) return j({ ok: false, erro: "Print vazio ou corrompido." });
+        if (buf.byteLength > 4_000_000) return j({ ok: false, erro: "Print grande demais." });
+
+        const caminho = `${org}/espelho/${id}-${Date.now()}.jpg`;
+        const { error: eUp } = await admin.storage
+          .from("midias")
+          .upload(caminho, buf, { contentType: "image/jpeg", upsert: true });
+        if (eUp) return j({ ok: false, erro: eUp.message });
+        const { data: pub } = admin.storage.from("midias").getPublicUrl(caminho);
+
+        const { error: eDb } = await admin
+          .from("prospeccao")
+          .update({ espelho_url: pub.publicUrl, espelho_em: agora() })
+          .eq("id", id)
+          .eq("org_id", org);
+        if (eDb) return j({ ok: false, erro: eDb.message });
+        return j({ ok: true });
+      }
+
       /* ------------------------------ abordagem --------------------------- */
       case "abordagem_estado": {
         /*

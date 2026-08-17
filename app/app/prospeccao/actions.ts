@@ -12,6 +12,7 @@ import { calcularPotencial, ehEnderecoSocial } from "@/lib/prospeccao/score";
 import { acharNicho } from "@/lib/prospeccao/nichos";
 import { IG_FILA_MAX, IG_LIMITE_DIA } from "@/lib/prospeccao/instagram";
 import { montarBriefingDoProspecto } from "@/lib/prospeccao/briefing";
+import { funcaoLigada } from "@/lib/painel/flags";
 import type { ProspectoRow, StatusProspecto } from "@/lib/prospeccao/tipos";
 
 export type BuscaState = { ok?: string; error?: string } | undefined;
@@ -186,6 +187,62 @@ export async function capturarInstagram(id: string) {
   await supabase.from("prospeccao_tarefas").insert({
     org_id: org.id,
     tipo: "instagram",
+    prospecto_id: id,
+    nicho: null,
+    local: null,
+    limite: 1,
+  });
+  revalidatePath("/app/prospeccao");
+}
+
+/*
+ * Pede ao agente o print do site ATUAL desta empresa — a metade "hoje" da
+ * comparação. De quebra garante o código do link único (/p e /espelho
+ * penduram nele).
+ */
+export async function pedirEspelho(id: string) {
+  if (!(await podeUsar("prospeccao"))) return;
+  if (!(await funcaoLigada("espelho"))) return;
+  const org = await getMinhaOrg();
+  if (!org) return;
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("prospeccao")
+    .select("id, website, link_codigo")
+    .eq("id", id)
+    .eq("org_id", org.id)
+    .maybeSingle();
+  const p = data as { id: string; website: string | null; link_codigo: string | null } | null;
+  if (!p?.website) return;
+
+  if (!p.link_codigo) {
+    await supabase
+      .from("prospeccao")
+      .update({ link_codigo: Math.random().toString(36).slice(2, 10) })
+      .eq("id", id);
+  }
+
+  // Fila com teto e sem duplicata: reenvio do formulário não vira print duplo.
+  const { count } = await supabase
+    .from("prospeccao_tarefas")
+    .select("id", { count: "exact", head: true })
+    .eq("org_id", org.id)
+    .eq("tipo", "espelho")
+    .in("status", ["pendente", "rodando"]);
+  if ((count ?? 0) >= 10) return;
+  const { count: jaPedido } = await supabase
+    .from("prospeccao_tarefas")
+    .select("id", { count: "exact", head: true })
+    .eq("org_id", org.id)
+    .eq("tipo", "espelho")
+    .eq("prospecto_id", id)
+    .in("status", ["pendente", "rodando"]);
+  if ((jaPedido ?? 0) > 0) return;
+
+  await supabase.from("prospeccao_tarefas").insert({
+    org_id: org.id,
+    tipo: "espelho",
     prospecto_id: id,
     nicho: null,
     local: null,

@@ -14,6 +14,7 @@ import * as api from "./api.ts";
 import { coletarDoGoogle } from "./coletor.ts";
 import { rodarAbordagem } from "./abordagem.ts";
 import { capturarInstagramDoProspecto } from "./capturaIg.ts";
+import { capturarEspelhoDoProspecto } from "./espelho.ts";
 
 const AGENTE = process.env.AGENTE_NOME || os.hostname();
 const INTERVALO_MS = Math.max(3000, Number(process.env.AGENTE_INTERVALO_MS) || 8000);
@@ -49,6 +50,21 @@ if (!api.configurado()) {
 }
 
 async function executar(t: api.Tarefa) {
+  // Print do site atual do lead (o "hoje" da comparação hoje × amanhã).
+  // Sem trava de ritmo: é o site do próprio lead, não uma rede social.
+  if (t.tipo === "espelho") {
+    if (!t.prospecto_id) throw new Error("Tarefa de espelho sem empresa.");
+    log(`▶ tarefa ${t.id.slice(0, 8)} — espelho (print do site atual)`);
+    const r = await capturarEspelhoDoProspecto(t.prospecto_id, HEADLESS, (m) => log(`   ${m}`));
+    await api.fimTarefa(t.id, {
+      status: r.ok ? "concluida" : "erro",
+      erro: r.ok ? null : r.resumo,
+      progresso: r.ok ? 1 : 0,
+    });
+    log(r.ok ? `✅ ${r.resumo}` : `⚠️  ${r.resumo}`);
+    return;
+  }
+
   // Captura de Instagram é tarefa curta, de uma empresa só; a busca é o
   // trabalho longo. Separadas aqui para não misturar os dois fluxos.
   if (t.tipo === "instagram") {

@@ -48,6 +48,12 @@ export const FUNCOES_NOVAS: Record<
       "No horário escolhido, o agente manda ao próprio dono o balanço do dia: enviadas, respostas, sites entregues e quem abriu o site (🔥). Dia sem movimento não gera mensagem.",
     pronta: true,
   },
+  espelho: {
+    rotulo: "Espelho (hoje × amanhã)",
+    descricao:
+      "O agente tira um print do site atual do lead e o painel monta a página de comparação: o site velho de um lado, o novo do outro. Link pronto para mandar na conversa.",
+    pronta: true,
+  },
   otimizador: {
     rotulo: "Otimizador de páginas",
     descricao:

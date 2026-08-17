@@ -12,7 +12,9 @@ import {
   excluirProspecto,
   gerarSiteParaProspecto,
   mudarStatus,
+  pedirEspelho,
 } from "./actions";
+import { funcaoLigada } from "@/lib/painel/flags";
 import {
   faixa,
   ROTULO_SITUACAO,
@@ -85,6 +87,7 @@ export default async function ProspeccaoPage({
   }
   const { data } = await q;
   const lista = (data as ProspectoRow[] | null) ?? [];
+  const espelhoLigado = await funcaoLigada("espelho");
 
   /*
    * A resposta que o agente escutou, por prospecto — para o card mostrar O QUE
@@ -632,6 +635,17 @@ export default async function ProspeccaoPage({
                         {p.website.replace(/^https?:\/\//, "")} ↗
                       </a>
                     )}
+                    {espelhoLigado && p.espelho_url && p.site_ia_id && p.link_codigo && (
+                      <a
+                        href={`/espelho/${p.link_codigo}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="A página de comparação: o site atual ao lado do novo. Mande este link na conversa."
+                        className="font-bold text-brand-2 hover:underline"
+                      >
+                        🪞 hoje × amanhã ↗
+                      </a>
+                    )}
                   </div>
                 </div>
 
@@ -670,6 +684,17 @@ export default async function ProspeccaoPage({
                         </button>
                       </form>
                     ))}
+                  {espelhoLigado && p.website && !p.espelho_url && (
+                    <form action={pedirEspelho.bind(null, p.id)}>
+                      <button
+                        type="submit"
+                        title="O agente tira um print do site atual desta empresa para montar a comparação hoje × amanhã"
+                        className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold text-paper-dim transition hover:border-brand-2 hover:text-brand-2"
+                      >
+                        🪞 Print do site atual
+                      </button>
+                    </form>
+                  )}
                   {p.site_ia_id ? (
                     <Link
                       href={`/app/ia/${p.site_ia_id}`}

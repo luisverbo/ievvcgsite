@@ -168,6 +168,15 @@ export async function dispararFechador(orgId: string, prospectoId: string): Prom
       if (eCod) codigo = null;
     }
     if (codigo) link = `${base}/p/${codigo}`;
+    /*
+     * Com o print do site atual em mãos (o dono pediu pelo botão 🪞), o link
+     * enviado vira a página de comparação — o site velho ao lado do novo. O
+     * "amanhã" dela embute o /p do mesmo código, então o Termômetro continua
+     * contando cada abertura.
+     */
+    if (codigo && (p as { espelho_url?: string | null }).espelho_url && (await funcaoLigada("espelho"))) {
+      link = `${base}/espelho/${codigo}`;
+    }
     const texto = montarMensagemFechamento(cfg.fechador_msg_modelo, p.nome, link);
 
     const { error } = await admin.from("prospeccao_mensagens").insert({

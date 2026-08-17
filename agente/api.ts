@@ -86,6 +86,10 @@ export type ProspectoIG = {
 export const prospectoIg = (id: string) =>
   chamar<{ prospecto: ProspectoIG | null }>("prospecto_ig", { id }).then((r) => r.prospecto);
 
+/* --------------------------------- espelho --------------------------------- */
+export const gravarEspelho = (dados: { id: string; ok: boolean; base64?: string; erro?: string | null }) =>
+  chamar<{ ok: boolean; erro?: string }>("gravar_espelho", dados);
+
 export const gravarInstagram = (dados: {
   id: string;
   status: string;

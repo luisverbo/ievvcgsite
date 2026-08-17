@@ -76,6 +76,11 @@ export type ProspectoRow = {
   ig_capturado_em: string | null;
   anotacao: string | null;
   site_ia_id: string | null;
+  // Link único do lead (/p/codigo) — Termômetro e Espelho penduram nele.
+  link_codigo?: string | null;
+  // Print do site ATUAL do lead, para a comparação "hoje × amanhã".
+  espelho_url?: string | null;
+  espelho_em?: string | null;
   // Opt-out definitivo: pediu para não receber mais nada. Nenhuma fila passa.
   nao_perturbar: boolean;
   created_at: string;
