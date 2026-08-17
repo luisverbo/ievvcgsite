@@ -13,6 +13,8 @@ import { contaDaOrg, cobrarFixo, statusDaConta } from "@/lib/creditos/conta";
 import { CUSTO_IMAGEM } from "@/lib/creditos/precos";
 import { gerarImagemLanding, subirImagemIA } from "@/lib/ia/imagens";
 import { listarImagensHtml, trocarImagemHtml, removerImagemHtml } from "@/lib/ia/html-imagens";
+import { analisarPagina } from "@/lib/ia/otimizador";
+import { funcaoLigada } from "@/lib/painel/flags";
 
 export type SiteIA = {
   id: string;
@@ -165,6 +167,46 @@ export async function restaurarVersao(id: string, versaoId: string) {
     .eq("id", id);
   revalidatePath(`/app/ia/${id}`);
   return { html };
+}
+
+/* ------------------------------- otimizador ------------------------------- */
+export type OtimizadorState = { ok?: string; error?: string } | undefined;
+
+/*
+ * Roda a análise do Otimizador para esta página. Custa crédito (o modelo lê
+ * a página inteira), por isso: só no clique, com o preço no botão, nunca no
+ * plano grátis — e a RLS do select inicial prova que a página é de quem pede.
+ */
+export async function analisarMetricasIA(
+  siteIaId: string,
+  _prev: OtimizadorState,
+): Promise<OtimizadorState> {
+  if (!(await podeUsar("construtor"))) return { error: "Sem permissão." };
+  if (!(await funcaoLigada("otimizador"))) return { error: "Função indisponível." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+  if (await estaNoFree(org.id, org.plano)) {
+    return { error: "O Otimizador faz parte dos planos pagos. Assine para liberar." };
+  }
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sites_ia")
+    .select("id, org_id")
+    .eq("id", siteIaId)
+    .maybeSingle();
+  if (!data) return { error: "Página não encontrada." };
+
+  try {
+    const r = await analisarPagina(org.id, siteIaId);
+    if (!r.ok) return { error: r.motivo };
+    revalidatePath(`/app/ia/${siteIaId}/otimizar`);
+    return {
+      ok: `${r.sugestoes.length === 1 ? "1 sugestão" : `${r.sugestoes.length} sugestões`} da IA — cada uma nascida de um número seu.`,
+    };
+  } catch (e) {
+    return { error: (e as Error).message.slice(0, 300) };
+  }
 }
 
 /* -------------------------- pixel e tags de anúncio ----------------------- */

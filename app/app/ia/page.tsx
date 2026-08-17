@@ -6,6 +6,7 @@ import { MODELOS_IA } from "@/lib/ia/modelos";
 import { statusDaConta } from "@/lib/creditos/conta";
 import { podeUsar } from "@/lib/painel/permissoes";
 import { ehAdmin } from "@/lib/painel/admin";
+import { funcaoLigada } from "@/lib/painel/flags";
 import NovaPagina from "./NovaPagina";
 import { excluirPaginaIA, type SiteIA } from "./actions";
 import { cardClass } from "@/components/painel/ui";
@@ -39,10 +40,11 @@ export default async function PaginasIAPage() {
   const org = await getMinhaOrg();
   if (!org) notFound();
 
-  const [conta, supabase, admin] = await Promise.all([
+  const [conta, supabase, admin, otimizadorLigado] = await Promise.all([
     statusDaConta(org.id),
     createClient(),
     ehAdmin(),
+    funcaoLigada("otimizador"),
   ]);
   const { data } = await supabase
     .from("sites_ia")
@@ -219,6 +221,15 @@ export default async function PaginasIAPage() {
                           className="rounded-lg px-2 py-1 text-sm text-paper-dim transition hover:bg-white/10 hover:text-paper"
                         >
                           📊
+                        </Link>
+                      )}
+                      {otimizadorLigado && p.publicado && (
+                        <Link
+                          href={`/app/ia/${p.id}/otimizar`}
+                          title="Otimizador: a IA lê as métricas e sugere melhorias"
+                          className="rounded-lg px-2 py-1 text-sm text-paper-dim transition hover:bg-white/10 hover:text-paper"
+                        >
+                          📈
                         </Link>
                       )}
                       <Link

@@ -57,8 +57,8 @@ export const FUNCOES_NOVAS: Record<
   otimizador: {
     rotulo: "Otimizador de páginas",
     descricao:
-      "A IA lê as métricas das páginas e sugere melhorias com botão Aplicar.",
-    pronta: false,
+      "A IA lê as métricas reais da página (visitas, cliques, até onde o visitante rola) e sugere até 3 melhorias concretas, cada uma com botão Aplicar que abre o chat com o pedido pronto. Custo por análise sai do crédito do cliente.",
+    pronta: true,
   },
 };
 
