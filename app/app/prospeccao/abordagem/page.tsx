@@ -51,6 +51,8 @@ export default async function AbordagemPage() {
     fechador_gasto_micro: 0,
     fechador_msg_modelo: null,
     fechador_autorizado_em: null,
+    resumo_zap: null,
+    resumo_hora: 18,
     ...(bruto ?? {}),
   };
 
@@ -94,6 +96,7 @@ export default async function AbordagemPage() {
         mensagens={mensagens}
         nomePorProspecto={nomePorProspecto}
         fechadorLigado={await funcaoLigada("fechador")}
+        resumoLigado={await funcaoLigada("resumo_diario")}
       />
     </div>
   );

@@ -11,6 +11,7 @@ import {
   desconectarWhatsapp,
   salvarConfig,
   salvarFechador,
+  salvarResumo,
   type ConfigAbordagem,
   type EstadoAbordagem,
   type MensagemRow,
@@ -35,13 +36,15 @@ export default function Painel({
   mensagens,
   nomePorProspecto,
   fechadorLigado = false,
+  resumoLigado = false,
 }: {
   config: ConfigAbordagem;
   candidatos: ProspectoRow[];
   mensagens: MensagemRow[];
   nomePorProspecto: Record<string, string>;
-  /* O interruptor do Admin: desligado, o card do Fechador nem aparece. */
+  /* Interruptores do Admin: desligado, o card correspondente nem aparece. */
   fechadorLigado?: boolean;
+  resumoLigado?: boolean;
 }) {
   const router = useRouter();
   const [cfgEstado, salvarCfg, salvandoCfg] = useActionState<EstadoAbordagem, FormData>(
@@ -54,6 +57,10 @@ export default function Painel({
   );
   const [fechadorEstado, salvarFech, salvandoFech] = useActionState<EstadoAbordagem, FormData>(
     salvarFechador,
+    undefined,
+  );
+  const [resumoEstado, salvarRes, salvandoRes] = useActionState<EstadoAbordagem, FormData>(
+    salvarResumo,
     undefined,
   );
   const [nivelFech, setNivelFech] = useState(config.fechador_nivel);
@@ -533,6 +540,70 @@ export default function Painel({
             <p className="mt-2 text-sm text-danger">{fechadorEstado.error}</p>
           )}
           {fechadorEstado?.ok && <p className="mt-2 text-sm text-ok">✅ {fechadorEstado.ok}</p>}
+        </form>
+      )}
+
+      {/* ---------------------- resumo diário ---------------------------- */}
+      {resumoLigado && (
+        <form action={salvarRes} className={`anim-entrada d2 ${cardClass}`}>
+          <div className="flex flex-wrap items-center gap-3">
+            <Robo estado={config.resumo_zap ? "trabalhando" : "dormindo"} tamanho={44} />
+            <div>
+              <h2 className="text-lg font-bold">Resumo diário 📬</h2>
+              <p className="text-sm text-paper-dim">
+                No fim do dia, o agente te manda pelo WhatsApp o balanço do trabalho: enviadas,
+                respostas, sites entregues e quem abriu o site (🔥). Dia parado não gera mensagem —
+                quando o resumo chegar, é porque teve novidade.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-end gap-4">
+            <div>
+              <label className={labelClass} htmlFor="resumo_zap">
+                Mandar para (seu celular com DDD)
+              </label>
+              <input
+                id="resumo_zap"
+                name="resumo_zap"
+                defaultValue={config.resumo_zap ?? ""}
+                placeholder="(21) 99999-8888"
+                className={`${inputClass} mt-1 w-52`}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="resumo_hora">
+                A partir das
+              </label>
+              <select
+                id="resumo_hora"
+                name="resumo_hora"
+                defaultValue={config.resumo_hora}
+                className={`${inputClass} mt-1 w-24`}
+              >
+                {Array.from({ length: 17 }, (_, i) => i + 6).map((h) => (
+                  <option key={h} value={h}>
+                    {h}h
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="submit"
+              disabled={salvandoRes}
+              className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+            >
+              {salvandoRes ? "Salvando…" : "Salvar resumo"}
+            </button>
+          </div>
+
+          <p className="mt-3 text-xs text-paper-dim">
+            Pode ser o próprio número conectado do agente — aí o resumo cai na conversa{" "}
+            <b className="text-paper">“você”</b> do seu WhatsApp. Para desligar, apague o número e
+            salve.
+          </p>
+          {resumoEstado?.error && <p className="mt-2 text-sm text-danger">{resumoEstado.error}</p>}
+          {resumoEstado?.ok && <p className="mt-2 text-sm text-ok">✅ {resumoEstado.ok}</p>}
         </form>
       )}
 

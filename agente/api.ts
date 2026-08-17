@@ -105,9 +105,13 @@ export type ConfigAbordagem = {
 };
 
 export const abordagemEstado = () =>
-  chamar<{ config: ConfigAbordagem; enviadasHoje: number; pendentes: number; aguardando: number }>(
-    "abordagem_estado",
-  );
+  chamar<{
+    config: ConfigAbordagem;
+    enviadasHoje: number;
+    pendentes: number;
+    aguardando: number;
+    resumoDevido: boolean;
+  }>("abordagem_estado");
 
 /* --------------------------------- escuta --------------------------------- */
 export const aguardandoResposta = () =>
@@ -115,6 +119,14 @@ export const aguardandoResposta = () =>
 
 export const respostaRecebida = (telefone: string, texto: string) =>
   chamar<{ ok: boolean; classe: string | null }>("resposta_recebida", { telefone, texto });
+
+/* ------------------------------ resumo diário ------------------------------ */
+export const resumoPendente = () =>
+  chamar<{ resumo: { telefone: string; texto: string } | null }>("resumo_pendente").then(
+    (r) => r.resumo,
+  );
+
+export const resumoFalhou = () => chamar("resumo_falhou");
 
 export const zapEstado = (estado: string, mensagem?: string, qr?: string | null) =>
   chamar("zap_estado", { estado, mensagem, ...(qr !== undefined ? { qr } : {}) });

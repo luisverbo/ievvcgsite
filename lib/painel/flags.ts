@@ -39,8 +39,8 @@ export const FUNCOES_NOVAS: Record<
   resumo_diario: {
     rotulo: "Resumo diário no WhatsApp do dono",
     descricao:
-      "O agente manda ao próprio dono um resumo do dia: enviadas, respostas, sites entregues.",
-    pronta: false,
+      "No horário escolhido, o agente manda ao próprio dono o balanço do dia: enviadas, respostas, sites entregues e quem abriu o site (🔥). Dia sem movimento não gera mensagem.",
+    pronta: true,
   },
   otimizador: {
     rotulo: "Otimizador de páginas",

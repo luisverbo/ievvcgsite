@@ -52,7 +52,13 @@ export async function rodarAbordagem(headless: boolean, log: (m: string) => void
   if (agoraMs < proximoEnvioEm && agoraMs < proximaChecagemEm) return;
   proximaChecagemEm = agoraMs + 20_000;
 
-  const { config: cfg, enviadasHoje, pendentes, aguardando = 0 } = await api.abordagemEstado();
+  const {
+    config: cfg,
+    enviadasHoje,
+    pendentes,
+    aguardando = 0,
+    resumoDevido = false,
+  } = await api.abordagemEstado();
 
   // Pedido de desconexão vem primeiro: apaga a sessão para poder entrar com
   // outro número.
@@ -69,30 +75,33 @@ export async function rodarAbordagem(headless: boolean, log: (m: string) => void
   }
 
   /*
-   * Três razões para abrir o WhatsApp: o painel pediu conexão, existe
-   * mensagem para ENVIAR, ou existe resposta para ESCUTAR (números abordados
-   * ainda sem retorno). A escuta só reabre o navegador se a sessão já esteve
-   * conectada antes — sem sessão salva, abrir só para escutar mostraria um QR
-   * que ninguém pediu.
+   * Quatro razões para abrir o WhatsApp: o painel pediu conexão, existe
+   * mensagem para ENVIAR, existe resposta para ESCUTAR (números abordados
+   * ainda sem retorno) — ou é hora do RESUMO diário do dono. Escuta e resumo
+   * só reabrem o navegador se a sessão já esteve conectada antes — sem
+   * sessão salva, abrir mostraria um QR que ninguém pediu.
    */
   const pedidoConexao = cfg.whatsapp_status === "aguardando_qr";
-  const escutar = aguardando > 0 && Date.now() >= proximaEscutaEm && cfg.whatsapp_status === "conectado";
-  if (!pedidoConexao && pendentes === 0 && !escutar) return;
+  const conectado = cfg.whatsapp_status === "conectado";
+  const escutar = aguardando > 0 && Date.now() >= proximaEscutaEm && conectado;
+  const resumo = resumoDevido && conectado;
+  if (!pedidoConexao && pendentes === 0 && !escutar && !resumo) return;
 
   // Só um pedido de conexão, com a sessão já de pé: nada a fazer além de
   // confirmar no painel.
-  if (pedidoConexao && sessao && pendentes === 0 && !escutar) {
+  if (pedidoConexao && sessao && pendentes === 0 && !escutar && !resumo) {
     await api.zapEstado("conectado", "WhatsApp já está conectado.", null);
     return;
   }
 
   /*
    * O limite diário só bloqueia ENVIO. Conexão passa (senão você não
-   * reconectaria depois da cota) e a escuta também: parar de ouvir quem
-   * respondeu porque a cota de envio acabou seria surdez voluntária.
+   * reconectaria depois da cota), a escuta também (parar de ouvir quem
+   * respondeu porque a cota acabou seria surdez voluntária) — e o resumo
+   * idem: é uma mensagem para o próprio dono, não abordagem.
    */
   const podeEnviar = enviadasHoje < cfg.limite_diario;
-  if (!pedidoConexao && !escutar && !podeEnviar) {
+  if (!pedidoConexao && !escutar && !resumo && !podeEnviar) {
     log(`limite diário atingido (${enviadasHoje}/${cfg.limite_diario}) — abordagem pausada até amanhã`);
     return;
   }
@@ -147,6 +156,29 @@ export async function rodarAbordagem(headless: boolean, log: (m: string) => void
       }
     } catch (e) {
       log(`escuta falhou (segue o baile): ${(e as Error).message}`);
+    }
+  }
+
+  /*
+   * O RESUMO do dia, se for a hora. Pedir o texto já reserva a vez no
+   * servidor; se o envio falhar aqui, devolvemos a reserva para a próxima
+   * volta tentar de novo. Vai para o número que o dono escolheu — que pode
+   * ser o próprio número conectado (vira a conversa "você" no WhatsApp).
+   */
+  if (resumo && sessao) {
+    try {
+      const r = await api.resumoPendente();
+      if (r) {
+        const env = await enviarMensagem(sessao.page, r.telefone, r.texto);
+        if (env.ok) {
+          log("📬 resumo diário enviado ao dono");
+        } else {
+          await api.resumoFalhou();
+          log(`resumo diário não saiu (${env.motivo}) — tento de novo em instantes`);
+        }
+      }
+    } catch (e) {
+      log(`resumo diário falhou (segue o baile): ${(e as Error).message}`);
     }
   }
 

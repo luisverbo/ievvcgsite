@@ -28,6 +28,8 @@ export type ConfigAbordagem = {
   fechador_gasto_micro: number;
   fechador_msg_modelo: string | null;
   fechador_autorizado_em: string | null;
+  resumo_zap: string | null;
+  resumo_hora: number;
 };
 
 export type MensagemRow = {
@@ -149,6 +151,46 @@ export async function salvarFechador(
 
   revalidatePath("/app/prospeccao/abordagem");
   return { ok: "Fechador configurado." };
+}
+
+/*
+ * Resumo diário: para qual WhatsApp e a partir de que hora. Número vazio
+ * desliga — sem destino não há resumo.
+ */
+export async function salvarResumo(
+  _prev: EstadoAbordagem,
+  formData: FormData,
+): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const bruto = String(formData.get("resumo_zap") ?? "").trim();
+  const telefone = bruto ? telefoneWhatsapp(bruto) : null;
+  if (bruto && !telefone) {
+    return { error: "Número inválido — use celular com DDD, ex.: (21) 99999-8888." };
+  }
+
+  const hora = Math.min(22, Math.max(6, Number(formData.get("resumo_hora")) || 18));
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("prospeccao_config").upsert(
+    {
+      org_id: org.id,
+      resumo_zap: telefone,
+      resumo_hora: hora,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "org_id" },
+  );
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/prospeccao/abordagem");
+  return {
+    ok: telefone
+      ? `Resumo diário ligado — chega a partir das ${hora}h no ${bruto}.`
+      : "Resumo diário desligado.",
+  };
 }
 
 /*

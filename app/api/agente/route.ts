@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { pontuarEGravar } from "@/lib/prospeccao/gravar";
 import { classificarResposta } from "@/lib/prospeccao/classificar";
 import { dispararFechador } from "@/lib/prospeccao/fechador";
+import { montarResumoDoDia, resumoDevido, resumoFalhou } from "@/lib/prospeccao/resumo";
 import { funcaoLigada } from "@/lib/painel/flags";
 import type { EmpresaEncontrada } from "@/lib/prospeccao/tipos";
 
@@ -213,6 +214,8 @@ export async function POST(req: Request) {
         }
 
         return j({
+          // Hora do resumo diário? O agente abre o WhatsApp também por isso.
+          resumoDevido: await resumoDevido(org),
           config: cfgRaw ?? {
             org_id: org,
             limite_diario: 20,
@@ -302,6 +305,21 @@ export async function POST(req: Request) {
         }
 
         return j({ ok: true, classe });
+      }
+
+      /*
+       * O resumo diário do dono. Montar já RESERVA o dia (dois agentes da
+       * mesma conta não mandam em dobro); se o envio falhar na ponta, o
+       * agente chama resumo_falhou e a vez volta.
+       */
+      case "resumo_pendente": {
+        const resumo = await montarResumoDoDia(org);
+        return j({ resumo });
+      }
+
+      case "resumo_falhou": {
+        await resumoFalhou(org);
+        return j({ ok: true });
       }
 
       case "zap_estado": {
