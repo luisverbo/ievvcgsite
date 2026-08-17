@@ -45,6 +45,9 @@ next-env.d.ts
 agente/node_modules
 agente/.env
 agente/.perfil-navegador
+# A sessão do WhatsApp: quem tem esta pasta ENTRA no WhatsApp do dono.
+# Nunca pode subir para o repositório, nem por acidente num `git add -A`.
+agente/.perfil-whatsapp
 agente/diagnostico
 
 # gerado no build (scripts/gerar-pacote-agente.mjs)
