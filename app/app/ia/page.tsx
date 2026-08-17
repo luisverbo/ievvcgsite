@@ -40,11 +40,12 @@ export default async function PaginasIAPage() {
   const org = await getMinhaOrg();
   if (!org) notFound();
 
-  const [conta, supabase, admin, otimizadorLigado] = await Promise.all([
+  const [conta, supabase, admin, otimizadorLigado, relatorioLigado] = await Promise.all([
     statusDaConta(org.id),
     createClient(),
     ehAdmin(),
     funcaoLigada("otimizador"),
+    funcaoLigada("relatorio_mensal"),
   ]);
   const { data } = await supabase
     .from("sites_ia")
@@ -230,6 +231,15 @@ export default async function PaginasIAPage() {
                           className="rounded-lg px-2 py-1 text-sm text-paper-dim transition hover:bg-white/10 hover:text-paper"
                         >
                           📈
+                        </Link>
+                      )}
+                      {relatorioLigado && p.publicado && (
+                        <Link
+                          href={`/app/ia/${p.id}/relatorio`}
+                          title="Relatório mensal: o link que você manda para o cliente todo mês"
+                          className="rounded-lg px-2 py-1 text-sm text-paper-dim transition hover:bg-white/10 hover:text-paper"
+                        >
+                          📄
                         </Link>
                       )}
                       <Link

@@ -54,6 +54,12 @@ export const FUNCOES_NOVAS: Record<
       "O agente tira um print do site atual do lead e o painel monta a página de comparação: o site velho de um lado, o novo do outro. Link pronto para mandar na conversa.",
     pronta: true,
   },
+  relatorio_mensal: {
+    rotulo: "Relatório mensal do cliente final",
+    descricao:
+      "Um endereço público por página com o resumo do mês em linguagem de dono de negócio (visitas, contatos, de onde vêm), comparado com o mês anterior. O cliente manda o link para quem paga a mensalidade. Não custa crédito.",
+    pronta: true,
+  },
   otimizador: {
     rotulo: "Otimizador de páginas",
     descricao:

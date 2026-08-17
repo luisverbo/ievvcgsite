@@ -209,6 +209,38 @@ export async function analisarMetricasIA(
   }
 }
 
+/* ---------------------------- relatório mensal ---------------------------- */
+/*
+ * Cria (uma vez) o endereço público do relatório desta página. Enquanto o
+ * dono não clicar, não existe relatório no ar — é ele quem decide o que
+ * mostrar ao cliente final.
+ */
+export async function criarLinkRelatorio(siteIaId: string): Promise<{ codigo?: string; error?: string }> {
+  if (!(await podeUsar("construtor"))) return { error: "Sem permissão." };
+  if (!(await funcaoLigada("relatorio_mensal"))) return { error: "Função indisponível." };
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sites_ia")
+    .select("id, relatorio_codigo")
+    .eq("id", siteIaId)
+    .maybeSingle();
+  const site = data as { id: string; relatorio_codigo: string | null } | null;
+  if (!site) return { error: "Página não encontrada." };
+  if (site.relatorio_codigo) return { codigo: site.relatorio_codigo };
+
+  // Longo o bastante para não ser adivinhado: o link é público, sem senha.
+  const codigo = `${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 8)}`;
+  const { error } = await supabase
+    .from("sites_ia")
+    .update({ relatorio_codigo: codigo })
+    .eq("id", siteIaId);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/app/ia/${siteIaId}/relatorio`);
+  return { codigo };
+}
+
 /* -------------------------- pixel e tags de anúncio ----------------------- */
 export type PixelState = { ok?: boolean; error?: string } | undefined;
 
