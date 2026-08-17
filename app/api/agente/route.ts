@@ -5,6 +5,7 @@ import { pontuarEGravar } from "@/lib/prospeccao/gravar";
 import { classificarResposta } from "@/lib/prospeccao/classificar";
 import { dispararFechador } from "@/lib/prospeccao/fechador";
 import { montarResumoDoDia, resumoDevido, resumoFalhou } from "@/lib/prospeccao/resumo";
+import { prepararFollowups } from "@/lib/prospeccao/followup";
 import { funcaoLigada } from "@/lib/painel/flags";
 import type { EmpresaEncontrada } from "@/lib/prospeccao/tipos";
 
@@ -174,6 +175,14 @@ export async function POST(req: Request) {
 
       /* ------------------------------ abordagem --------------------------- */
       case "abordagem_estado": {
+        /*
+         * Antes de contar a fila, enfileira os follow-ups vencidos — assim
+         * eles já entram na mesma resposta e o agente sai mandando. A função
+         * tem relógio próprio (uma varredura por hora) e engole os próprios
+         * erros: nunca atrasa nem derruba a checagem de estado.
+         */
+        await prepararFollowups(org);
+
         const { data: cfgRaw } = await admin
           .from("prospeccao_config")
           .select("org_id, limite_diario, intervalo_min_s, intervalo_max_s, whatsapp_status, desconectar_pedido")

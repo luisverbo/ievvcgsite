@@ -26,6 +26,18 @@ Não tem compromisso nenhum. Fiz como demonstração mesmo.
 
 Posso te mandar o link [para você ver como ficou|para você dar uma olhada]?`;
 
+/*
+ * A segunda mensagem, do follow-up. Mais curta que a primeira de propósito:
+ * quem não respondeu não vai ler dois parágrafos de novo. E a saída fácil
+ * ("é só me dizer e eu não incomodo mais") vem escrita — é o que mantém a
+ * insistência dentro do limite da educação.
+ */
+export const MODELO_FOLLOWUP_PADRAO = `[Oi|Olá]{contato}, tudo certo?
+
+[Passando aqui de novo|Voltando aqui rapidinho] só para não deixar passar: cheguei a comentar que fiz uma demonstração de site para a {empresa}.
+
+Se não for o momento, sem problema nenhum — é só me dizer e eu não incomodo mais. Mas se quiser dar uma olhada, mando o link agora. 🙂`;
+
 export type DadosEmpresa = {
   nome: string;
   nicho_busca?: string | null;

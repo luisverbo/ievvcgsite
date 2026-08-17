@@ -39,8 +39,8 @@ export const FUNCOES_NOVAS: Record<
   followup: {
     rotulo: "Follow-up automático",
     descricao:
-      "Quem não respondeu em alguns dias recebe uma segunda mensagem, uma única vez, no mesmo ritmo humano.",
-    pronta: false,
+      "Quem não respondeu em alguns dias recebe uma segunda mensagem, uma única vez, no mesmo ritmo humano. Nunca fala com quem respondeu ou pediu para não receber.",
+    pronta: true,
   },
   resumo_diario: {
     rotulo: "Resumo diário no WhatsApp do dono",

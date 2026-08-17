@@ -33,6 +33,9 @@ export type ConfigAbordagem = {
   resumo_zap: string | null;
   resumo_hora: number;
   briefing_msg: string | null;
+  followup_ligado: boolean;
+  followup_dias: number;
+  followup_msg_modelo: string | null;
 };
 
 export type MensagemRow = {
@@ -40,6 +43,7 @@ export type MensagemRow = {
   prospecto_id: string;
   telefone: string;
   texto: string;
+  tipo?: "abordagem" | "fechamento" | "followup";
   modo: "semi" | "auto";
   status: "pendente" | "enviada" | "erro" | "cancelada" | "sem_whatsapp";
   erro: string | null;
@@ -193,6 +197,51 @@ export async function salvarResumo(
     ok: telefone
       ? `Resumo diário ligado — chega a partir das ${hora}h no ${bruto}.`
       : "Resumo diário desligado.",
+  };
+}
+
+/*
+ * Follow-up automático: se liga, depois de quantos dias e com que texto.
+ * A trava de "uma vez só" e o respeito ao opt-out moram no servidor
+ * (lib/prospeccao/followup.ts) — aqui é só a preferência do cliente.
+ */
+export async function salvarFollowup(
+  _prev: EstadoAbordagem,
+  formData: FormData,
+): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const ligado = String(formData.get("followup_ligado") ?? "") === "1";
+  const dias = Math.min(30, Math.max(1, Number(formData.get("followup_dias")) || 4));
+  const modelo = String(formData.get("followup_msg") ?? "").trim().slice(0, 900);
+
+  if (ligado && modelo && !modelo.includes("{empresa}")) {
+    return { error: "Use {empresa} no texto — sem o nome a segunda mensagem vira spam genérico." };
+  }
+  if (ligado && dias < 2) {
+    return { error: "Espere pelo menos 2 dias — insistir no dia seguinte irrita e derruba número." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("prospeccao_config").upsert(
+    {
+      org_id: org.id,
+      followup_ligado: ligado,
+      followup_dias: dias,
+      followup_msg_modelo: modelo || null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "org_id" },
+  );
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/prospeccao/abordagem");
+  return {
+    ok: ligado
+      ? `Follow-up ligado — quem não responder em ${dias} dias recebe uma segunda mensagem (uma só).`
+      : "Follow-up desligado.",
   };
 }
 

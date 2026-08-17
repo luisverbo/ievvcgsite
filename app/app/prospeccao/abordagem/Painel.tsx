@@ -12,16 +12,24 @@ import {
   salvarBriefing,
   salvarConfig,
   salvarFechador,
+  salvarFollowup,
   salvarResumo,
   type ConfigAbordagem,
   type EstadoAbordagem,
   type MensagemRow,
 } from "./actions";
-import { MODELO_PADRAO } from "@/lib/prospeccao/mensagem";
+import { MODELO_PADRAO, MODELO_FOLLOWUP_PADRAO } from "@/lib/prospeccao/mensagem";
 import { faixa, type ProspectoRow } from "@/lib/prospeccao/tipos";
 import { acharNicho } from "@/lib/prospeccao/nichos";
 import { inputClass, labelClass, cardClass } from "@/components/painel/ui";
 import Robo from "@/components/painel/Robo";
+
+// A primeira mensagem não precisa de etiqueta; as outras, sim — o usuário
+// tem que saber que está olhando a SEGUNDA conversa com aquele lead.
+const ROTULO_TIPO: Record<string, string> = {
+  fechamento: "🤝 com o site",
+  followup: "↩️ follow-up",
+};
 
 const ROTULO_MSG: Record<string, string> = {
   pendente: "Aguardando",
@@ -39,6 +47,7 @@ export default function Painel({
   fechadorLigado = false,
   resumoLigado = false,
   cerebroLigado = false,
+  followupLigado = false,
   placar = [],
 }: {
   config: ConfigAbordagem;
@@ -49,6 +58,7 @@ export default function Painel({
   fechadorLigado?: boolean;
   resumoLigado?: boolean;
   cerebroLigado?: boolean;
+  followupLigado?: boolean;
   /* Conversão por origem da mensagem (modelo × IA) — o placar honesto. */
   placar?: { origem: string; enviadas: number; respostas: number }[];
 }) {
@@ -75,6 +85,11 @@ export default function Painel({
   );
   const temBriefing = (config.briefing_msg ?? "").trim().length >= 40;
   const [estrategia, setEstrategia] = useState<"modelo" | "ia">("modelo");
+  const [fupEstado, salvarFup, salvandoFup] = useActionState<EstadoAbordagem, FormData>(
+    salvarFollowup,
+    undefined,
+  );
+  const [fupLigado, setFupLigado] = useState(config.followup_ligado);
   const [nivelFech, setNivelFech] = useState(config.fechador_nivel);
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
 
@@ -400,6 +415,96 @@ export default function Painel({
         {cfgEstado?.error && <p className="mt-2 text-sm text-danger">{cfgEstado.error}</p>}
         {cfgEstado?.ok && <p className="mt-2 text-sm text-ok">{cfgEstado.ok}</p>}
       </form>
+
+      {/* ------------------------ follow-up ------------------------------ */}
+      {followupLigado && (
+        <form action={salvarFup} className={`anim-entrada d2 ${cardClass}`}>
+          <div className="flex flex-wrap items-center gap-3">
+            <Robo estado={fupLigado ? "trabalhando" : "dormindo"} tamanho={44} />
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold">Follow-up automático ↩️</h2>
+              <p className="text-sm text-paper-dim">
+                A maioria dos leads não diz “não” — só esquece. Quem ficar em silêncio recebe{" "}
+                <b className="text-paper">uma segunda mensagem, uma única vez</b>, no mesmo ritmo
+                humano. Quem respondeu ou pediu para não receber nunca entra.
+              </p>
+            </div>
+          </div>
+
+          <label className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-xl border border-white/10 px-3 py-2.5 transition hover:border-white/25">
+            <input
+              type="checkbox"
+              name="followup_ligado"
+              value="1"
+              checked={fupLigado}
+              onChange={(e) => setFupLigado(e.target.checked)}
+              className="mt-0.5 h-4 w-4 flex-none accent-[var(--color-brand)]"
+            />
+            <span className="text-sm text-paper">
+              Ligar o follow-up
+              <span className="mt-0.5 block text-xs text-paper-dim">
+                Vale para quem foi abordado nos últimos 30 dias. Mensagem mais antiga que isso não
+                é retomada — chegaria como “quem é você?”.
+              </span>
+            </span>
+          </label>
+
+          {fupLigado && (
+            <>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <label className={labelClass} htmlFor="followup_dias">
+                  Mandar depois de
+                </label>
+                <input
+                  id="followup_dias"
+                  name="followup_dias"
+                  type="number"
+                  min={2}
+                  max={30}
+                  defaultValue={config.followup_dias}
+                  className={`${inputClass} w-20 text-center`}
+                />
+                <span className="text-sm text-paper-dim">dias sem resposta</span>
+              </div>
+
+              <div className="mt-4">
+                <label className={labelClass} htmlFor="followup_msg">
+                  A segunda mensagem (mesmas variáveis e {"[a|b]"} da primeira)
+                </label>
+                <textarea
+                  id="followup_msg"
+                  name="followup_msg"
+                  rows={5}
+                  defaultValue={config.followup_msg_modelo || MODELO_FOLLOWUP_PADRAO}
+                  className={`${inputClass} mt-1 w-full resize-y font-mono text-xs`}
+                />
+                <p className="mt-1 text-xs text-paper-dim">
+                  Deixe a saída fácil no texto (“é só me dizer e eu não incomodo mais”): quem
+                  responde “não” vira opt-out na hora e some das filas — melhor isso do que virar
+                  denúncia de spam.
+                </p>
+              </div>
+            </>
+          )}
+
+          {!fupLigado && (
+            <>
+              <input type="hidden" name="followup_dias" value={config.followup_dias} />
+              <input type="hidden" name="followup_msg" value={config.followup_msg_modelo ?? ""} />
+            </>
+          )}
+
+          <button
+            type="submit"
+            disabled={salvandoFup}
+            className="mt-4 rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+          >
+            {salvandoFup ? "Salvando…" : "Salvar follow-up"}
+          </button>
+          {fupEstado?.error && <p className="mt-2 text-sm text-danger">{fupEstado.error}</p>}
+          {fupEstado?.ok && <p className="mt-2 text-sm text-ok">✅ {fupEstado.ok}</p>}
+        </form>
+      )}
 
       {/* -------------------- mensagens com cérebro ---------------------- */}
       {cerebroLigado && (
@@ -876,6 +981,11 @@ export default function Painel({
                 <p className="mb-1 text-sm font-bold">
                   {nomePorProspecto[m.prospecto_id] ?? "Empresa"}{" "}
                   <span className="font-normal text-paper-dim">· {m.telefone}</span>
+                  {m.tipo && m.tipo !== "abordagem" && (
+                    <span className="ml-2 rounded-md bg-brand/20 px-1.5 py-0.5 text-[10px] font-bold text-brand-2">
+                      {ROTULO_TIPO[m.tipo]}
+                    </span>
+                  )}
                 </p>
                 <p className="whitespace-pre-line rounded-md bg-black/30 p-2.5 text-xs text-paper-dim">
                   {m.texto}
@@ -935,6 +1045,9 @@ export default function Painel({
                 <span className="font-bold text-paper">
                   {nomePorProspecto[m.prospecto_id] ?? m.telefone}
                 </span>
+                {m.tipo && m.tipo !== "abordagem" && (
+                  <span className="text-brand-2">{ROTULO_TIPO[m.tipo]}</span>
+                )}
                 <span
                   className={
                     m.status === "enviada"

@@ -54,6 +54,9 @@ export default async function AbordagemPage() {
     resumo_zap: null,
     resumo_hora: 18,
     briefing_msg: null,
+    followup_ligado: false,
+    followup_dias: 4,
+    followup_msg_modelo: null,
     ...(bruto ?? {}),
   };
 
@@ -123,6 +126,7 @@ export default async function AbordagemPage() {
         fechadorLigado={await funcaoLigada("fechador")}
         resumoLigado={await funcaoLigada("resumo_diario")}
         cerebroLigado={await funcaoLigada("mensagens_ia")}
+        followupLigado={await funcaoLigada("followup")}
         placar={placar}
       />
     </div>
