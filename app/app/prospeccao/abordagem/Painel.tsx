@@ -9,6 +9,7 @@ import {
   prepararAbordagem,
   conectarWhatsapp,
   desconectarWhatsapp,
+  salvarBriefing,
   salvarConfig,
   salvarFechador,
   salvarResumo,
@@ -37,6 +38,8 @@ export default function Painel({
   nomePorProspecto,
   fechadorLigado = false,
   resumoLigado = false,
+  cerebroLigado = false,
+  placar = [],
 }: {
   config: ConfigAbordagem;
   candidatos: ProspectoRow[];
@@ -45,6 +48,9 @@ export default function Painel({
   /* Interruptores do Admin: desligado, o card correspondente nem aparece. */
   fechadorLigado?: boolean;
   resumoLigado?: boolean;
+  cerebroLigado?: boolean;
+  /* Conversão por origem da mensagem (modelo × IA) — o placar honesto. */
+  placar?: { origem: string; enviadas: number; respostas: number }[];
 }) {
   const router = useRouter();
   const [cfgEstado, salvarCfg, salvandoCfg] = useActionState<EstadoAbordagem, FormData>(
@@ -63,6 +69,12 @@ export default function Painel({
     salvarResumo,
     undefined,
   );
+  const [briefingEstado, salvarBrief, salvandoBrief] = useActionState<EstadoAbordagem, FormData>(
+    salvarBriefing,
+    undefined,
+  );
+  const temBriefing = (config.briefing_msg ?? "").trim().length >= 40;
+  const [estrategia, setEstrategia] = useState<"modelo" | "ia">("modelo");
   const [nivelFech, setNivelFech] = useState(config.fechador_nivel);
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
 
@@ -389,6 +401,86 @@ export default function Painel({
         {cfgEstado?.ok && <p className="mt-2 text-sm text-ok">{cfgEstado.ok}</p>}
       </form>
 
+      {/* -------------------- mensagens com cérebro ---------------------- */}
+      {cerebroLigado && (
+        <form action={salvarBrief} className="anim-entrada d2 card-aurora rounded-xl p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <Robo estado={temBriefing ? "trabalhando" : "novo"} tamanho={44} />
+            <div>
+              <h2 className="text-lg font-bold">Mensagens com cérebro 🧠</h2>
+              <p className="text-sm text-paper-dim">
+                Em vez do seu modelo, a IA escreve uma mensagem{" "}
+                <b className="text-paper">diferente para cada lead</b> — citando o ramo, o bairro,
+                as avaliações. Mensagem única não tem cara de disparo: protege seu número e
+                converte mais.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <label className={labelClass} htmlFor="briefing_msg">
+              Seu briefing (quem você é, o que oferece, o tom da conversa)
+            </label>
+            <textarea
+              id="briefing_msg"
+              name="briefing_msg"
+              rows={4}
+              defaultValue={config.briefing_msg ?? ""}
+              placeholder="Ex.: Sou o Luis, crio sites profissionais para negócios locais do Rio. Ofereço uma demonstração pronta antes de falar de qualquer valor. Tom leve e direto, sem parecer vendedor insistente."
+              className={`${inputClass} mt-1 w-full resize-y text-xs`}
+            />
+          </div>
+
+          <p className="mt-3 rounded-lg border border-brand-2/30 bg-brand/10 px-3 py-2.5 text-xs text-paper-dim">
+            💡 <b className="text-paper">Quanto custa:</b> ~US$0,002 por mensagem, do seu crédito de
+            IA — 50 leads saem por menos de US$0,10. As regras de segurança são fixas: a primeira
+            mensagem nunca leva link nem preço, só pede permissão.
+          </p>
+
+          {(() => {
+            const meu = placar.find((p) => p.origem === "modelo");
+            const ia = placar.find((p) => p.origem === "ia");
+            if (!meu && !ia) return null;
+            const pct = (p?: { enviadas: number; respostas: number }) =>
+              p && p.enviadas > 0 ? Math.round((p.respostas / p.enviadas) * 100) : null;
+            const linha = (rotulo: string, p?: { enviadas: number; respostas: number }) =>
+              p && p.enviadas > 0 ? (
+                <span>
+                  {rotulo}: <b className="text-paper">{pct(p)}%</b>{" "}
+                  <span className="text-paper-dim">
+                    ({p.respostas} {p.respostas === 1 ? "resposta" : "respostas"} em {p.enviadas})
+                  </span>
+                </span>
+              ) : null;
+            const poucaAmostra = (meu?.enviadas ?? 0) < 10 || (ia?.enviadas ?? 0) < 10;
+            return (
+              <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs">
+                <span className="font-bold text-paper">📊 Placar das mensagens</span>
+                {linha("Seu modelo", meu)}
+                {linha("IA 🧠", ia)}
+                {poucaAmostra && (
+                  <span className="text-paper-dim">
+                    (com menos de 10 envios de cada lado, ainda é cedo para cravar um vencedor)
+                  </span>
+                )}
+              </p>
+            );
+          })()}
+
+          <button
+            type="submit"
+            disabled={salvandoBrief}
+            className="mt-4 rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+          >
+            {salvandoBrief ? "Salvando…" : "Salvar briefing"}
+          </button>
+          {briefingEstado?.error && (
+            <p className="mt-2 text-sm text-danger">{briefingEstado.error}</p>
+          )}
+          {briefingEstado?.ok && <p className="mt-2 text-sm text-ok">✅ {briefingEstado.ok}</p>}
+        </form>
+      )}
+
       {/* ------------------------- o Fechador ---------------------------- */}
       {fechadorLigado && (
         <form action={salvarFech} className="anim-entrada d2 card-aurora rounded-xl p-5">
@@ -697,6 +789,54 @@ export default function Painel({
           })}
         </div>
 
+        {cerebroLigado && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <input type="hidden" name="estrategia" value={estrategia} />
+            {(
+              [
+                {
+                  valor: "modelo" as const,
+                  rotulo: "Usar meu modelo",
+                  desc: "O texto lá de cima, com as variações [a|b].",
+                },
+                {
+                  valor: "ia" as const,
+                  rotulo: "🧠 IA escreve uma por lead",
+                  desc: temBriefing
+                    ? `Uma mensagem única para cada — ~US$${(Math.max(1, marcados.size) * 0.002).toFixed(2).replace(".", ",")} no total.`
+                    : "Preencha o briefing no card 🧠 primeiro.",
+                },
+              ]
+            ).map((e) => {
+              const bloqueada = e.valor === "ia" && !temBriefing;
+              return (
+                <label
+                  key={e.valor}
+                  className={`flex items-start gap-2 rounded-xl border px-3 py-2 transition ${
+                    bloqueada
+                      ? "cursor-not-allowed border-white/5 opacity-50"
+                      : estrategia === e.valor
+                        ? "cursor-pointer border-brand-2 bg-brand/15"
+                        : "cursor-pointer border-white/10 hover:border-white/25"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    checked={estrategia === e.valor}
+                    disabled={bloqueada}
+                    onChange={() => setEstrategia(e.valor)}
+                    className="mt-0.5 h-4 w-4 flex-none accent-[var(--color-brand)]"
+                  />
+                  <span>
+                    <span className="block text-xs font-bold text-paper">{e.rotulo}</span>
+                    <span className="mt-0.5 block text-[11px] text-paper-dim">{e.desc}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <span className="text-sm text-paper-dim">{marcados.size} selecionadas</span>
           <button
@@ -715,7 +855,11 @@ export default function Painel({
             disabled={preparando || marcados.size === 0}
             className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-50"
           >
-            {preparando ? "Enfileirando…" : "Enviar automático"}
+            {preparando
+              ? estrategia === "ia"
+                ? "🧠 A IA está escrevendo…"
+                : "Enfileirando…"
+              : "Enviar automático"}
           </button>
         </div>
         {filaEstado?.error && <p className="mt-2 text-sm text-danger">{filaEstado.error}</p>}

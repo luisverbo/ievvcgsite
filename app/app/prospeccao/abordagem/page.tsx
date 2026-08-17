@@ -53,8 +53,33 @@ export default async function AbordagemPage() {
     fechador_autorizado_em: null,
     resumo_zap: null,
     resumo_hora: 18,
+    briefing_msg: null,
     ...(bruto ?? {}),
   };
+
+  /*
+   * O placar das mensagens: conversão (respostas / enviadas) por origem —
+   * o modelo do cliente contra as escritas pela IA. Coluna `origem` é de
+   * migração nova; erro aqui só significa SQL pendente, e o placar some.
+   */
+  let placar: { origem: string; enviadas: number; respostas: number }[] = [];
+  const { data: placarRaw, error: placarErr } = await supabase
+    .from("prospeccao_mensagens")
+    .select("origem, resposta_em")
+    .eq("org_id", org.id)
+    .eq("status", "enviada")
+    .eq("tipo", "abordagem");
+  if (!placarErr && placarRaw) {
+    const mapa = new Map<string, { enviadas: number; respostas: number }>();
+    for (const m of placarRaw as { origem: string | null; resposta_em: string | null }[]) {
+      const chave = m.origem === "ia" ? "ia" : "modelo";
+      const atual = mapa.get(chave) ?? { enviadas: 0, respostas: 0 };
+      atual.enviadas++;
+      if (m.resposta_em) atual.respostas++;
+      mapa.set(chave, atual);
+    }
+    placar = [...mapa.entries()].map(([origem, v]) => ({ origem, ...v }));
+  }
 
   const mensagens = (msgsRaw as MensagemRow[] | null) ?? [];
   const jaNaFila = new Set(mensagens.map((m) => m.prospecto_id));
@@ -97,6 +122,8 @@ export default async function AbordagemPage() {
         nomePorProspecto={nomePorProspecto}
         fechadorLigado={await funcaoLigada("fechador")}
         resumoLigado={await funcaoLigada("resumo_diario")}
+        cerebroLigado={await funcaoLigada("mensagens_ia")}
+        placar={placar}
       />
     </div>
   );

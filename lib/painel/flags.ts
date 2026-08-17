@@ -30,6 +30,12 @@ export const FUNCOES_NOVAS: Record<
       "Quando o lead responde com interesse, o sistema gera o site com as fotos do Instagram dele e — conforme o nível do cliente — prepara ou envia a mensagem com o link. Com teto de gasto mensal.",
     pronta: true,
   },
+  mensagens_ia: {
+    rotulo: "Mensagens com cérebro (IA escreve por lead)",
+    descricao:
+      "Na abordagem, o cliente pode deixar a IA escrever uma mensagem diferente para cada lead a partir de um briefing — com placar comparando a conversão do modelo dele contra as da IA. Custo por mensagem sai do crédito do cliente.",
+    pronta: true,
+  },
   followup: {
     rotulo: "Follow-up automático",
     descricao:

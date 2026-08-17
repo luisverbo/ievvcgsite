@@ -10,6 +10,8 @@ import {
   telefoneWhatsapp,
   type DadosEmpresa,
 } from "@/lib/prospeccao/mensagem";
+import { escreverMensagens } from "@/lib/prospeccao/escrever";
+import { funcaoLigada } from "@/lib/painel/flags";
 import type { ProspectoRow } from "@/lib/prospeccao/tipos";
 
 export type ConfigAbordagem = {
@@ -30,6 +32,7 @@ export type ConfigAbordagem = {
   fechador_autorizado_em: string | null;
   resumo_zap: string | null;
   resumo_hora: number;
+  briefing_msg: string | null;
 };
 
 export type MensagemRow = {
@@ -194,10 +197,45 @@ export async function salvarResumo(
 }
 
 /*
+ * O briefing das mensagens com cérebro: quem é o cliente, o que oferece, o
+ * tom. É a matéria-prima da IA na hora de escrever uma mensagem por lead.
+ */
+export async function salvarBriefing(
+  _prev: EstadoAbordagem,
+  formData: FormData,
+): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const briefing = String(formData.get("briefing_msg") ?? "").trim().slice(0, 1200);
+  if (briefing && briefing.length < 40) {
+    return {
+      error:
+        "Briefing curto demais — conte quem você é, o que oferece e o tom que quer (umas 3 linhas já bastam).",
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("prospeccao_config").upsert(
+    { org_id: org.id, briefing_msg: briefing || null, updated_at: new Date().toISOString() },
+    { onConflict: "org_id" },
+  );
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/prospeccao/abordagem");
+  return { ok: briefing ? "Briefing salvo — a IA já pode escrever por você." : "Briefing removido." };
+}
+
+/*
  * Monta a mensagem de cada empresa escolhida e coloca na fila.
  *
  * modo 'auto' -> o agente envia sozinho, respeitando limite e intervalo
  * modo 'semi' -> fica esperando você abrir o WhatsApp e enviar na mão
+ *
+ * estrategia 'modelo' -> seu texto com variações [a|b]
+ * estrategia 'ia'     -> a IA escreve uma mensagem diferente por lead, a
+ *                        partir do briefing (Mensagens com cérebro 🧠)
  */
 export async function prepararAbordagem(
   _prev: EstadoAbordagem,
@@ -208,6 +246,10 @@ export async function prepararAbordagem(
   if (!org) return { error: "Organização não encontrada." };
 
   const modo = String(formData.get("modo")) === "semi" ? "semi" : "auto";
+  const estrategia =
+    String(formData.get("estrategia")) === "ia" && (await funcaoLigada("mensagens_ia"))
+      ? "ia"
+      : "modelo";
   const ids = formData.getAll("prospecto").map(String).filter(Boolean);
   if (ids.length === 0) return { error: "Selecione pelo menos uma empresa." };
   if (ids.length > 50) return { error: "Máximo de 50 empresas por vez." };
@@ -227,11 +269,28 @@ export async function prepararAbordagem(
   const remetente = (cfg?.remetente_nome ?? "").trim();
 
   // Sem o nome, a mensagem sairia com "Meu nome é." — melhor barrar aqui do
-  // que mandar texto quebrado para o cliente.
-  if (modelo.includes("{meunome}") && remetente.length < 2) {
+  // que mandar texto quebrado para o cliente. Na IA ele também é obrigatório:
+  // é quem assina.
+  if ((estrategia === "ia" || modelo.includes("{meunome}")) && remetente.length < 2) {
     return {
       error: 'Preencha "Seu nome" aí em cima e salve — sem ele a mensagem sai com "Meu nome é." e nada mais.',
     };
+  }
+
+  // O briefing mora em coluna própria (migração nova); buscar separado para
+  // não derrubar o caminho tradicional em quem ainda não rodou o SQL.
+  let briefing = "";
+  if (estrategia === "ia") {
+    const { data: bRaw, error: bErr } = await supabase
+      .from("prospeccao_config")
+      .select("briefing_msg")
+      .eq("org_id", org.id)
+      .maybeSingle();
+    if (bErr) return { error: "Rode a migração das Mensagens com cérebro no Supabase primeiro." };
+    briefing = ((bRaw as { briefing_msg: string | null } | null)?.briefing_msg ?? "").trim();
+    if (briefing.length < 40) {
+      return { error: "Preencha o briefing no card Mensagens com cérebro 🧠 antes de usar a IA." };
+    }
   }
   const prospectos = (prospRaw as ProspectoRow[] | null) ?? [];
 
@@ -296,6 +355,40 @@ export async function prepararAbordagem(
     return { error: "Todas as escolhidas já estão na fila ou já foram abordadas." };
   }
 
+  /*
+   * Mensagens com cérebro: a IA escreve só para quem VAI receber (depois do
+   * filtro), para não pagar por mensagem descartada. Lead que a IA não
+   * conseguiu (lote falhou, resposta capenga) mantém o texto do modelo — a
+   * mensagem sai do mesmo jeito, e a coluna `origem` registra qual foi qual
+   * para o placar comparar com honestidade.
+   */
+  let escritas = 0;
+  if (estrategia === "ia") {
+    const porId = new Map(prospectos.map((p) => [p.id, p]));
+    const alvo = novas
+      .map((l) => porId.get(l.prospecto_id as string))
+      .filter((p): p is ProspectoRow => !!p);
+    let textos: Map<string, string>;
+    try {
+      textos = await escreverMensagens(org.id, briefing, remetente, alvo);
+    } catch (e) {
+      return { error: (e as Error).message };
+    }
+    for (const l of novas) {
+      const texto = textos.get(l.prospecto_id as string);
+      if (texto) {
+        l.texto = texto;
+        l.origem = "ia";
+        escritas++;
+      } else {
+        l.origem = "modelo";
+      }
+    }
+    if (escritas === 0) {
+      return { error: "A IA não conseguiu escrever nenhuma mensagem agora — tente de novo em instantes ou use seu modelo." };
+    }
+  }
+
   const { error } = await supabase.from("prospeccao_mensagens").insert(novas);
   if (error && error.code !== "23505") return { error: error.message };
 
@@ -305,11 +398,17 @@ export async function prepararAbordagem(
     optOut > 0 ? `${optOut} que pediram para não receber` : "",
   ].filter(Boolean);
   const aviso = pulos.length > 0 ? ` (puladas: ${pulos.join(" e ")})` : "";
+  const assinatura =
+    estrategia === "ia"
+      ? escritas === novas.length
+        ? " 🧠 Todas escritas pela IA, uma diferente para cada."
+        : ` 🧠 ${escritas} escritas pela IA; ${novas.length - escritas} saíram do seu modelo.`
+      : "";
   return {
     ok:
       modo === "auto"
-        ? `${novas.length} mensagens na fila${aviso}. O agente começa a enviar em instantes.`
-        : `${novas.length} mensagens prontas${aviso}. Abra uma a uma aqui embaixo.`,
+        ? `${novas.length} mensagens na fila${aviso}.${assinatura} O agente começa a enviar em instantes.`
+        : `${novas.length} mensagens prontas${aviso}.${assinatura} Abra uma a uma aqui embaixo.`,
   };
 }
 
