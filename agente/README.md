@@ -67,6 +67,11 @@ ExecStart=/usr/bin/npm run servico
 Restart=always
 RestartSec=15
 User=root
+# O agente fecha o navegador sozinho ao receber o SIGTERM. Estes dois
+# garantem que, se algo travar, o systemd limpa o grupo inteiro em vez de
+# deixar um Chromium orfao segurando a sessao do WhatsApp.
+KillMode=control-group
+TimeoutStopSec=25
 
 [Install]
 WantedBy=multi-user.target
@@ -79,8 +84,27 @@ journalctl -u paginapro-agente -f        # acompanhar o que ele está fazendo
 ```
 
 Pronto: o botão **Buscar no Google** do painel passa a funcionar, inclusive do
-celular. Para atualizar depois: `cd /opt/ievvcgsite && git pull && systemctl
-restart paginapro-agente`.
+celular. Para atualizar depois:
+
+```bash
+cd /opt/ievvcgsite && git pull && systemctl restart paginapro-agente
+```
+
+O `git pull` **não encosta** no `.env` nem na pasta `.perfil-whatsapp` (as duas
+ficam fora do repositório), então atualizar não custa a sessão do WhatsApp.
+
+### Se depois de um restart ele pedir QR de novo
+
+Sinal de que sobrou um processo antigo segurando a pasta do perfil — acontecia
+antes do agente aprender a fechar o navegador no SIGTERM:
+
+```bash
+systemctl stop paginapro-agente
+pkill -f "tsx servico.ts"; pkill -f chrome; pkill -f chromium
+sleep 3
+ps aux | grep -E "node|chrom" | grep -v grep   # tem que sair vazio
+systemctl start paginapro-agente
+```
 
 ---
 

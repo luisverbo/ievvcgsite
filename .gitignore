@@ -49,6 +49,8 @@ agente/.perfil-navegador
 # Nunca pode subir para o repositório, nem por acidente num `git add -A`.
 agente/.perfil-whatsapp
 agente/diagnostico
+# lixo de build que o Next deixa quando alguém roda na pasta errada
+agente/.next
 
 # gerado no build (scripts/gerar-pacote-agente.mjs)
 lib/agente/pacote.ts

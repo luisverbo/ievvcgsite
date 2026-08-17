@@ -45,6 +45,21 @@ let proximaChecagemEm = 0;
 // seria movimento demais na conta — a cada ~2 minutos é ritmo de gente.
 let proximaEscutaEm = 0;
 
+/*
+ * Fecha o navegador do WhatsApp de propósito, na saída do serviço.
+ *
+ * Sem isto o systemd mandava SIGTERM, o node ignorava, e 90 segundos depois
+ * vinha o SIGKILL — que mata o node mas deixa o Chromium órfão SEGURANDO a
+ * pasta do perfil. Na volta, o agente novo não conseguia abrir a sessão e
+ * pedia QR: toda atualização derrubava o WhatsApp do cliente.
+ */
+export async function fecharSessaoZap(): Promise<void> {
+  if (!sessao) return;
+  const s = sessao;
+  sessao = null;
+  await s.fechar().catch(() => {});
+}
+
 export async function rodarAbordagem(headless: boolean, log: (m: string) => void): Promise<void> {
   const agoraMs = Date.now();
   // Ainda no intervalo entre mensagens: nada a fazer, e a fila de buscas

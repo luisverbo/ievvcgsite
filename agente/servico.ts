@@ -12,7 +12,7 @@ import os from "node:os";
 
 import * as api from "./api.ts";
 import { coletarDoGoogle } from "./coletor.ts";
-import { rodarAbordagem } from "./abordagem.ts";
+import { rodarAbordagem, fecharSessaoZap } from "./abordagem.ts";
 import { capturarInstagramDoProspecto } from "./capturaIg.ts";
 import { capturarEspelhoDoProspecto } from "./espelho.ts";
 
@@ -42,6 +42,31 @@ const faltaIg = () => Math.ceil((igLiberadoEm - Date.now()) / 60_000);
 const hora = () => new Date().toLocaleTimeString("pt-BR");
 const log = (msg: string) => console.log(`[${hora()}] ${msg}`);
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/*
+ * Saída limpa. `systemctl restart` manda SIGTERM; sem tratar, o node ignora,
+ * leva SIGKILL 90s depois e deixa o Chromium órfão segurando a pasta da
+ * sessão do WhatsApp — na volta o agente pedia QR de novo. Fechar o
+ * navegador aqui é o que faz uma atualização não custar a sessão.
+ */
+let encerrando = false;
+
+async function encerrar(sinal: string) {
+  if (encerrando) return;
+  encerrando = true;
+  log(`recebi ${sinal} — fechando o navegador e saindo`);
+  // Teto próprio: se o navegador travar, saímos assim mesmo. Melhor sair
+  // rápido e sem sessão presa do que esperar o SIGKILL.
+  await Promise.race([
+    fecharSessaoZap().catch(() => {}),
+    new Promise((r) => setTimeout(r, 8000)),
+  ]);
+  log("agente encerrado.");
+  process.exit(0);
+}
+
+process.on("SIGTERM", () => void encerrar("SIGTERM"));
+process.on("SIGINT", () => void encerrar("SIGINT"));
 
 if (!api.configurado()) {
   console.error(`\n❌ ${api.faltaConfig()}\n`);
@@ -154,6 +179,8 @@ async function main() {
 
   let ocioso = true;
   for (;;) {
+    // Desligando: não pega trabalho novo, deixa o encerrar() terminar.
+    if (encerrando) return;
     try {
       const tarefa = igEmDescanso()
         ? await api.proximaTarefa().then((t) => (t?.tipo === "instagram" ? null : t))
