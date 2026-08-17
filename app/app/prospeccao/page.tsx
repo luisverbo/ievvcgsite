@@ -119,6 +119,46 @@ export default async function ProspeccaoPage({
     }
   }
 
+  /*
+   * O Termômetro: aberturas do link único de cada lead. Quem abriu nas
+   * últimas 24h está QUENTE — e calor é informação com prazo de validade,
+   * então ela vai no topo do card, com a hora.
+   */
+  const aberturasPorProspecto = new Map<string, { total: number; ultima: string }>();
+  if (lista.length > 0) {
+    const { data: abRaw } = await supabase
+      .from("prospeccao_aberturas")
+      .select("prospecto_id, created_at")
+      .eq("org_id", org.id)
+      .in("prospecto_id", lista.map((p) => p.id))
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    for (const a of (abRaw as { prospecto_id: string; created_at: string }[] | null) ?? []) {
+      const atual = aberturasPorProspecto.get(a.prospecto_id);
+      if (atual) atual.total++;
+      else aberturasPorProspecto.set(a.prospecto_id, { total: 1, ultima: a.created_at });
+    }
+  }
+
+  // Lead quente fura a fila da nota: interesse demonstrado AGORA vale mais
+  // que potencial calculado. Entre dois quentes, o mais recente primeiro.
+  const calor = (id: string) => {
+    const ab = aberturasPorProspecto.get(id);
+    if (!ab) return 0;
+    return Date.now() - new Date(ab.ultima).getTime() < 24 * 3_600_000
+      ? new Date(ab.ultima).getTime()
+      : 0;
+  };
+  lista.sort((a, b) => calor(b.id) - calor(a.id));
+
+  const haQuanto = (iso: string) => {
+    const min = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+    if (min < 60) return `há ${min} min`;
+    const h = Math.round(min / 60);
+    if (h < 24) return `há ${h}h`;
+    return `há ${Math.round(h / 24)} dia${h >= 48 ? "s" : ""}`;
+  };
+
   const ROTULO_CLASSE: Record<string, { rotulo: string; classe: string }> = {
     interesse: { rotulo: "🎯 interessado", classe: "bg-ok/15 text-ok" },
     preco: { rotulo: "💰 perguntou o preço", classe: "bg-warn/15 text-warn" },
@@ -462,6 +502,26 @@ export default async function ProspeccaoPage({
                   </div>
 
                   {p.endereco && <p className="mt-0.5 text-xs text-paper-dim">📍 {p.endereco}</p>}
+
+                  {/* o Termômetro: o lead está olhando o site AGORA? */}
+                  {(() => {
+                    const ab = aberturasPorProspecto.get(p.id);
+                    if (!ab) return null;
+                    const quente = Date.now() - new Date(ab.ultima).getTime() < 24 * 3_600_000;
+                    return (
+                      <p
+                        className={`mt-2 inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-bold ${
+                          quente
+                            ? "anim-pulso-ok border-warn/50 bg-warn/10 text-warn"
+                            : "border-white/10 bg-white/5 text-paper-dim"
+                        }`}
+                      >
+                        {quente ? "🔥" : "👀"} abriu o site {ab.total === 1 ? "1 vez" : `${ab.total} vezes`} ·
+                        última {haQuanto(ab.ultima)}
+                        {quente && <span className="font-extrabold"> — liga agora!</span>}
+                      </p>
+                    );
+                  })()}
 
                   {/* a resposta que o agente escutou — a informação mais quente do card */}
                   {(() => {

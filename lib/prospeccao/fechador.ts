@@ -150,8 +150,24 @@ export async function dispararFechador(orgId: string, prospectoId: string): Prom
       .update({ fechador_gasto_micro: gasto + r.custo, fechador_mes: mesAtual })
       .eq("org_id", orgId);
 
+    /*
+     * O link enviado é ÚNICO deste lead (/p/codigo) — é o que liga o
+     * Termômetro: toda abertura daquele endereço é dele. O código nasce uma
+     * vez e não muda; se a coluna ainda não existir (migração pendente), cai
+     * no endereço interno comum, sem medir mas sem quebrar o envio.
+     */
     const base = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
-    const link = `${base}/ia/${slug}`;
+    let link = `${base}/ia/${slug}`;
+    let codigo = (p as { link_codigo?: string | null }).link_codigo ?? null;
+    if (!codigo) {
+      codigo = Math.random().toString(36).slice(2, 10);
+      const { error: eCod } = await admin
+        .from("prospeccao")
+        .update({ link_codigo: codigo })
+        .eq("id", p.id);
+      if (eCod) codigo = null;
+    }
+    if (codigo) link = `${base}/p/${codigo}`;
     const texto = montarMensagemFechamento(cfg.fechador_msg_modelo, p.nome, link);
 
     const { error } = await admin.from("prospeccao_mensagens").insert({
