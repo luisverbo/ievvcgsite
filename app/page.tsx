@@ -593,7 +593,7 @@ export default async function Home() {
 
               <div className="mt-8">
                 <Link
-                  href={LINK_ASSINATURA}
+                  href="/assinar/pro"
                   className="flex w-full items-center justify-center rounded-full border border-white/20 px-6 py-4 text-base font-bold text-paper transition hover:border-brand-2 hover:text-brand-2"
                 >
                   Começar no Pro →
@@ -632,7 +632,7 @@ export default async function Home() {
 
               <div className="mt-8">
                 <Link
-                  href={LINK_ASSINATURA}
+                  href="/assinar/agencia"
                   className="flex w-full items-center justify-center rounded-full bg-brand px-6 py-4 text-base font-bold text-white shadow-[0_10px_40px_-12px_rgba(108,92,231,0.9)] transition hover:-translate-y-0.5 hover:bg-brand-2"
                 >
                   Assinar o Agência →

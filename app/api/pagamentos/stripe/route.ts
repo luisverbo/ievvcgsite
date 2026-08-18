@@ -82,7 +82,33 @@ export async function POST(req: Request) {
       case "checkout.session.completed": {
         const s = evento.data.object;
         const orgId = s.metadata?.org_id ?? s.client_reference_id;
-        if (!orgId || s.metadata?.tipo !== "credito") break;
+        if (!orgId) break;
+
+        /*
+         * Assinatura fechada por LINK DE PAGAMENTO (buy.stripe.com), usada na
+         * venda na mão: manda-se o link com ?client_reference_id=<org_id>.
+         *
+         * O link não carrega metadata nossa, então a fatura que vem depois
+         * não teria como dizer de quem é o dinheiro — e o pagamento entraria
+         * sem liberar a conta, que é o pior defeito possível. Aqui gravamos o
+         * cliente da Stripe na organização; daí em diante o caminho normal
+         * (orgDaFatura pelo customer) reconhece esta e todas as renovações.
+         *
+         * Pelo site isso nem chega a ser necessário — /assinar/<plano> já
+         * nasce com o org_id na metadata. É rede de segurança para a venda
+         * feita fora do site.
+         */
+        if (s.mode === "subscription") {
+          const customer = typeof s.customer === "string" ? s.customer : s.customer?.id;
+          if (customer) {
+            await admin
+              .from("assinaturas")
+              .upsert({ org_id: orgId, stripe_customer_id: customer }, { onConflict: "org_id" });
+          }
+          break;
+        }
+
+        if (s.metadata?.tipo !== "credito") break;
         if (s.payment_status !== "paid") break;
 
         const creditos = Number(s.metadata?.creditos ?? 0);

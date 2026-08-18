@@ -9,7 +9,7 @@ import { inputClass, labelClass, fieldClass, btnPrimary } from "@/components/pai
  * são conversa para depois, dentro da ferramenta — cada campo a mais aqui é
  * gente desistindo antes de ver o produto.
  */
-export default function OnboardingForm() {
+export default function OnboardingForm({ de }: { de?: string }) {
   const [state, formAction, pending] = useActionState<OnboardingState, FormData>(
     criarOrganizacao,
     undefined,
@@ -17,6 +17,8 @@ export default function OnboardingForm() {
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      {/* leva adiante a intenção de assinar de quem veio do preço da landing */}
+      {de && <input type="hidden" name="de" value={de} />}
       <div className={fieldClass}>
         <label className={labelClass} htmlFor="nome_org">
           Nome da sua empresa ou projeto
@@ -37,7 +39,7 @@ export default function OnboardingForm() {
       {state?.error && <p className="text-sm text-danger">{state.error}</p>}
 
       <button type="submit" disabled={pending} className={`mt-2 w-fit ${btnPrimary}`}>
-        {pending ? "Criando…" : "Entrar no painel →"}
+        {pending ? "Criando…" : de ? "Continuar para o pagamento →" : "Entrar no painel →"}
       </button>
     </form>
   );

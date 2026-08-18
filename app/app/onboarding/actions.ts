@@ -42,5 +42,12 @@ export async function criarOrganizacao(
     return { error: error.message };
   }
 
-  redirect("/app");
+  /*
+   * Quem chegou aqui vindo do preço da landing tem `de=/assinar/<plano>`:
+   * agora que a organização existe, ele volta direto para o pagamento. Só
+   * caminhos internos passam — o campo vem do formulário.
+   */
+  const bruto = formData.get("de");
+  const de = typeof bruto === "string" && bruto.startsWith("/assinar") ? bruto : "/app";
+  redirect(de);
 }
