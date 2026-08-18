@@ -64,9 +64,101 @@ export const PASSOS: { numero: string; titulo: string; texto: string }[] = [
   },
   {
     numero: "04",
-    titulo: "Quem responder, ganha o site pronto",
+    titulo: "Quem responder, ganha o site na hora",
     texto:
-      "Na lista, o botão “Gerar site” cria a landing page daquela empresa em um clique — com o texto do ramo dela, as fotos do Instagram dela e o botão de WhatsApp funcionando. Você revisa, manda o link e cobra.",
+      "O agente entende a resposta e, se for interesse, o site daquela empresa nasce sozinho — com as fotos do Instagram dela — e a mensagem com o link fica pronta. Você revisa, manda e cobra. E depois vê quando ele abriu o site.",
+  },
+];
+
+/* ------------------------------ o ciclo ---------------------------------- *
+ * O que mudou no produto e precisa mudar no discurso: antes o agente parava
+ * em "puxou conversa". Agora ele fecha a volta inteira — escuta, entende,
+ * cria o site, entrega, mede e insiste. É a diferença entre vender uma
+ * ferramenta de prospecção e vender um vendedor que não dorme.
+ *
+ * Cada passo aqui existe de verdade no sistema. Nenhum é promessa futura —
+ * landing que promete o que não entrega gera reembolso, não venda.
+ * -------------------------------------------------------------------------- */
+
+export const CICLO: {
+  emoji: string;
+  titulo: string;
+  texto: string;
+  /* A frase curta que aparece como "prova" — o que o cliente vê na tela. */
+  prova: string;
+}[] = [
+  {
+    emoji: "🔎",
+    titulo: "Encontra quem precisa",
+    texto:
+      "Varre o Google Maps atrás das empresas do nicho e da região que você escolheu, e dá nota de 0 a 100 para cada uma. Quem não tem site pontua alto — é a venda mais fácil que existe.",
+    prova: "“Dentista · Barra da Tijuca — nota 94, só Instagram”",
+  },
+  {
+    emoji: "🧠",
+    titulo: "Escreve uma mensagem para cada uma",
+    texto:
+      "Você conta em três linhas quem é você e o que oferece. A IA escreve uma mensagem DIFERENTE para cada empresa, citando o ramo, o bairro e as avaliações dela. Mensagem única não tem cara de disparo — é a melhor proteção que existe para o seu número.",
+    prova: "Placar honesto: “seu modelo 11% · IA 19%” de resposta",
+  },
+  {
+    emoji: "👂",
+    titulo: "Escuta o que responderam",
+    texto:
+      "O agente vê a resposta chegar no WhatsApp e a IA entende o que ela quer dizer: interesse, pergunta de preço, dúvida ou recusa. O painel se marca sozinho — e quem pediu para não receber sai de todas as filas, para sempre, automaticamente.",
+    prova: "“Respondeu com interesse 🎯” aparece no card, com o texto dele",
+  },
+  {
+    emoji: "⚡",
+    titulo: "Cria o site e manda o link",
+    texto:
+      "Respondeu com interesse? O site daquela empresa nasce sozinho — com as fotos do Instagram dela — e a mensagem com o link fica pronta. Você escolhe até onde ele vai: só avisar, deixar pronto para você dar o clique, ou entregar sozinho.",
+    prova: "Com teto de gasto mensal que você define. Bateu, ele para e avisa.",
+  },
+  {
+    emoji: "🪞",
+    titulo: "Mostra o antes e o depois",
+    texto:
+      "Se a empresa já tem um site velho, o agente tira uma foto dele e monta uma página de comparação: o site de hoje de um lado, o novo funcionando do outro. Nenhum argumento de venda supera colocar os dois lado a lado.",
+    prova: "Uma página só, com o link pronto para mandar na conversa",
+  },
+  {
+    emoji: "🌡️",
+    titulo: "Avisa quando ele está olhando",
+    texto:
+      "Cada lead recebe um endereço exclusivo. Quando ele abre o site, você fica sabendo — e quantas vezes. Quem abriu três vezes hoje está pensando na proposta: é a hora de ligar, não amanhã.",
+    prova: "“Abriu o site 3 vezes · última há 20 min — liga agora!”",
+  },
+  {
+    emoji: "↩️",
+    titulo: "Insiste uma vez, com educação",
+    texto:
+      "A maioria dos leads não diz “não” — esquece. Quem ficar em silêncio recebe uma segunda mensagem, depois dos dias que você escolher. Uma só, para sempre: insistir duas vezes vira perseguição e derruba número.",
+    prova: "Com a saída fácil escrita no texto — quem recusa, sai da lista",
+  },
+  {
+    emoji: "📬",
+    titulo: "Te dá o resumo no fim do dia",
+    texto:
+      "No horário que você escolher, o agente te manda no WhatsApp o balanço do dia: quantas saíram, quem respondeu o quê, quais sites foram entregues e quem está com o site aberto agora. Dia parado não gera mensagem — quando o resumo chega, é porque teve novidade.",
+    prova: "Chega no seu WhatsApp como qualquer mensagem",
+  },
+];
+
+/* -------------------- depois da venda: o que segura o cliente ------------- */
+
+export const RETENCAO: { emoji: string; titulo: string; texto: string }[] = [
+  {
+    emoji: "📄",
+    titulo: "Relatório mensal, pronto para mandar",
+    texto:
+      "Quem paga a mensalidade não abre painel — vê a fatura chegar. Todo mês você manda um link que mostra, na língua dele: “143 pessoas visitaram seu site, 19 clicaram para falar com você”. É o que transforma o boleto em algo visível — e o que faz ele não cancelar.",
+  },
+  {
+    emoji: "📈",
+    titulo: "A IA lê as métricas e diz o que mudar",
+    texto:
+      "Ela cruza os números reais da página com o texto dela e devolve até três mudanças concretas, cada uma citando o número que a motivou: “62% param antes da metade — suba o botão de WhatsApp”. Um clique abre o pedido pronto para aplicar.",
   },
 ];
 
@@ -110,6 +202,7 @@ export const PILARES: {
       "Filtro por situação: sem site, só Instagram, site antigo",
       "Fotos e dados do Instagram da empresa entram no site que você gera para ela",
       "Da lista para a página pronta: um clique gera o site daquela empresa",
+      "Quem abriu o site que você mandou sobe para o topo da lista, com o 🔥 e o horário",
       "A lista é sua — exporta, filtra, organiza por status de conversa",
     ],
   },
@@ -121,10 +214,12 @@ export const PILARES: {
     texto:
       "De que adianta a lista se você não fala com ela? O sistema escreve a mensagem personalizada — nome da empresa, bairro, o que ela não tem — e envia pelo SEU WhatsApp, com limite diário e intervalo aleatório para parecer o que é: uma pessoa oferecendo um serviço. Você aprova mensagem por mensagem, ou deixa a fila andar sozinha e só responde quem se interessar.",
     detalhes: [
-      "Envio manual (você aprova cada uma) ou automático com limite diário",
-      "Intervalo humano entre mensagens — nada de rajada de robô",
+      "A IA escreve uma mensagem diferente para cada empresa — com placar comparando a conversão dela contra a do seu modelo",
+      "Envio manual (você aprova cada uma) ou automático com limite diário e intervalo humano",
+      "Ele ESCUTA a resposta e entende: interesse, preço, dúvida ou recusa — o painel se marca sozinho",
+      "Quem pede para não receber sai de todas as filas, para sempre, sem você fazer nada",
+      "Follow-up automático: quem ficou em silêncio recebe uma segunda mensagem. Uma só.",
       "O agente roda no seu computador: o número é seu, a conta é sua, o controle é seu",
-      "Quem responde já aparece marcado na lista, pronto para receber o link do site",
     ],
   },
   {
@@ -137,7 +232,8 @@ export const PILARES: {
     detalhes: [
       "Instrução de DNS pronta para o cliente (Registro.br, GoDaddy, Hostinger…)",
       "Certificado https automático, renovado sozinho",
-      "Métricas por site: visitas, cliques, horários — o relatório que justifica a mensalidade",
+      "Relatório mensal com link próprio: você manda, ele vê o que o site fez por ele — e não cancela",
+      "A IA lê as métricas da página e sugere o que mudar, com botão de aplicar",
       "Pixel do Facebook em um campo, para vender tráfego como serviço extra",
     ],
   },
@@ -198,6 +294,54 @@ export const RECURSOS: { icone: string; titulo: string; texto: string }[] = [
       "Visitas, cliques em cada botão, de onde veio a pessoa e a que horas. É com isso que você justifica a mensalidade e segura o cliente.",
   },
   {
+    icone: "👂",
+    titulo: "O agente escuta as respostas",
+    texto:
+      "Ele vê a resposta chegar e a IA entende: interesse, preço, dúvida ou recusa. O painel se marca sozinho — e quem pede para não receber sai de todas as filas para sempre.",
+  },
+  {
+    icone: "⚡",
+    titulo: "Site automático na resposta",
+    texto:
+      "Respondeu com interesse? O site nasce sozinho, com as fotos do Instagram dela, e a mensagem com o link fica pronta. Com teto de gasto que você define.",
+  },
+  {
+    icone: "🌡️",
+    titulo: "Você vê quando ele abre o site",
+    texto:
+      "Link exclusivo por lead: “abriu 3 vezes, a última há 20 minutos”. Quem está com o site aberto agora é para quem você liga hoje.",
+  },
+  {
+    icone: "🪞",
+    titulo: "O antes e o depois",
+    texto:
+      "O site velho da empresa de um lado, o novo funcionando do outro, na mesma página. É o argumento de venda que não precisa de texto.",
+  },
+  {
+    icone: "↩️",
+    titulo: "Follow-up automático",
+    texto:
+      "Quem não respondeu recebe uma segunda mensagem, uma única vez, no prazo que você escolher. Com a saída fácil escrita — quem recusa sai da lista sozinho.",
+  },
+  {
+    icone: "📬",
+    titulo: "Resumo diário no seu WhatsApp",
+    texto:
+      "No fim do dia, o balanço chega no seu celular: enviadas, respostas, sites entregues e os leads quentes. Dia parado não gera mensagem.",
+  },
+  {
+    icone: "📄",
+    titulo: "Relatório mensal do seu cliente",
+    texto:
+      "Um link que você manda todo mês mostrando o que o site fez por ele. É o que justifica a mensalidade e segura o contrato.",
+  },
+  {
+    icone: "📈",
+    titulo: "Otimizador de páginas",
+    texto:
+      "A IA lê as métricas reais e sugere até 3 mudanças concretas, citando o número que motivou cada uma. Um clique abre o pedido pronto.",
+  },
+  {
     icone: "📥",
     titulo: "Download do site em .zip",
     texto:
@@ -230,6 +374,21 @@ export const PERGUNTAS: { pergunta: string; resposta: string }[] = [
       "Os dados são públicos — os mesmos que aparecem quando você pesquisa no Google. O envio tem limite diário e intervalo aleatório justamente para não parecer robô, e você controla o ritmo. Ainda assim, use um chip separado: é a recomendação honesta para qualquer abordagem em volume.",
   },
   {
+    pergunta: "O agente cria o site sozinho? Quanto isso custa de crédito?",
+    resposta:
+      "Só quando o lead responde com interesse — que é o melhor momento possível, e o único em que vale gastar. Cada site automático custa cerca de US$0,55 do seu crédito, e você define um teto de gasto por mês: bateu o teto, ele para de gerar e avisa. Você também escolhe até onde ele vai sozinho: só te avisar, deixar o site e a mensagem prontos para você dar o clique, ou entregar sozinho na conversa. O padrão é desligado — quem liga é você.",
+  },
+  {
+    pergunta: "Como ele sabe que a pessoa abriu o site?",
+    resposta:
+      "Cada lead recebe um endereço exclusivo, só dele. Toda abertura daquele endereço é dele — e o sistema ainda descarta o robô de prévia do WhatsApp (que abre o link sozinho para montar o cartãozinho), as suas próprias visitas quando você está logado, e recarregadas em sequência. Sem isso, todo lead apareceria como “abriu na hora”, que é exatamente a informação errada. Não guardamos IP de ninguém.",
+  },
+  {
+    pergunta: "Isso não vira spam?",
+    resposta:
+      "As travas são de propósito e nenhuma delas dá para desligar: uma abordagem por empresa, um follow-up por empresa (só um, para sempre), limite diário, intervalo aleatório e opt-out definitivo — quem responde “não quero” sai de todas as filas na hora, automaticamente, e nenhuma fila futura consegue passar por cima disso. O texto padrão do follow-up já vem com a saída fácil escrita.",
+  },
+  {
     pergunta: "Quantos sites eu posso hospedar?",
     resposta:
       "O Pro hospeda 3 sites em domínio próprio; o Agência, 10. Passou disso, cada site a mais custa R$ 29,90 por mês, cobrado na sua assinatura — você aprova antes, e sai da conta sozinho se você desconectar o domínio. Como o mercado cobra de R$70 a R$150 pela mensalidade de um site, cada site extra ainda deixa lucro no seu bolso.",
@@ -237,7 +396,7 @@ export const PERGUNTAS: { pergunta: string; resposta: string }[] = [
   {
     pergunta: "Qual a diferença entre o Pro e o Agência?",
     resposta:
-      "O Pro é a fábrica: criar páginas com IA sem limite e hospedar até 3 sites em domínio próprio. O Agência é a fábrica MAIS o vendedor: prospecção no Google Maps com nota de potencial, abordagem automática no WhatsApp, fotos do Instagram das empresas, 10 sites hospedados e o triplo de crédito de IA. Se a sua dúvida é “onde vou achar cliente?”, a resposta é o Agência.",
+      "O Pro é a fábrica: criar páginas com IA sem limite, hospedar até 3 sites em domínio próprio, o otimizador que lê as métricas e o relatório mensal para os seus clientes. O Agência é a fábrica MAIS o vendedor completo: prospecção no Google Maps com nota de potencial, abordagem no WhatsApp com mensagem escrita pela IA, o agente que escuta as respostas, cria o site na hora, mostra quem abriu, faz o follow-up e te manda o resumo do dia — além de 10 sites hospedados e o triplo de crédito. Se a sua dúvida é “onde vou achar cliente?”, a resposta é o Agência.",
   },
   {
     pergunta: "Preciso deixar meu computador ligado?",
@@ -275,18 +434,28 @@ export const NO_PRO: string[] = [
   "Hospedagem de 3 sites em domínio próprio",
   "Fotos reais, versões e download em .zip",
   "Métricas de visitas e pixel do Facebook",
+  "Otimizador: a IA lê as métricas e sugere melhorias",
+  "Relatório mensal para mandar ao seu cliente",
 ];
 
+/*
+ * O Agência. Tudo que envolve o AGENTE mora aqui — em permissoes.ts é o
+ * recurso "prospeccao" que libera o pacote inteiro. A lista precisa bater
+ * com aquilo: prometer na landing o que a permissão bloqueia é reembolso.
+ */
 export const NO_PLANO: string[] = [
-  "Sites com IA ilimitados",
-  "US$15 de crédito de IA por mês (~30 páginas)",
-  "Prospecção no Google Maps",
+  "Tudo do Pro, com US$15 de crédito por mês (~30 páginas)",
+  "Prospecção no Google Maps com nota de potencial",
+  "Mensagem escrita pela IA para cada empresa, com placar de conversão",
   "Abordagem no WhatsApp (manual e automática)",
+  "O agente escuta as respostas e classifica sozinho",
+  "Site automático quando o lead responde, com teto de gasto",
+  "Termômetro: você vê quem abriu o site e quantas vezes",
+  "Comparação “hoje × amanhã” do site atual do lead",
+  "Follow-up automático de quem não respondeu",
+  "Resumo do dia no seu WhatsApp",
   "Captura de Instagram das empresas",
   // Precisa bater com PLANOS.agencia.sites em lib/painel/permissoes.ts.
   "Hospedagem de 10 sites em domínio próprio",
-  "Métricas de visitas e cliques",
-  "Download do site em .zip",
-  "Pixel do Facebook",
   "Suporte direto comigo",
 ];

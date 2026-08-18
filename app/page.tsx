@@ -2,9 +2,11 @@ import Link from "next/link";
 import {
   LINK_ASSINATURA,
   LINK_WHATSAPP,
+  CICLO,
   DORES,
   PASSOS,
   PILARES,
+  RETENCAO,
   PARA_QUEM,
   NAO_E_PARA,
   RECURSOS,
@@ -150,8 +152,9 @@ export default async function Home() {
 
             <p className="mx-auto mt-6 max-w-2xl text-lg text-paper-dim sm:text-xl">
               A IA escreve a landing page inteira a partir de uma frase sua. E um agente encontra as
-              empresas da sua cidade que ainda não têm site e puxa conversa com elas no seu
-              WhatsApp. Você só responde, fecha e cobra.
+              empresas da sua cidade que ainda não têm site, puxa conversa no seu WhatsApp,{" "}
+              <b className="text-paper">entende quem respondeu com interesse</b> e já cria o site
+              daquela empresa. Você chega, confere e cobra.
             </p>
 
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -343,38 +346,57 @@ export default async function Home() {
               </h2>
 
               <p className="mt-5 text-base leading-relaxed text-paper-dim sm:text-lg">
-                Todo criador de site do mercado faz uma coisa: espera você usar. Aqui é diferente —
-                você instala o agente uma vez e ele passa a trabalhar sozinho: varre o Google Maps
-                atrás de empresas sem site, lê o Instagram delas, monta a fila de abordagem e manda
-                as mensagens no seu WhatsApp, no ritmo que você definiu. Você abre o painel de manhã
-                e encontra a lista pronta e as conversas iniciadas.
+                Todo criador de site do mercado faz uma coisa: espera você usar. Aqui é diferente.
+                Você instala o agente uma vez e ele passa a trabalhar sozinho — e não para na
+                primeira mensagem: ele <b className="text-paper">escuta a resposta</b>, entende o
+                que a pessoa quis dizer, <b className="text-paper">cria o site dela na hora</b>,
+                entrega o link e ainda te avisa quando ela está com a página aberta. Você abre o
+                painel de manhã e encontra as conversas iniciadas, os sites prontos e a lista de
+                quem ligar hoje.
               </p>
 
-              <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                {[
-                  {
-                    e: "🔎",
-                    t: "Busca sozinho",
-                    d: "Você deixa a busca na fila e vai dormir. Ele varre, pontua e organiza.",
-                  },
-                  {
-                    e: "📸",
-                    t: "Estuda a empresa",
-                    d: "Lê o Instagram dela e traz as fotos que vão para o site que você vai vender.",
-                  },
-                  {
-                    e: "💬",
-                    t: "Puxa conversa",
-                    d: "Manda a primeira mensagem, espera, e te avisa quem respondeu.",
-                  },
-                ].map((c) => (
-                  <div key={c.t} className="rounded-2xl border border-white/10 bg-ink p-5">
-                    <span className="text-2xl">{c.e}</span>
-                    <h3 className="mt-3 text-base font-bold text-paper">{c.t}</h3>
-                    <p className="mt-1.5 text-sm leading-relaxed text-paper-dim">{c.d}</p>
-                  </div>
+              {/*
+                A volta completa, passo a passo. Antes esta seção parava em
+                "puxa conversa" — que era o produto de então. O trilho à
+                esquerda existe para o olho ler isto como um CICLO, não como
+                mais uma grade de recursos.
+              */}
+              <ol className="mt-10 flex flex-col">
+                {CICLO.map((c, i) => (
+                  <li key={c.titulo} className="relative flex gap-4 pb-7 last:pb-0 sm:gap-5">
+                    {/* o fio que liga um passo ao outro */}
+                    {i < CICLO.length - 1 && (
+                      <span
+                        aria-hidden
+                        className="absolute bottom-2 left-[19px] top-11 w-px bg-gradient-to-b from-brand-2/60 to-brand-2/10 sm:left-[23px]"
+                      />
+                    )}
+                    <span className="relative z-10 flex h-10 w-10 flex-none items-center justify-center rounded-full border border-brand-2/40 bg-ink text-lg sm:h-12 sm:w-12 sm:text-xl">
+                      {c.emoji}
+                    </span>
+                    <div className="min-w-0 flex-1 pt-1">
+                      <h3 className="text-base font-bold text-paper sm:text-lg">
+                        <span className="mr-2 text-xs font-bold tabular-nums text-brand-2">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        {c.titulo}
+                      </h3>
+                      <p className="mt-1.5 text-sm leading-relaxed text-paper-dim sm:text-base">
+                        {c.texto}
+                      </p>
+                      <p className="mt-2.5 inline-block rounded-lg border border-white/10 bg-ink px-3 py-1.5 text-xs text-brand-2">
+                        {c.prova}
+                      </p>
+                    </div>
+                  </li>
                 ))}
-              </div>
+              </ol>
+
+              <p className="mt-8 border-l-2 border-brand-2/60 pl-4 text-base leading-relaxed text-paper sm:text-lg">
+                Some tudo: enquanto seu concorrente ainda está escolhendo template, o seu agente já
+                falou com 20 empresas, entendeu quem quer, montou os sites e te disse em quem ligar
+                primeiro.
+              </p>
 
               {/*
                 A parte que a concorrência esconderia. Dizer aqui evita a
@@ -391,11 +413,41 @@ export default async function Home() {
                   <b className="text-paper">o WhatsApp é o seu número, na sua máquina</b> — nós
                   nunca temos acesso à sua conta, e ninguém te bloqueia por usar um número
                   compartilhado. A instalação é baixar, descompactar e dar dois cliques; o arquivo
-                  já vem configurado com a sua chave de acesso.
+                  já vem configurado com a sua chave de acesso.{" "}
+                  <b className="text-paper">E cada passo automático é opcional:</b> você escolhe se
+                  ele só avisa, se deixa tudo pronto para o seu clique, ou se entrega sozinho — com
+                  um teto de gasto mensal que você define.
                 </p>
               </div>
             </div>
           </div>
+        </section>
+
+        {/* -------------------------------------------------------------- */}
+        {/* depois da venda: o que transforma projeto em mensalidade        */}
+        {/* -------------------------------------------------------------- */}
+        <section className="border-t border-white/10 px-5 py-24">
+          <Secao
+            chapeu="Depois que você vende"
+            titulo="Vender é metade. A outra metade é ele não cancelar."
+            subtitulo="Site entregue é dinheiro uma vez. O que transforma isso em mensalidade é o cliente enxergar, todo mês, que o site está trabalhando — e é aqui que quase todo mundo perde o contrato em silêncio."
+          />
+          <div className="mx-auto mt-12 grid max-w-4xl gap-4 sm:grid-cols-2">
+            {RETENCAO.map((r) => (
+              <div
+                key={r.titulo}
+                className="rounded-2xl border border-white/10 bg-ink-2/60 p-6 transition hover:border-brand-2/40"
+              >
+                <span className="text-3xl">{r.emoji}</span>
+                <h3 className="mt-4 text-lg font-bold text-paper">{r.titulo}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-paper-dim">{r.texto}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mx-auto mt-6 max-w-4xl rounded-2xl border border-brand-2/30 bg-brand/10 px-5 py-4 text-center text-sm text-paper-dim">
+            💡 Um cliente que fica 12 meses vale o dobro de dois que ficam 6. É a conta mais
+            importante do negócio de hospedagem — e a única que ninguém te conta.
+          </p>
         </section>
 
         {/* -------------------------------------------------------------- */}
