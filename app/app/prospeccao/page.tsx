@@ -5,6 +5,7 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
 import Busca from "./Busca";
 import BuscaNome from "./BuscaNome";
+import SeletorPesquisa from "./SeletorPesquisa";
 import Fila from "./Fila";
 import Vigia from "./Vigia";
 import Robo from "@/components/painel/Robo";
@@ -425,70 +426,18 @@ export default async function ProspeccaoPage({
 
       {/*
         Uma pesquisa por vez é como a venda acontece — mas depois de dez
-        buscas os atalhos viravam uma parede de botões. Agora é um seletor:
-        fechado mostra só a escolha atual; aberto, a lista organizada com
-        nicho em destaque e a contagem à direita. <details> nativo — abre,
-        clica, a página recarrega filtrada e ele volta fechado sozinho.
-      */}
-      {/*
-        O open:z-30 não é enfeite: a animação de entrada cria um contexto de
-        empilhamento neste details E nos cards abaixo — sem levantar o
-        details inteiro quando aberto, o painel do seletor ficava PINTADO
-        ATRÁS dos cards, por ordem de DOM.
+        buscas os atalhos viravam uma parede de botões. O seletor é cliente
+        de propósito: com <details> puro ele não fechava ao escolher, porque
+        o Next navega sem recriar o DOM e o `open` sobrevivia à troca.
       */}
       {pesquisas.length > 1 && (
-        <details className="anim-entrada d4 group/busca relative open:z-30">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl border border-white/10 bg-ink-2 px-4 py-3 transition hover:border-white/25 [&::-webkit-details-marker]:hidden">
-            <span className="flex min-w-0 items-baseline gap-2">
-              <span className="flex-none text-xs font-semibold uppercase tracking-wide text-paper-dim">
-                Pesquisa:
-              </span>
-              <b className="truncate text-sm text-paper">
-                {busca === "todas"
-                  ? `Todas (${todos.length} empresas)`
-                  : (() => {
-                      const p = pesquisas.find((x) => x.chave === busca);
-                      return p ? `${p.rotulo} (${p.total})` : "Todas";
-                    })()}
-              </b>
-            </span>
-            <span className="flex-none text-xs font-bold text-paper-dim transition group-open/busca:rotate-180">
-              ▾
-            </span>
-          </summary>
-
-          <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-80 overflow-y-auto rounded-xl border border-white/15 bg-ink-2 p-2 shadow-[0_24px_70px_-20px_rgba(0,0,0,0.9)]">
-            <Link
-              href={`/app/prospeccao?f=${filtro}`}
-              className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition ${
-                busca === "todas" ? "bg-brand/20 font-bold text-paper" : "text-paper-dim hover:bg-white/5 hover:text-paper"
-              }`}
-            >
-              <span>Todas as pesquisas</span>
-              <span className="text-xs tabular-nums text-paper-dim">{todos.length}</span>
-            </Link>
-            {pesquisas.map((p) => {
-              const [nicho, local] = p.rotulo.split(" · ");
-              return (
-                <Link
-                  key={p.chave}
-                  href={`/app/prospeccao?f=${filtro}&b=${encodeURIComponent(p.chave)}`}
-                  className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition ${
-                    busca === p.chave
-                      ? "bg-brand/20 font-bold text-paper"
-                      : "text-paper-dim hover:bg-white/5 hover:text-paper"
-                  }`}
-                >
-                  <span className="min-w-0 truncate">
-                    <span className="text-paper">{nicho}</span>
-                    {local && <span className="text-paper-dim"> · {local}</span>}
-                  </span>
-                  <span className="flex-none text-xs tabular-nums text-paper-dim">{p.total}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </details>
+        <SeletorPesquisa
+          pesquisas={pesquisas}
+          busca={busca}
+          filtro={filtro}
+          total={todos.length}
+          q={procura ? (qBruto ?? "") : undefined}
+        />
       )}
 
       {todos.length > 0 && (
