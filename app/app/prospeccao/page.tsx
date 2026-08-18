@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
 import Busca from "./Busca";
+import BuscaNome from "./BuscaNome";
 import Fila from "./Fila";
 import Vigia from "./Vigia";
 import Robo from "@/components/painel/Robo";
@@ -62,16 +63,19 @@ function linkWhatsapp(telefone: string | null) {
 export default async function ProspeccaoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ f?: string; b?: string }>;
+  searchParams: Promise<{ f?: string; b?: string; q?: string }>;
 }) {
   if (!(await podeUsar("prospeccao"))) notFound();
   const org = await getMinhaOrg();
   if (!org) notFound();
-  const { f, b } = await searchParams;
+  const { f, b, q: qBruto } = await searchParams;
   const filtro = FILTROS.some((x) => x.chave === f) ? f! : "todos";
   // b = a busca que originou as empresas (nicho|local), para separar dentista
   // de advogado em vez de misturar tudo numa lista só.
   const busca = b ?? "todas";
+  // q = busca por nome, digitada na caixinha. Os curingas do ilike viram
+  // texto comum — "50%" busca "50%", não vira padrão.
+  const procura = (qBruto ?? "").trim().slice(0, 80).replace(/[%_]/g, "\\$&");
 
   const supabase = await createClient();
   let q = supabase
@@ -85,6 +89,7 @@ export default async function ProspeccaoPage({
     const [nicho, local] = busca.split("|");
     q = q.eq("nicho_busca", nicho).eq("local_busca", local);
   }
+  if (procura) q = q.ilike("nome", `%${procura}%`);
   const { data } = await q;
   const lista = (data as ProspectoRow[] | null) ?? [];
   const espelhoLigado = await funcaoLigada("espelho");
@@ -481,20 +486,23 @@ export default async function ProspeccaoPage({
       )}
 
       {todos.length > 0 && (
-        <div className="flex flex-wrap gap-1 rounded-lg border border-white/10 bg-ink-2 p-1">
-          {FILTROS.map((x) => (
-            <Link
-              key={x.chave}
-              href={`/app/prospeccao?f=${x.chave}${busca !== "todas" ? `&b=${encodeURIComponent(busca)}` : ""}`}
-              className={`rounded-md px-3 py-1.5 text-sm font-bold transition ${
-                filtro === x.chave
-                  ? "bg-brand text-white"
-                  : "text-paper-dim hover:bg-white/10 hover:text-paper"
-              }`}
-            >
-              {x.rotulo}
-            </Link>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap gap-1 rounded-lg border border-white/10 bg-ink-2 p-1">
+            {FILTROS.map((x) => (
+              <Link
+                key={x.chave}
+                href={`/app/prospeccao?f=${x.chave}${busca !== "todas" ? `&b=${encodeURIComponent(busca)}` : ""}${procura ? `&q=${encodeURIComponent(qBruto ?? "")}` : ""}`}
+                className={`rounded-md px-3 py-1.5 text-sm font-bold transition ${
+                  filtro === x.chave
+                    ? "bg-brand text-white"
+                    : "text-paper-dim hover:bg-white/10 hover:text-paper"
+                }`}
+              >
+                {x.rotulo}
+              </Link>
+            ))}
+          </div>
+          <BuscaNome />
         </div>
       )}
 
@@ -502,7 +510,9 @@ export default async function ProspeccaoPage({
         <p className={`${cardClass} text-sm text-paper-dim`}>
           {todos.length === 0
             ? "Nenhuma empresa ainda. Faça a primeira busca aí em cima."
-            : "Nenhuma empresa neste filtro."}
+            : procura
+              ? `Nenhuma empresa com “${qBruto}” neste filtro.`
+              : "Nenhuma empresa neste filtro."}
         </p>
       ) : (
         <div className="flex flex-col gap-3">

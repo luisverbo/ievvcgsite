@@ -31,6 +31,14 @@ const ROTULO_TIPO: Record<string, string> = {
   followup: "↩️ follow-up",
 };
 
+// O nível do Fechador em uma palavra, para o chip das configurações.
+const ROTULO_NIVEL: Record<string, string> = {
+  desligado: "desligado",
+  avisar: "só avisar",
+  preparar: "preparar ⭐",
+  fechar: "fechar sozinho",
+};
+
 const ROTULO_MSG: Record<string, string> = {
   pendente: "Aguardando",
   enviada: "Enviada ✓",
@@ -298,6 +306,272 @@ export default function Painel({
         </p>
       </div>
 
+      {/* ------------------------- escolher ----------------------------- */}
+      <form action={prepararFila} className={`anim-entrada d3 ${cardClass}`}>
+        <h2 className="mb-1 text-lg font-bold">Quem abordar ({candidatos.length} disponíveis)</h2>
+        <p className="mb-3 text-sm text-paper-dim">
+          Só aparecem empresas com celular e que ainda não foram abordadas, da maior nota para a
+          menor.
+        </p>
+
+        {pesquisas.length > 1 && (
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPesquisa("todas")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                pesquisa === "todas"
+                  ? "bg-brand text-white"
+                  : "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
+              }`}
+            >
+              Todas ({candidatos.length})
+            </button>
+            {pesquisas.map((p) => (
+              <button
+                key={p.chave}
+                type="button"
+                onClick={() => setPesquisa(p.chave)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                  pesquisa === p.chave
+                    ? "bg-brand text-white"
+                    : "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
+                }`}
+              >
+                {p.rotulo} ({p.total})
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="mb-2 flex flex-wrap items-center gap-3 text-xs">
+          <button
+            type="button"
+            onClick={() => setMarcados(new Set(visiveis.map((c) => c.id)))}
+            className="font-bold text-brand-2 underline transition hover:text-paper"
+          >
+            Marcar as {visiveis.length} desta lista
+          </button>
+          {marcados.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setMarcados(new Set())}
+              className="text-paper-dim underline transition hover:text-paper"
+            >
+              limpar seleção
+            </button>
+          )}
+        </div>
+
+        <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
+          {visiveis.length === 0 && (
+            <p className="text-sm text-paper-dim">
+              {candidatos.length === 0
+                ? "Nenhuma empresa disponível. Faça uma busca na aba Prospecção primeiro."
+                : "Nenhuma empresa nesta pesquisa — todas já foram abordadas."}
+            </p>
+          )}
+          {visiveis.map((p) => {
+            const fx = faixa(p.pontuacao);
+            return (
+              <label
+                key={p.id}
+                className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 px-3 py-2 transition hover:border-white/25"
+              >
+                <input
+                  type="checkbox"
+                  name="prospecto"
+                  value={p.id}
+                  checked={marcados.has(p.id)}
+                  onChange={() => alternar(p.id)}
+                  className="h-4 w-4 flex-none accent-[var(--color-brand)]"
+                />
+                <span className={`w-8 flex-none text-sm font-extrabold ${fx.classe}`}>
+                  {p.pontuacao}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm">{p.nome}</span>
+                <span className="flex-none text-xs text-paper-dim">{p.telefone}</span>
+              </label>
+            );
+          })}
+        </div>
+
+        {cerebroLigado && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <input type="hidden" name="estrategia" value={estrategia} />
+            {(
+              [
+                {
+                  valor: "modelo" as const,
+                  rotulo: "Usar meu modelo",
+                  desc: "O texto lá de cima, com as variações [a|b].",
+                },
+                {
+                  valor: "ia" as const,
+                  rotulo: "🧠 IA escreve uma por lead",
+                  desc: temBriefing
+                    ? `Uma mensagem única para cada — ~US$${(Math.max(1, marcados.size) * 0.002).toFixed(2).replace(".", ",")} no total.`
+                    : "Preencha o briefing no card 🧠 primeiro.",
+                },
+              ]
+            ).map((e) => {
+              const bloqueada = e.valor === "ia" && !temBriefing;
+              return (
+                <label
+                  key={e.valor}
+                  className={`flex items-start gap-2 rounded-xl border px-3 py-2 transition ${
+                    bloqueada
+                      ? "cursor-not-allowed border-white/5 opacity-50"
+                      : estrategia === e.valor
+                        ? "cursor-pointer border-brand-2 bg-brand/15"
+                        : "cursor-pointer border-white/10 hover:border-white/25"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    checked={estrategia === e.valor}
+                    disabled={bloqueada}
+                    onChange={() => setEstrategia(e.valor)}
+                    className="mt-0.5 h-4 w-4 flex-none accent-[var(--color-brand)]"
+                  />
+                  <span>
+                    <span className="block text-xs font-bold text-paper">{e.rotulo}</span>
+                    <span className="mt-0.5 block text-[11px] text-paper-dim">{e.desc}</span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <span className="text-sm text-paper-dim">{marcados.size} selecionadas</span>
+          <button
+            type="submit"
+            name="modo"
+            value="semi"
+            disabled={preparando || marcados.size === 0}
+            className="rounded-lg border border-white/15 px-5 py-2.5 text-sm font-bold text-paper transition hover:border-white/40 disabled:opacity-50"
+          >
+            Preparar para eu enviar
+          </button>
+          <button
+            type="submit"
+            name="modo"
+            value="auto"
+            disabled={preparando || marcados.size === 0}
+            className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-50"
+          >
+            {preparando
+              ? estrategia === "ia"
+                ? "🧠 A IA está escrevendo…"
+                : "Enfileirando…"
+              : "Enviar automático"}
+          </button>
+        </div>
+        {filaEstado?.error && <p className="mt-2 text-sm text-danger">{filaEstado.error}</p>}
+        {filaEstado?.ok && <p className="mt-2 text-sm text-ok">✅ {filaEstado.ok}</p>}
+      </form>
+
+      {/* ------------------------- semi: enviar ------------------------- */}
+      {semi.length > 0 && (
+        <div className={`anim-entrada d2 ${cardClass}`}>
+          <h2 className="mb-3 text-lg font-bold">Prontas para você enviar ({semi.length})</h2>
+          <div className="flex flex-col gap-2">
+            {semi.map((m) => (
+              <div key={m.id} className="rounded-lg border border-white/10 p-3">
+                <p className="mb-1 text-sm font-bold">
+                  {nomePorProspecto[m.prospecto_id] ?? "Empresa"}{" "}
+                  <span className="font-normal text-paper-dim">· {m.telefone}</span>
+                  {m.tipo && m.tipo !== "abordagem" && (
+                    <span className="ml-2 rounded-md bg-brand/20 px-1.5 py-0.5 text-[10px] font-bold text-brand-2">
+                      {ROTULO_TIPO[m.tipo]}
+                    </span>
+                  )}
+                </p>
+                <p className="whitespace-pre-line rounded-md bg-black/30 p-2.5 text-xs text-paper-dim">
+                  {m.texto}
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <a
+                    href={`https://wa.me/${m.telefone}?text=${encodeURIComponent(m.texto)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-lg bg-ok/20 px-4 py-2 text-xs font-bold text-ok transition hover:bg-ok/30"
+                  >
+                    Abrir no WhatsApp →
+                  </a>
+                  <form action={marcarEnviada.bind(null, m.id)}>
+                    <button
+                      type="submit"
+                      className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold text-paper-dim transition hover:border-white/40 hover:text-paper"
+                    >
+                      Já enviei
+                    </button>
+                  </form>
+                  <form action={cancelarMensagem.bind(null, m.id)}>
+                    <button
+                      type="submit"
+                      className="rounded-lg px-3 py-2 text-xs text-paper-dim transition hover:text-danger"
+                    >
+                      descartar
+                    </button>
+                  </form>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* -------------------- configurações (recolhidas) ----------------- */}
+      {/*
+        Tudo que se configura UMA vez mora atrás deste recolhível: mensagem,
+        Fechador, cérebro, follow-up e resumo. O trabalho de todo dia (quem
+        abordar, prontas para enviar) fica acima, sem rolagem. Nasce aberto
+        só na primeira visita — enquanto o nome do remetente não existe.
+      */}
+      <details
+        open={!config.remetente_nome}
+        className="anim-entrada d3 group/cfg rounded-xl border border-white/10 bg-ink-2"
+      >
+        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 p-5 [&::-webkit-details-marker]:hidden">
+          <span className="min-w-0 flex-1">
+            <span className="block text-lg font-bold">⚙️ Configurações da abordagem</span>
+            <span className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
+              <span className={`rounded-md px-2 py-0.5 ${config.remetente_nome ? "bg-ok/15 text-ok" : "bg-warn/15 text-warn"}`}>
+                ✍️ mensagem {config.remetente_nome ? "✓" : "sem remetente"}
+              </span>
+              {fechadorLigado && (
+                <span className={`rounded-md px-2 py-0.5 ${nivelFech !== "desligado" ? "bg-ok/15 text-ok" : "bg-white/10 text-paper-dim"}`}>
+                  🤝 Fechador: {ROTULO_NIVEL[nivelFech]}
+                </span>
+              )}
+              {cerebroLigado && (
+                <span className={`rounded-md px-2 py-0.5 ${temBriefing ? "bg-ok/15 text-ok" : "bg-white/10 text-paper-dim"}`}>
+                  🧠 {temBriefing ? "briefing salvo" : "sem briefing"}
+                </span>
+              )}
+              {followupLigado && (
+                <span className={`rounded-md px-2 py-0.5 ${fupLigado ? "bg-ok/15 text-ok" : "bg-white/10 text-paper-dim"}`}>
+                  ↩️ follow-up {fupLigado ? `em ${config.followup_dias}d` : "desligado"}
+                </span>
+              )}
+              {resumoLigado && (
+                <span className={`rounded-md px-2 py-0.5 ${config.resumo_zap ? "bg-ok/15 text-ok" : "bg-white/10 text-paper-dim"}`}>
+                  📬 resumo {config.resumo_zap ? `às ${config.resumo_hora}h` : "desligado"}
+                </span>
+              )}
+            </span>
+          </span>
+          <span className="flex-none text-xs font-bold text-paper-dim transition group-open/cfg:hidden">
+            ajustar ▾
+          </span>
+          <span className="hidden flex-none text-xs font-bold text-paper-dim group-open/cfg:inline">
+            fechar ▴
+          </span>
+        </summary>
+        <div className="flex flex-col gap-6 px-5 pb-5">
       {/* ------------------------- a mensagem --------------------------- */}
       <form action={salvarCfg} className={`anim-entrada d2 ${cardClass}`}>
         <h2 className="mb-1 text-lg font-bold">A mensagem</h2>
@@ -804,223 +1078,8 @@ export default function Painel({
         </form>
       )}
 
-      {/* ------------------------- escolher ----------------------------- */}
-      <form action={prepararFila} className={`anim-entrada d3 ${cardClass}`}>
-        <h2 className="mb-1 text-lg font-bold">Quem abordar ({candidatos.length} disponíveis)</h2>
-        <p className="mb-3 text-sm text-paper-dim">
-          Só aparecem empresas com celular e que ainda não foram abordadas, da maior nota para a
-          menor.
-        </p>
-
-        {pesquisas.length > 1 && (
-          <div className="mb-3 flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => setPesquisa("todas")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                pesquisa === "todas"
-                  ? "bg-brand text-white"
-                  : "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
-              }`}
-            >
-              Todas ({candidatos.length})
-            </button>
-            {pesquisas.map((p) => (
-              <button
-                key={p.chave}
-                type="button"
-                onClick={() => setPesquisa(p.chave)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                  pesquisa === p.chave
-                    ? "bg-brand text-white"
-                    : "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
-                }`}
-              >
-                {p.rotulo} ({p.total})
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="mb-2 flex flex-wrap items-center gap-3 text-xs">
-          <button
-            type="button"
-            onClick={() => setMarcados(new Set(visiveis.map((c) => c.id)))}
-            className="font-bold text-brand-2 underline transition hover:text-paper"
-          >
-            Marcar as {visiveis.length} desta lista
-          </button>
-          {marcados.size > 0 && (
-            <button
-              type="button"
-              onClick={() => setMarcados(new Set())}
-              className="text-paper-dim underline transition hover:text-paper"
-            >
-              limpar seleção
-            </button>
-          )}
         </div>
-
-        <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
-          {visiveis.length === 0 && (
-            <p className="text-sm text-paper-dim">
-              {candidatos.length === 0
-                ? "Nenhuma empresa disponível. Faça uma busca na aba Prospecção primeiro."
-                : "Nenhuma empresa nesta pesquisa — todas já foram abordadas."}
-            </p>
-          )}
-          {visiveis.map((p) => {
-            const fx = faixa(p.pontuacao);
-            return (
-              <label
-                key={p.id}
-                className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 px-3 py-2 transition hover:border-white/25"
-              >
-                <input
-                  type="checkbox"
-                  name="prospecto"
-                  value={p.id}
-                  checked={marcados.has(p.id)}
-                  onChange={() => alternar(p.id)}
-                  className="h-4 w-4 flex-none accent-[var(--color-brand)]"
-                />
-                <span className={`w-8 flex-none text-sm font-extrabold ${fx.classe}`}>
-                  {p.pontuacao}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-sm">{p.nome}</span>
-                <span className="flex-none text-xs text-paper-dim">{p.telefone}</span>
-              </label>
-            );
-          })}
-        </div>
-
-        {cerebroLigado && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            <input type="hidden" name="estrategia" value={estrategia} />
-            {(
-              [
-                {
-                  valor: "modelo" as const,
-                  rotulo: "Usar meu modelo",
-                  desc: "O texto lá de cima, com as variações [a|b].",
-                },
-                {
-                  valor: "ia" as const,
-                  rotulo: "🧠 IA escreve uma por lead",
-                  desc: temBriefing
-                    ? `Uma mensagem única para cada — ~US$${(Math.max(1, marcados.size) * 0.002).toFixed(2).replace(".", ",")} no total.`
-                    : "Preencha o briefing no card 🧠 primeiro.",
-                },
-              ]
-            ).map((e) => {
-              const bloqueada = e.valor === "ia" && !temBriefing;
-              return (
-                <label
-                  key={e.valor}
-                  className={`flex items-start gap-2 rounded-xl border px-3 py-2 transition ${
-                    bloqueada
-                      ? "cursor-not-allowed border-white/5 opacity-50"
-                      : estrategia === e.valor
-                        ? "cursor-pointer border-brand-2 bg-brand/15"
-                        : "cursor-pointer border-white/10 hover:border-white/25"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    checked={estrategia === e.valor}
-                    disabled={bloqueada}
-                    onChange={() => setEstrategia(e.valor)}
-                    className="mt-0.5 h-4 w-4 flex-none accent-[var(--color-brand)]"
-                  />
-                  <span>
-                    <span className="block text-xs font-bold text-paper">{e.rotulo}</span>
-                    <span className="mt-0.5 block text-[11px] text-paper-dim">{e.desc}</span>
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <span className="text-sm text-paper-dim">{marcados.size} selecionadas</span>
-          <button
-            type="submit"
-            name="modo"
-            value="semi"
-            disabled={preparando || marcados.size === 0}
-            className="rounded-lg border border-white/15 px-5 py-2.5 text-sm font-bold text-paper transition hover:border-white/40 disabled:opacity-50"
-          >
-            Preparar para eu enviar
-          </button>
-          <button
-            type="submit"
-            name="modo"
-            value="auto"
-            disabled={preparando || marcados.size === 0}
-            className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-50"
-          >
-            {preparando
-              ? estrategia === "ia"
-                ? "🧠 A IA está escrevendo…"
-                : "Enfileirando…"
-              : "Enviar automático"}
-          </button>
-        </div>
-        {filaEstado?.error && <p className="mt-2 text-sm text-danger">{filaEstado.error}</p>}
-        {filaEstado?.ok && <p className="mt-2 text-sm text-ok">✅ {filaEstado.ok}</p>}
-      </form>
-
-      {/* ------------------------- semi: enviar ------------------------- */}
-      {semi.length > 0 && (
-        <div className={`anim-entrada d2 ${cardClass}`}>
-          <h2 className="mb-3 text-lg font-bold">Prontas para você enviar ({semi.length})</h2>
-          <div className="flex flex-col gap-2">
-            {semi.map((m) => (
-              <div key={m.id} className="rounded-lg border border-white/10 p-3">
-                <p className="mb-1 text-sm font-bold">
-                  {nomePorProspecto[m.prospecto_id] ?? "Empresa"}{" "}
-                  <span className="font-normal text-paper-dim">· {m.telefone}</span>
-                  {m.tipo && m.tipo !== "abordagem" && (
-                    <span className="ml-2 rounded-md bg-brand/20 px-1.5 py-0.5 text-[10px] font-bold text-brand-2">
-                      {ROTULO_TIPO[m.tipo]}
-                    </span>
-                  )}
-                </p>
-                <p className="whitespace-pre-line rounded-md bg-black/30 p-2.5 text-xs text-paper-dim">
-                  {m.texto}
-                </p>
-                <div className="mt-2 flex gap-2">
-                  <a
-                    href={`https://wa.me/${m.telefone}?text=${encodeURIComponent(m.texto)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-lg bg-ok/20 px-4 py-2 text-xs font-bold text-ok transition hover:bg-ok/30"
-                  >
-                    Abrir no WhatsApp →
-                  </a>
-                  <form action={marcarEnviada.bind(null, m.id)}>
-                    <button
-                      type="submit"
-                      className="rounded-lg border border-white/15 px-3 py-2 text-xs font-bold text-paper-dim transition hover:border-white/40 hover:text-paper"
-                    >
-                      Já enviei
-                    </button>
-                  </form>
-                  <form action={cancelarMensagem.bind(null, m.id)}>
-                    <button
-                      type="submit"
-                      className="rounded-lg px-3 py-2 text-xs text-paper-dim transition hover:text-danger"
-                    >
-                      descartar
-                    </button>
-                  </form>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      </details>
 
       {/* --------------------------- histórico -------------------------- */}
       {/*
@@ -1070,39 +1129,52 @@ export default function Painel({
               </button>
             </form>
           </div>
+          {/* Agrupado por dia: 40 linhas corridas não contam história nenhuma;
+              "Hoje: 18 · Ontem: 22" conta. */}
           <div className="mt-2 flex flex-col gap-1.5">
-            {mensagens.slice(0, 40).map((m) => (
-              <div
-                key={m.id}
-                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-white/10 px-3 py-2 text-xs"
-              >
-                <span className="font-bold text-paper">
-                  {nomePorProspecto[m.prospecto_id] ?? m.telefone}
-                </span>
-                {m.tipo && m.tipo !== "abordagem" && (
-                  <span className="text-brand-2">{ROTULO_TIPO[m.tipo]}</span>
-                )}
-                <span
-                  className={
-                    m.status === "enviada"
-                      ? "text-ok"
-                      : m.status === "erro" || m.status === "sem_whatsapp"
-                        ? "text-danger"
-                        : "text-paper-dim"
-                  }
-                >
-                  {ROTULO_MSG[m.status]}
-                </span>
-                <span className="text-paper-dim">{m.modo === "auto" ? "automático" : "manual"}</span>
-                {m.erro && <span className="text-danger">{m.erro}</span>}
-                <span className="ml-auto text-paper-dim">
-                  {new Date(m.enviada_em ?? m.created_at).toLocaleString("pt-BR", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
+            {agruparPorDia(mensagens.slice(0, 40)).map((g) => (
+              <div key={g.rotulo} className="flex flex-col gap-1.5">
+                <p className="mt-2 flex items-baseline gap-2 text-[11px] font-bold uppercase tracking-wide text-paper-dim first:mt-0">
+                  {g.rotulo}
+                  <span className="font-normal normal-case">
+                    · {g.itens.length} {g.itens.length === 1 ? "mensagem" : "mensagens"}
+                  </span>
+                  <span className="h-px flex-1 bg-white/10" />
+                </p>
+                {g.itens.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-white/10 px-3 py-2 text-xs"
+                  >
+                    <span className="font-bold text-paper">
+                      {nomePorProspecto[m.prospecto_id] ?? m.telefone}
+                    </span>
+                    {m.tipo && m.tipo !== "abordagem" && (
+                      <span className="text-brand-2">{ROTULO_TIPO[m.tipo]}</span>
+                    )}
+                    <span
+                      className={
+                        m.status === "enviada"
+                          ? "text-ok"
+                          : m.status === "erro" || m.status === "sem_whatsapp"
+                            ? "text-danger"
+                            : "text-paper-dim"
+                      }
+                    >
+                      {ROTULO_MSG[m.status]}
+                    </span>
+                    <span className="text-paper-dim">
+                      {m.modo === "auto" ? "automático" : "manual"}
+                    </span>
+                    {m.erro && <span className="text-danger">{m.erro}</span>}
+                    <span className="ml-auto text-paper-dim">
+                      {new Date(m.enviada_em ?? m.created_at).toLocaleTimeString("pt-BR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                ))}
               </div>
             ))}
           </div>
@@ -1110,6 +1182,32 @@ export default function Painel({
       )}
     </div>
   );
+}
+
+/*
+ * Agrupa mensagens (já ordenadas da mais nova para a mais velha) por dia,
+ * com rótulo de gente: Hoje, Ontem, 15/08.
+ */
+function agruparPorDia(mensagens: MensagemRow[]) {
+  const rotuloDe = (iso: string) => {
+    const d = new Date(iso);
+    const hoje = new Date();
+    const ontem = new Date(hoje.getTime() - 86_400_000);
+    const mesmoDia = (a: Date, b: Date) =>
+      a.getDate() === b.getDate() && a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
+    if (mesmoDia(d, hoje)) return "Hoje";
+    if (mesmoDia(d, ontem)) return "Ontem";
+    return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  };
+
+  const grupos: { rotulo: string; itens: MensagemRow[] }[] = [];
+  for (const m of mensagens) {
+    const rotulo = rotuloDe(m.enviada_em ?? m.created_at);
+    const ultimo = grupos[grupos.length - 1];
+    if (ultimo && ultimo.rotulo === rotulo) ultimo.itens.push(m);
+    else grupos.push({ rotulo, itens: [m] });
+  }
+  return grupos;
 }
 
 function hojeInicio() {
