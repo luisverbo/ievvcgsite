@@ -1023,10 +1023,44 @@ export default function Painel({
       )}
 
       {/* --------------------------- histórico -------------------------- */}
+      {/*
+        Recolhido por padrão, de propósito: com o agente trabalhando, isto
+        vira uma lista de dezenas de linhas por dia — e o que interessa no
+        dia a dia (fila, respostas, prontas para enviar) mora acima dele.
+        O resumo no título já conta o placar sem precisar abrir.
+      */}
       {mensagens.length > 0 && (
-        <div className={`anim-entrada d4 ${cardClass}`}>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-bold">Histórico</h2>
+        <details className={`anim-entrada d4 ${cardClass} group/hist`}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+            <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <h2 className="text-lg font-bold">Histórico ({mensagens.length})</h2>
+              <span className="text-xs text-paper-dim">
+                {mensagens.filter((m) => m.status === "enviada").length} enviadas
+                {mensagens.some((m) => m.status === "erro" || m.status === "sem_whatsapp") && (
+                  <>
+                    {" "}
+                    ·{" "}
+                    <span className="text-danger">
+                      {
+                        mensagens.filter(
+                          (m) => m.status === "erro" || m.status === "sem_whatsapp",
+                        ).length
+                      }{" "}
+                      falharam
+                    </span>
+                  </>
+                )}
+              </span>
+            </span>
+            <span className="flex flex-none items-center gap-1 text-xs font-bold text-paper-dim transition group-open/hist:hidden">
+              mostrar <span aria-hidden>▾</span>
+            </span>
+            <span className="hidden flex-none items-center gap-1 text-xs font-bold text-paper-dim group-open/hist:flex">
+              esconder <span aria-hidden>▴</span>
+            </span>
+          </summary>
+
+          <div className="mt-3 flex items-center justify-end">
             <form action={limparEnviadas}>
               <button
                 type="submit"
@@ -1036,7 +1070,7 @@ export default function Painel({
               </button>
             </form>
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="mt-2 flex flex-col gap-1.5">
             {mensagens.slice(0, 40).map((m) => (
               <div
                 key={m.id}
@@ -1072,7 +1106,7 @@ export default function Painel({
               </div>
             ))}
           </div>
-        </div>
+        </details>
       )}
     </div>
   );

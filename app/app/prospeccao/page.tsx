@@ -236,9 +236,15 @@ export default async function ProspeccaoPage({
 
   const { data: todosRaw } = await supabase
     .from("prospeccao")
-    .select("status, pontuacao")
+    .select("status, pontuacao, telefone")
     .eq("org_id", org.id);
-  const todos = (todosRaw as { status: string; pontuacao: number }[] | null) ?? [];
+  const todos =
+    (todosRaw as { status: string; pontuacao: number; telefone: string | null }[] | null) ?? [];
+
+  // Quantas ainda esperam a primeira mensagem — o número do convite à abordagem.
+  const prontosParaAbordar = todos.filter(
+    (p) => p.status === "novo" && linkWhatsapp(p.telefone),
+  ).length;
 
   const stats = [
     { rotulo: "Empresas", valor: todos.length },
@@ -385,51 +391,93 @@ export default async function ProspeccaoPage({
       {todos.length > 0 && (
         <Link
           href="/app/prospeccao/abordagem"
-          className="anim-entrada d4 group flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-2/40 bg-brand/10 px-5 py-4 transition hover:-translate-y-0.5 hover:border-brand-2 hover:shadow-[0_16px_50px_-20px_rgba(108,92,231,0.8)]"
+          className="anim-entrada d4 group card-aurora flex flex-wrap items-center gap-4 rounded-2xl p-5 transition hover:-translate-y-0.5 hover:shadow-[0_16px_50px_-20px_rgba(108,92,231,0.8)]"
         >
-          <span>
-            <b className="text-paper">💬 Abordar no WhatsApp</b>
-            <span className="ml-2 text-sm text-paper-dim">
-              manda a primeira mensagem — manual ou automático
+          <Robo estado={prontosParaAbordar > 0 ? "novo" : "dormindo"} tamanho={52} />
+          <span className="min-w-0 flex-1">
+            <b className="block font-display text-lg font-extrabold text-paper">
+              Abordar no WhatsApp 💬
+            </b>
+            <span className="mt-0.5 block text-sm text-paper-dim">
+              {prontosParaAbordar > 0 ? (
+                <>
+                  <b className="text-paper">{prontosParaAbordar}</b>{" "}
+                  {prontosParaAbordar === 1
+                    ? "empresa com celular esperando"
+                    : "empresas com celular esperando"}{" "}
+                  a primeira mensagem — manual ou automático, no seu ritmo.
+                </>
+              ) : (
+                "Todas as empresas com celular já foram abordadas. Faça uma busca nova para encher a fila."
+              )}
             </span>
           </span>
-          <span className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition group-hover:bg-brand-2">
+          <span className="flex-none rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition group-hover:bg-brand-2">
             Abrir →
           </span>
         </Link>
       )}
 
+      {/*
+        Uma pesquisa por vez é como a venda acontece — mas depois de dez
+        buscas os atalhos viravam uma parede de botões. Agora é um seletor:
+        fechado mostra só a escolha atual; aberto, a lista organizada com
+        nicho em destaque e a contagem à direita. <details> nativo — abre,
+        clica, a página recarrega filtrada e ele volta fechado sozinho.
+      */}
       {pesquisas.length > 1 && (
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-paper-dim">
-            Por pesquisa
-          </p>
-          <div className="flex flex-wrap gap-1.5">
+        <details className="anim-entrada d4 group/busca relative">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl border border-white/10 bg-ink-2 px-4 py-3 transition hover:border-white/25 [&::-webkit-details-marker]:hidden">
+            <span className="flex min-w-0 items-baseline gap-2">
+              <span className="flex-none text-xs font-semibold uppercase tracking-wide text-paper-dim">
+                Pesquisa:
+              </span>
+              <b className="truncate text-sm text-paper">
+                {busca === "todas"
+                  ? `Todas (${todos.length} empresas)`
+                  : (() => {
+                      const p = pesquisas.find((x) => x.chave === busca);
+                      return p ? `${p.rotulo} (${p.total})` : "Todas";
+                    })()}
+              </b>
+            </span>
+            <span className="flex-none text-xs font-bold text-paper-dim transition group-open/busca:rotate-180">
+              ▾
+            </span>
+          </summary>
+
+          <div className="absolute left-0 right-0 top-full z-20 mt-2 max-h-80 overflow-y-auto rounded-xl border border-white/15 bg-ink-2 p-2 shadow-[0_24px_70px_-20px_rgba(0,0,0,0.9)]">
             <Link
               href={`/app/prospeccao?f=${filtro}`}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                busca === "todas"
-                  ? "bg-brand text-white"
-                  : "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
+              className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition ${
+                busca === "todas" ? "bg-brand/20 font-bold text-paper" : "text-paper-dim hover:bg-white/5 hover:text-paper"
               }`}
             >
-              Todas ({todos.length})
+              <span>Todas as pesquisas</span>
+              <span className="text-xs tabular-nums text-paper-dim">{todos.length}</span>
             </Link>
-            {pesquisas.map((p) => (
-              <Link
-                key={p.chave}
-                href={`/app/prospeccao?f=${filtro}&b=${encodeURIComponent(p.chave)}`}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                  busca === p.chave
-                    ? "bg-brand text-white"
-                    : "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
-                }`}
-              >
-                {p.rotulo} ({p.total})
-              </Link>
-            ))}
+            {pesquisas.map((p) => {
+              const [nicho, local] = p.rotulo.split(" · ");
+              return (
+                <Link
+                  key={p.chave}
+                  href={`/app/prospeccao?f=${filtro}&b=${encodeURIComponent(p.chave)}`}
+                  className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition ${
+                    busca === p.chave
+                      ? "bg-brand/20 font-bold text-paper"
+                      : "text-paper-dim hover:bg-white/5 hover:text-paper"
+                  }`}
+                >
+                  <span className="min-w-0 truncate">
+                    <span className="text-paper">{nicho}</span>
+                    {local && <span className="text-paper-dim"> · {local}</span>}
+                  </span>
+                  <span className="flex-none text-xs tabular-nums text-paper-dim">{p.total}</span>
+                </Link>
+              );
+            })}
           </div>
-        </div>
+        </details>
       )}
 
       {todos.length > 0 && (

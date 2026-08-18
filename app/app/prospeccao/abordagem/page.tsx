@@ -94,8 +94,29 @@ export default async function AbordagemPage() {
     (p) => telefoneWhatsapp(p.telefone) && !jaNaFila.has(p.id),
   );
 
+  /*
+   * Nome de TODO mundo que aparece na tela — não só dos "novos".
+   *
+   * A lista de prospectos acima filtra status "novo" (é a de quem ainda dá
+   * para abordar), mas o Histórico e as "Prontas para enviar" mostram gente
+   * que já saiu desse status — e sem esta segunda busca eles apareciam como
+   * número cru de telefone, que não diz nada a ninguém.
+   */
   const nomePorProspecto: Record<string, string> = {};
   for (const p of prospectos) nomePorProspecto[p.id] = p.nome;
+  const idsSemNome = [...new Set(mensagens.map((m) => m.prospecto_id))].filter(
+    (id) => id && !nomePorProspecto[id],
+  );
+  if (idsSemNome.length > 0) {
+    const { data: extras } = await supabase
+      .from("prospeccao")
+      .select("id, nome")
+      .eq("org_id", org.id)
+      .in("id", idsSemNome);
+    for (const e of (extras as { id: string; nome: string }[] | null) ?? []) {
+      nomePorProspecto[e.id] = e.nome;
+    }
+  }
 
   return (
     <div className="painel-wrap flex flex-col gap-6">
