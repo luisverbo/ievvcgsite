@@ -35,6 +35,10 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store",
+      // Mesmo sendo prévia do dono, o HTML é conteúdo de cliente rodando no
+      // domínio do painel — leva a mesma jaula das páginas publicadas.
+      "Content-Security-Policy":
+        "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals",
       // O rascunho não deve ser indexado nem embutido fora do painel.
       "X-Robots-Tag": "noindex",
     },

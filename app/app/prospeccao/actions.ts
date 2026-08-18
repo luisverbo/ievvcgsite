@@ -13,6 +13,7 @@ import { acharNicho } from "@/lib/prospeccao/nichos";
 import { IG_FILA_MAX, IG_LIMITE_DIA } from "@/lib/prospeccao/instagram";
 import { montarBriefingDoProspecto } from "@/lib/prospeccao/briefing";
 import { funcaoLigada } from "@/lib/painel/flags";
+import { codigoSeguro } from "@/lib/codigo";
 import type { ProspectoRow, StatusProspecto } from "@/lib/prospeccao/tipos";
 
 export type BuscaState = { ok?: string; error?: string } | undefined;
@@ -219,7 +220,7 @@ export async function pedirEspelho(id: string) {
   if (!p.link_codigo) {
     await supabase
       .from("prospeccao")
-      .update({ link_codigo: Math.random().toString(36).slice(2, 10) })
+      .update({ link_codigo: codigoSeguro() })
       .eq("id", id);
   }
 

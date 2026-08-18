@@ -62,6 +62,26 @@ if(ev)fbq('trackCustom',ev);else fbq('track','InitiateCheckout');});
 }
 
 
+/*
+ * A jaula das páginas de cliente servidas no NOSSO domínio.
+ *
+ * O HTML dessas páginas é escrito pelo cliente (via IA e via codigo_head) e
+ * roda em paginapro.com.br — o MESMO domínio do painel. Sem isto, qualquer
+ * script publicado por um cliente leria os cookies de sessão de quem
+ * estivesse logado ao abrir a página: um cliente malicioso publicaria um
+ * "site" que rouba a sessão de outro cliente — ou a do admin.
+ *
+ * `sandbox` sem allow-same-origin dá à página uma origem opaca: os scripts
+ * dela continuam rodando (animações, pixel, métricas), mas cookies e
+ * localStorage do domínio ficam INACESSÍVEIS. É a mesma jaula que o
+ * CodePen/JSFiddle usam para rodar código alheio.
+ *
+ * O domínio próprio do cliente (rota /dominio) NÃO leva a jaula: lá a página
+ * já está numa origem isolada por definição — o domínio é dele.
+ */
+export const CSP_PAGINA_CLIENTE =
+  "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals";
+
 export type SiteServivel = {
   id: string;
   org_id: string;

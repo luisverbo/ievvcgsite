@@ -8,8 +8,34 @@ import type { AnaliseSite } from "./score";
 // vivo e moderno (pula o prospect) ou um site velho/quebrado (continua sendo
 // oportunidade). Não é auditoria: é triagem.
 
+/*
+ * Endereço de rede interna não é site de empresa.
+ *
+ * A URL vem de cadastro público (OpenStreetMap/Google) — dado que qualquer
+ * um edita. Sem este filtro, um cadastro envenenado com "10.0.0.5" faria o
+ * NOSSO servidor (ou o agente, na casa do cliente) disparar requisições para
+ * dentro da rede onde roda. É o SSRF de manual, e a defesa é recusar o alvo.
+ */
+function enderecoInterno(endereco: string): boolean {
+  try {
+    const h = new URL(endereco).hostname.toLowerCase();
+    return (
+      /^(localhost|127\.|10\.|192\.168\.|169\.254\.|0\.0\.0\.0$)/.test(h) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
+      h === "::1" || h === "[::1]" ||
+      h.endsWith(".local") || h.endsWith(".internal") ||
+      !h.includes(".")
+    );
+  } catch {
+    return true;
+  }
+}
+
 export async function analisarSite(url: string): Promise<AnaliseSite> {
   const endereco = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+  if (enderecoInterno(endereco)) {
+    return { acessivel: false, responsivo: false, https: false };
+  }
 
   try {
     const res = await fetch(endereco, {

@@ -14,6 +14,7 @@ import { CUSTO_IMAGEM } from "@/lib/creditos/precos";
 import { gerarImagemLanding, subirImagemIA } from "@/lib/ia/imagens";
 import { listarImagensHtml, trocarImagemHtml, removerImagemHtml } from "@/lib/ia/html-imagens";
 import { analisarPagina } from "@/lib/ia/otimizador";
+import { codigoSeguro } from "@/lib/codigo";
 import { funcaoLigada } from "@/lib/painel/flags";
 
 export type SiteIA = {
@@ -230,7 +231,7 @@ export async function criarLinkRelatorio(siteIaId: string): Promise<{ codigo?: s
   if (site.relatorio_codigo) return { codigo: site.relatorio_codigo };
 
   // Longo o bastante para não ser adivinhado: o link é público, sem senha.
-  const codigo = `${Math.random().toString(36).slice(2, 10)}${Math.random().toString(36).slice(2, 8)}`;
+  const codigo = codigoSeguro(10);
   const { error } = await supabase
     .from("sites_ia")
     .update({ relatorio_codigo: codigo })

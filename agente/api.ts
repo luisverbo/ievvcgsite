@@ -12,12 +12,23 @@
 const BASE = (process.env.PAGINAPRO_URL || "").replace(/\/$/, "");
 const TOKEN = (process.env.PAGINAPRO_TOKEN || "").trim();
 
+/*
+ * O token identifica a conta inteira — por HTTP puro ele viaja legível para
+ * qualquer um no meio do caminho (o Wi-Fi do café, o provedor). Painel em
+ * http:// só vale apontando para a própria máquina, em desenvolvimento.
+ */
+const httpInseguro =
+  BASE.startsWith("http://") && !/^http:\/\/(localhost|127\.|\[::1\])/i.test(BASE);
+
 export function configurado(): boolean {
-  return !!BASE && !!TOKEN;
+  return !!BASE && !!TOKEN && !httpInseguro;
 }
 
 export function faltaConfig(): string {
   if (!BASE) return "Falta PAGINAPRO_URL no arquivo .env";
+  if (httpInseguro) {
+    return "PAGINAPRO_URL precisa começar com https:// — por http o seu código de acesso viaja aberto pela rede.";
+  }
   if (!TOKEN) return "Falta PAGINAPRO_TOKEN no arquivo .env";
   return "";
 }

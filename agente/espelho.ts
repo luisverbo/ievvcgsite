@@ -28,6 +28,30 @@ export async function capturarEspelhoDoProspecto(
   }
 
   const url = /^https?:\/\//i.test(p.website) ? p.website : `https://${p.website}`;
+
+  /*
+   * O endereço veio de fora (cadastro do Google Maps) e este navegador roda
+   * DENTRO da rede do cliente. Sem este filtro, um "website" apontando para
+   * 192.168.0.1 faria o agente fotografar o roteador da casa do cliente e
+   * subir o print para o Storage. Site de lead é site público — endereço de
+   * rede interna não passa.
+   */
+  let hostAlvo = "";
+  try {
+    hostAlvo = new URL(url).hostname.toLowerCase();
+  } catch {
+    return { ok: false, resumo: `endereço inválido: ${p.website}` };
+  }
+  const interno =
+    /^(localhost|127\.|10\.|192\.168\.|169\.254\.|0\.0\.0\.0$|\[?::1\]?$)/.test(hostAlvo) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostAlvo) ||
+    hostAlvo.endsWith(".local") ||
+    !hostAlvo.includes(".");
+  if (interno) {
+    await api.gravarEspelho({ id: prospectoId, ok: false, erro: "Endereço de rede interna — ignorado." });
+    return { ok: false, resumo: `endereço interno bloqueado (${hostAlvo})` };
+  }
+
   log(`abrindo ${url}`);
 
   const browser = await chromium.launch({

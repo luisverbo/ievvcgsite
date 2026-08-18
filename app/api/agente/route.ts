@@ -26,6 +26,21 @@ export const maxDuration = 300;
 const agora = () => new Date().toISOString();
 const j = (corpo: unknown, status = 200) => NextResponse.json(corpo, { status });
 
+/*
+ * Todo id vindo do agente passa por aqui ANTES de ser usado.
+ *
+ * Não é excesso de zelo: alguns ids entram em CAMINHO de Storage
+ * (`${org}/instagram/${id}/…`) — um id forjado como "../../outra-org/x"
+ * escaparia da pasta da própria organização. Com o formato UUID garantido,
+ * o caminho nunca sai do prefixo do dono do token.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const idValido = (v: unknown): string | null => (UUID.test(String(v ?? "")) ? String(v) : null);
+
+// Teto por foto/print. O agente honesto manda imagens de celular (< 1MB);
+// acima disso é erro ou abuso — e Storage cheio é conta nossa.
+const MAX_IMAGEM_BYTES = 4 * 1024 * 1024;
+
 export async function POST(req: Request) {
   const agente = await agenteDaRequisicao(req);
   if (!agente) return j({ erro: "Token inválido ou desativado." }, 401);
@@ -99,29 +114,36 @@ export async function POST(req: Request) {
         // A pontuação roda aqui, no servidor: é a régua que decide quem vale a
         // pena abordar, e não pode depender da versão do agente que o cliente
         // tem instalada.
+        // Teto de lote: uma busca real traz até ~120; mil de uma vez é abuso.
+        const empresas = Array.isArray(corpo.empresas)
+          ? (corpo.empresas as EmpresaEncontrada[]).slice(0, 300)
+          : [];
         const resumo = await pontuarEGravar(
           org,
-          String(corpo.nicho ?? ""),
-          String(corpo.local ?? ""),
-          (corpo.empresas as EmpresaEncontrada[]) ?? [],
+          String(corpo.nicho ?? "").slice(0, 80),
+          String(corpo.local ?? "").slice(0, 120),
+          empresas,
         );
         return j(resumo);
       }
 
       /* ------------------------------ instagram --------------------------- */
       case "prospecto_ig": {
+        const id = idValido(corpo.id);
+        if (!id) return j({ prospecto: null });
         const { data } = await admin
           .from("prospeccao")
           .select("id, nome, instagram, website")
-          .eq("id", String(corpo.id))
+          .eq("id", id)
           .eq("org_id", org)
           .maybeSingle();
         return j({ prospecto: data ?? null });
       }
 
       case "gravar_instagram": {
-        const id = String(corpo.id);
-        const status = String(corpo.status ?? "erro");
+        const id = idValido(corpo.id);
+        if (!id) return j({ erro: "Id inválido." }, 400);
+        const status = String(corpo.status ?? "erro").slice(0, 30);
 
         if (status !== "ok") {
           await admin
@@ -144,6 +166,11 @@ export async function POST(req: Request) {
         const fotos: { url: string; legenda?: string }[] = [];
 
         for (const [i, foto] of recebidas.slice(0, 9).entries()) {
+          // Teto ANTES de decodificar: decodificar 100MB de base64 para então
+          // recusar já seria o estrago de memória feito.
+          if (typeof foto.base64 !== "string" || foto.base64.length * 0.75 > MAX_IMAGEM_BYTES) {
+            continue;
+          }
           const buf = Buffer.from(foto.base64, "base64");
           if (buf.byteLength < 8_000) continue; // ícone ou imagem de erro
           const caminho = `${org}/instagram/${id}/${i}-${Date.now()}.jpg`;
@@ -175,14 +202,25 @@ export async function POST(req: Request) {
 
       /* ------------------------------ espelho ------------------------------ */
       case "gravar_espelho": {
-        const id = String(corpo.id);
+        const id = idValido(corpo.id);
+        if (!id) return j({ ok: false, erro: "Id inválido." });
         if (!corpo.ok) {
           // Print que falhou não apaga um que já deu certo — só encerra a tarefa.
           return j({ ok: true });
         }
-        const buf = Buffer.from(String(corpo.base64 ?? ""), "base64");
+        const b64 = String(corpo.base64 ?? "");
+        if (b64.length * 0.75 > MAX_IMAGEM_BYTES) return j({ ok: false, erro: "Print grande demais." });
+        const buf = Buffer.from(b64, "base64");
         if (buf.byteLength < 10_000) return j({ ok: false, erro: "Print vazio ou corrompido." });
-        if (buf.byteLength > 4_000_000) return j({ ok: false, erro: "Print grande demais." });
+
+        // O prospecto tem que ser da organização do token ANTES do upload —
+        // senão sobraria arquivo órfão gravado por um id que não é de ninguém.
+        const { count: meu } = await admin
+          .from("prospeccao")
+          .select("id", { count: "exact", head: true })
+          .eq("id", id)
+          .eq("org_id", org);
+        if ((meu ?? 0) === 0) return j({ ok: false, erro: "Empresa não encontrada." });
 
         const caminho = `${org}/espelho/${id}-${Date.now()}.jpg`;
         const { error: eUp } = await admin.storage
@@ -359,12 +397,21 @@ export async function POST(req: Request) {
       }
 
       case "zap_estado": {
-        const qr = corpo.qr as string | null | undefined;
+        /*
+         * O QR vira <img src> no painel do dono: só data-URI de imagem passa,
+         * com teto de tamanho — não é lugar de URL externa nem de lixo de 50MB.
+         */
+        let qr = corpo.qr as string | null | undefined;
+        if (typeof qr === "string" && (!qr.startsWith("data:image/") || qr.length > 3_000_000)) {
+          qr = null;
+        }
+        const estados = ["desconectado", "aguardando_qr", "conectado", "erro"];
+        const estado = String(corpo.estado ?? "desconectado");
         await admin.from("prospeccao_config").upsert(
           {
             org_id: org,
-            whatsapp_status: String(corpo.estado ?? "desconectado"),
-            whatsapp_mensagem: (corpo.mensagem as string) ?? null,
+            whatsapp_status: estados.includes(estado) ? estado : "erro",
+            whatsapp_mensagem: ((corpo.mensagem as string) ?? null)?.slice(0, 300) ?? null,
             ...(qr !== undefined ? { whatsapp_qr: qr } : {}),
             whatsapp_em: agora(),
           },

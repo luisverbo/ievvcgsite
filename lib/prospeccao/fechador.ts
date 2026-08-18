@@ -5,6 +5,7 @@ import { funcaoLigada } from "@/lib/painel/flags";
 import { gerarPaginaAutomatica } from "@/lib/ia/gerarAuto";
 import { montarBriefingDoProspecto } from "./briefing";
 import { slugify } from "@/lib/format";
+import { codigoSeguro } from "@/lib/codigo";
 import type { ProspectoRow } from "./tipos";
 
 /*
@@ -160,7 +161,7 @@ export async function dispararFechador(orgId: string, prospectoId: string): Prom
     let link = `${base}/ia/${slug}`;
     let codigo = (p as { link_codigo?: string | null }).link_codigo ?? null;
     if (!codigo) {
-      codigo = Math.random().toString(36).slice(2, 10);
+      codigo = codigoSeguro();
       const { error: eCod } = await admin
         .from("prospeccao")
         .update({ link_codigo: codigo })

@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { responderPagina, type SiteServivel } from "@/lib/ia/servir";
+import { responderPagina, CSP_PAGINA_CLIENTE, type SiteServivel } from "@/lib/ia/servir";
 
 /*
  * O link único do Fechador: /p/<codigo>.
@@ -95,5 +95,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ codigo: string 
   headers.set("Cache-Control", "no-store");
   // O lead pode encaminhar o link; o Google não precisa indexar uma prévia.
   headers.set("X-Robots-Tag", "noindex");
+  // HTML de cliente no nosso domínio roda enjaulado — ver CSP_PAGINA_CLIENTE.
+  headers.set("Content-Security-Policy", CSP_PAGINA_CLIENTE);
   return new Response(resposta.body, { status: resposta.status, headers });
 }

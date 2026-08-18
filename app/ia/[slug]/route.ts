@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { responderPagina, type SiteServivel } from "@/lib/ia/servir";
+import { responderPagina, CSP_PAGINA_CLIENTE, type SiteServivel } from "@/lib/ia/servir";
 
 // Serve a página gerada pela IA no endereço interno (/ia/slug). A montagem do
 // HTML (métricas, pixel, tags) vive em lib/ia/servir.ts, compartilhada com o
@@ -23,5 +23,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }
     return new Response("Não encontrado", { status: 404 });
   }
 
-  return responderPagina(site);
+  // No nosso domínio o HTML do cliente roda enjaulado — ver CSP_PAGINA_CLIENTE.
+  const resposta = responderPagina(site);
+  const headers = new Headers(resposta.headers);
+  headers.set("Content-Security-Policy", CSP_PAGINA_CLIENTE);
+  return new Response(resposta.body, { status: resposta.status, headers });
 }

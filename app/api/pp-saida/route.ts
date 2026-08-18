@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // Recebe o beacon de saída das páginas publicadas (sendBeacon não permite
 // headers, então o insert anônimo é feito aqui no servidor — a RLS permite
@@ -38,6 +39,20 @@ export async function POST(req: Request) {
     { auth: { persistSession: false } },
   );
 
+  /*
+   * O par (site, org) tem que EXISTIR — nas páginas de IA ou nas de blocos.
+   * Sem esta checagem, qualquer um com dois UUIDs forjados enche a métrica
+   * de outra conta de lixo (ou o banco de linhas órfãs). A conferência usa o
+   * admin client porque essas tabelas não têm (nem devem ter) leitura
+   * pública; o INSERT continua saindo pela anon key, dentro da RLS.
+   */
+  const admin = createAdminClient();
+  const [ia, blocos] = await Promise.all([
+    admin.from("sites_ia").select("id").eq("id", siteId).eq("org_id", orgId).maybeSingle(),
+    admin.from("sites").select("id").eq("id", siteId).eq("org_id", orgId).maybeSingle(),
+  ]);
+  if (!ia.data && !blocos.data) return NextResponse.json({ ok: false }, { status: 404 });
+
   await supabase.from("analytics_eventos").insert({
     org_id: orgId,
     site_id: siteId,
@@ -48,5 +63,21 @@ export async function POST(req: Request) {
     dados: { max_scroll: maxScroll, tempo_s: tempoS, zonas },
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, }, { headers: CORS });
+}
+
+/*
+ * CORS liberado de propósito: o beacon chega de páginas em origem opaca (a
+ * jaula `sandbox` das páginas de cliente) e dos domínios próprios — e este
+ * endpoint é público por natureza, protegido pela validação acima, não por
+ * origem. Sem o OPTIONS, o preflight do sendBeacon falharia em silêncio.
+ */
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+export function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS });
 }
