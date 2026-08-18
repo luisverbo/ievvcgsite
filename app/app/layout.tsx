@@ -33,11 +33,16 @@ export default async function PainelLayout({ children }: { children: React.React
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-40 h-14 border-b border-white/10 bg-ink/85 backdrop-blur">
-        <div className="mx-auto flex h-full max-w-[1400px] items-center gap-6 px-4 sm:px-6">
-          <Link href="/app" className="font-display text-lg font-extrabold">
+        <div className="mx-auto flex h-full max-w-[1400px] items-center gap-3 px-4 sm:gap-6 sm:px-6">
+          <Link href="/app" className="flex-none font-display text-lg font-extrabold">
             Página<span className="text-brand-2">Pro</span>
           </Link>
-          <nav className="flex items-center gap-1 text-sm">
+          {/*
+            No celular o menu ROLA para o lado em vez de estourar a tela ou
+            esconder metade das páginas atrás de um hambúrguer — os links
+            continuam a um toque, e o truque é invisível no desktop.
+          */}
+          <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto whitespace-nowrap text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <Link href="/app" className={linkClass}>
               Início
             </Link>
@@ -54,7 +59,7 @@ export default async function PainelLayout({ children }: { children: React.React
             <Link href="/app/creditos" className={linkClass}>
               Créditos
             </Link>
-            <Link href="/app/assinatura" className={`hidden sm:block ${linkClass}`}>
+            <Link href="/app/assinatura" className={linkClass}>
               Assinatura
             </Link>
             {/*
@@ -62,7 +67,7 @@ export default async function PainelLayout({ children }: { children: React.React
               canto direito parecia enfeite: ninguém adivinha que aquilo é
               clicável, e a tela de conta ficava invisível.
             */}
-            <Link href="/app/conta" className={`hidden md:block ${linkClass}`}>
+            <Link href="/app/conta" className={linkClass}>
               Minha conta
             </Link>
             {admin && (
@@ -82,7 +87,7 @@ export default async function PainelLayout({ children }: { children: React.React
               </>
             )}
           </nav>
-          <div className="ml-auto flex items-center gap-2 text-sm">
+          <div className="ml-auto flex flex-none items-center gap-2 text-sm">
             {/*
               O e-mail no topo é onde todo mundo procura a conta — então ele é
               o link, e não um texto decorativo. No celular sobra só o avatar.

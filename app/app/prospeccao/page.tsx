@@ -430,8 +430,14 @@ export default async function ProspeccaoPage({
         nicho em destaque e a contagem à direita. <details> nativo — abre,
         clica, a página recarrega filtrada e ele volta fechado sozinho.
       */}
+      {/*
+        O open:z-30 não é enfeite: a animação de entrada cria um contexto de
+        empilhamento neste details E nos cards abaixo — sem levantar o
+        details inteiro quando aberto, o painel do seletor ficava PINTADO
+        ATRÁS dos cards, por ordem de DOM.
+      */}
       {pesquisas.length > 1 && (
-        <details className="anim-entrada d4 group/busca relative">
+        <details className="anim-entrada d4 group/busca relative open:z-30">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl border border-white/10 bg-ink-2 px-4 py-3 transition hover:border-white/25 [&::-webkit-details-marker]:hidden">
             <span className="flex min-w-0 items-baseline gap-2">
               <span className="flex-none text-xs font-semibold uppercase tracking-wide text-paper-dim">

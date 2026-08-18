@@ -441,14 +441,15 @@ export default function Construtor({
     // (56px), em vez de fixed — que ficava escondido atrás do menu.
     <div className="flex h-[calc(100vh-56px)] flex-col bg-ink">
       {/* ------------------------------- topo ------------------------------ */}
-      <header className="flex flex-none items-center gap-3 border-b border-white/10 bg-ink-2 px-4 py-2.5">
+      {/* No celular a barra rola para o lado — botão nenhum some da tela. */}
+      <header className="flex flex-none items-center gap-3 overflow-x-auto border-b border-white/10 bg-ink-2 px-4 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <Link
           href="/app/ia"
           className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-paper-dim transition hover:bg-white/10 hover:text-paper"
         >
           <IconBack size={15} /> Voltar
         </Link>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[90px] flex-1">
           <h1 className="truncate text-sm font-bold">{site.titulo}</h1>
           <p className="truncate text-xs text-paper-dim">/ia/{site.slug}</p>
         </div>
@@ -646,9 +647,15 @@ export default function Construtor({
         </p>
       )}
 
-      <div className="flex min-h-0 flex-1">
+      {/*
+        No desktop, chat à esquerda e prévia ao lado. No celular não cabem
+        lado a lado (o chat sozinho já tem a largura da tela), então vira
+        pilha: prévia em cima, chat embaixo — como qualquer conversa, quem
+        digita fica perto do teclado.
+      */}
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* ------------------------------ chat ----------------------------- */}
-        <aside className="flex w-full max-w-sm flex-none flex-col border-r border-white/10 bg-ink-2">
+        <aside className="order-2 flex h-[52%] w-full flex-none flex-col border-t border-white/10 bg-ink-2 lg:order-none lg:h-auto lg:max-w-sm lg:border-r lg:border-t-0">
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
             {bolhas.length === 0 && !gerando && (
               <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-paper-dim">
@@ -818,7 +825,7 @@ export default function Construtor({
         </aside>
 
         {/* ----------------------------- prévia ---------------------------- */}
-        <main className="relative min-w-0 flex-1 overflow-auto bg-[#0b0d12] p-4">
+        <main className="order-1 relative min-h-0 min-w-0 flex-1 overflow-auto bg-[#0b0d12] p-4 lg:order-none">
           {html ? (
             <div
               className="mx-auto h-full overflow-hidden rounded-xl border border-white/10 bg-white shadow-2xl transition-all"
@@ -865,7 +872,7 @@ export default function Construtor({
           )}
 
           {mostrarImagens && (
-            <div className="absolute right-4 top-4 z-10 flex max-h-[85%] w-96 flex-col rounded-xl border border-white/10 bg-ink-2 p-4 shadow-2xl">
+            <div className="absolute right-4 top-4 z-10 flex max-h-[85%] w-96 max-w-[calc(100vw-2rem)] flex-col rounded-xl border border-white/10 bg-ink-2 p-4 shadow-2xl">
               <div className="mb-3 flex flex-none items-center justify-between">
                 <h2 className="text-sm font-bold">Imagens da página 🎨</h2>
                 <button
