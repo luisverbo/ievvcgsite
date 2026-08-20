@@ -25,6 +25,16 @@ const PAUSA_MS = Math.max(800, Number(process.env.AGENTE_PAUSA_MS) || 2500);
 const HEADLESS = process.env.AGENTE_HEADLESS !== "false";
 
 /*
+ * Modo estúdio: esta instância SÓ renderiza vídeo.
+ *
+ * Existe para o caso real de duas máquinas: a VPS cuida do WhatsApp e da
+ * prospecção 24h, e o PC — que é onde o MoneyPrinterTurbo está instalado —
+ * atende só a fila de vídeo. Sem isto, um segundo agente na mesma conta
+ * abriria outro WhatsApp e disputaria as buscas com a VPS.
+ */
+const SOMENTE_ESTUDIO = process.env.SOMENTE_ESTUDIO === "1";
+
+/*
  * Ritmo do Instagram.
  *
  * Leitura anônima aguenta pouca coisa: uma rajada de dez perfis em dois
@@ -177,6 +187,29 @@ async function main() {
 
   log(`agente "${AGENTE}" no ar · navegador ${HEADLESS ? "oculto" : "visível"}`);
   if (estudioLigado()) log(`🎬 Estúdio de Vídeos ligado — MoneyPrinterTurbo em ${process.env.MPT_URL}`);
+
+  /*
+   * Modo estúdio: laço curto e sozinho. Nada de WhatsApp, nada de buscas —
+   * esta máquina existe só para renderizar, e o outro agente (a VPS) segue
+   * dono da prospecção sem disputa.
+   */
+  if (SOMENTE_ESTUDIO) {
+    if (!estudioLigado()) {
+      console.error("\n❌ SOMENTE_ESTUDIO=1 mas falta MPT_URL no .env — não há o que fazer.\n");
+      process.exit(1);
+    }
+    log("modo estúdio: só vídeos (WhatsApp e prospecção ficam com o outro agente)");
+    for (;;) {
+      if (encerrando) return;
+      try {
+        await rodarEstudio((m) => log(`   ${m}`));
+      } catch (e) {
+        log(`⚠️  estúdio: ${(e as Error).message}`);
+      }
+      await espera(INTERVALO_MS);
+    }
+  }
+
   log(`checando a fila a cada ${INTERVALO_MS / 1000}s · pausa de ${PAUSA_MS}ms entre empresas`);
 
   let ocioso = true;
