@@ -79,3 +79,79 @@ ${JSON.stringify(formula, null, 2)}`;
     modelo: r.modelo,
   };
 }
+
+
+/*
+ * Adaptar UM vídeo específico: seguir de perto o que ele faz, com palavras
+ * próprias.
+ *
+ * A diferença para a fórmula: a fórmula abstrai o padrão de vários vídeos e
+ * escreve algo novo; aqui o modelo é UM vídeo, e o roteiro acompanha a mesma
+ * ordem de argumentos, as mesmas viradas e o mesmo ritmo — que é o que faz
+ * um vídeo funcionar de novo.
+ *
+ * O limite é escrito no prompt e não é decoração: reproduzir as frases do
+ * outro é a obra dele, e conteúdo duplicado é o caminho conhecido para
+ * alcance zero. Mesma espinha dorsal, texto próprio.
+ */
+const SYSTEM_ADAPTAR = `Você recria vídeos curtos que deram certo, em português do Brasil, para narração em off.
+
+Recebe a TRANSCRIÇÃO de um vídeo que viralizou e o ASSUNTO do vídeo novo. Seu trabalho é escrever um roteiro que SIGA DE PERTO o vídeo original: a mesma ordem de argumentos, os mesmos momentos de virada, o mesmo tipo de gancho e o mesmo ritmo.
+
+REGRAS INEGOCIÁVEIS:
+- Escreva com PALAVRAS PRÓPRIAS. É proibido reaproveitar frases da transcrição — nenhuma sequência de 6 palavras seguidas pode ser igual à do original. A estrutura é o que se aproveita; o texto é seu.
+- Se o ASSUNTO for diferente do vídeo original, transponha a mecânica para o novo assunto (o mesmo tipo de gancho, adaptado ao tema).
+- Se o ASSUNTO for igual ou vazio, escreva a SUA versão do mesmo tema.
+- Apenas o texto que será narrado: sem marcação de cena, sem indicação de tempo, sem emoji, sem título de seção — tudo isso seria lido em voz alta.
+- Frases curtas e faladas. No português falado, conte ~15 palavras por 10 segundos.
+- Não invente estatística, número, data nem estudo. Sem dado real, fale em termos gerais.
+
+TERMOS DE BUSCA: 4 a 6 palavras EM INGLÊS para achar clipes de banco de imagens. Palavras únicas, concretas e comuns ("office", "laptop", "handshake").
+
+Responda APENAS com JSON válido, sem markdown:
+{"titulo":"...","roteiro":"texto corrido da narração","termos":["office","laptop"]}`;
+
+export async function adaptarRoteiro(
+  transcricao: string,
+  assunto: string,
+  duracaoAlvoS: number,
+  tituloOriginal: string,
+): Promise<RoteiroGerado> {
+  const palavras = Math.round((duracaoAlvoS / 10) * 15);
+  const corpo = `VÍDEO ORIGINAL (título): ${tituloOriginal}
+
+ASSUNTO do vídeo novo: ${assunto.trim() || "o mesmo tema do original, na sua própria versão"}
+
+DURAÇÃO ALVO: ${duracaoAlvoS} segundos (cerca de ${palavras} palavras)
+
+TRANSCRIÇÃO do original (matéria de análise — não copie frases):
+${transcricao.slice(0, 10_000)}`;
+
+  const r = await chamarLLM("roteiro", SYSTEM_ADAPTAR, corpo, 3000);
+
+  const inicio = r.texto.indexOf("{");
+  const fim = r.texto.lastIndexOf("}");
+  if (inicio === -1 || fim <= inicio) {
+    throw new Error(
+      r.parou === "max_tokens"
+        ? `O modelo ${r.modelo} cortou a resposta — tente uma duração menor.`
+        : `O modelo ${r.modelo} não devolveu JSON. Tente de novo.`,
+    );
+  }
+  const bruto = JSON.parse(r.texto.slice(inicio, fim + 1)) as Partial<RoteiroGerado>;
+
+  const roteiro = String(bruto.roteiro ?? "").trim();
+  if (roteiro.length < 60) throw new Error("O roteiro veio curto demais — tente de novo.");
+
+  const termos = (Array.isArray(bruto.termos) ? bruto.termos : [])
+    .map((t) => String(t).trim().toLowerCase())
+    .filter((t) => t.length > 1 && /^[a-z0-9 ]+$/.test(t))
+    .slice(0, 6);
+
+  return {
+    titulo: String(bruto.titulo ?? (assunto || tituloOriginal)).trim().slice(0, 200),
+    roteiro,
+    termos: termos.length > 0 ? termos : ["business", "office", "people", "city"],
+    modelo: r.modelo,
+  };
+}

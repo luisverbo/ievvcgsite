@@ -6,7 +6,7 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { ehAdmin } from "@/lib/painel/admin";
 import { garimparYoutube, transcricaoDoYoutube, oembedTiktok } from "@/lib/estudio/youtube";
 import { dissecar, type EntradaDissecacao, type Formula } from "@/lib/estudio/dissecar";
-import { escreverRoteiro } from "@/lib/estudio/roteiro";
+import { escreverRoteiro, adaptarRoteiro } from "@/lib/estudio/roteiro";
 import { salvarModeloDaTarefa, type TarefaLLM } from "@/lib/estudio/llm";
 
 /*
@@ -223,6 +223,77 @@ export async function criarRoteiro(_prev: EstadoEstudio, formData: FormData): Pr
 
   revalidatePath("/app/estudio");
   return { ok: `Roteiro pronto: “${r.titulo}”. Revise abaixo e aprove para gerar.` };
+}
+
+/*
+ * Adaptar UM vídeo: usa a transcrição dele como molde do roteiro novo.
+ *
+ * Busca a transcrição na hora se ainda não tiver — é o caminho de quem
+ * garimpou e quer partir direto para o roteiro, sem passar por fórmula.
+ */
+export async function criarRoteiroDeVideo(
+  _prev: EstadoEstudio,
+  formData: FormData,
+): Promise<EstadoEstudio> {
+  const ctx = await admDono();
+  if (!ctx) return { error: "Sem permissão." };
+
+  const achadoId = String(formData.get("achado_id") ?? "");
+  const assunto = String(formData.get("assunto") ?? "").trim();
+  const duracao = Math.min(180, Math.max(15, Number(formData.get("duracao")) || 45));
+  const dezesseisPorNove = String(formData.get("formato_16x9") ?? "") === "1";
+
+  const { data: aRaw } = await ctx.admin
+    .from("estudio_achados")
+    .select("id, titulo, transcricao, tema, video_id, fonte")
+    .eq("id", achadoId)
+    .eq("org_id", ctx.orgId)
+    .maybeSingle();
+  const a = aRaw as {
+    id: string;
+    titulo: string | null;
+    transcricao: string | null;
+    tema: string;
+    video_id: string;
+    fonte: string;
+  } | null;
+  if (!a) return { error: "Vídeo não encontrado." };
+
+  let transcricao = a.transcricao;
+  if (!transcricao && a.fonte === "youtube") {
+    transcricao = await transcricaoDoYoutube(a.video_id);
+    if (transcricao) {
+      await ctx.admin.from("estudio_achados").update({ transcricao }).eq("id", a.id);
+    }
+  }
+  if (!transcricao) {
+    return {
+      error:
+        "Este vídeo não tem transcrição disponível (o dono desligou as legendas). Use a dissecação por fórmula, ou cole a transcrição na mão.",
+    };
+  }
+
+  let r;
+  try {
+    r = await adaptarRoteiro(transcricao, assunto, duracao, a.titulo ?? a.tema);
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const { error } = await ctx.admin.from("estudio_projetos").insert({
+    org_id: ctx.orgId,
+    titulo: r.titulo,
+    tema: a.tema,
+    roteiro: r.roteiro,
+    termos: r.termos,
+    status: "roteiro_pronto",
+    formato_16x9: dezesseisPorNove,
+    duracao_alvo_s: duracao,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/estudio");
+  return { ok: `Roteiro criado a partir de “${(a.titulo ?? "").slice(0, 50)}…”. Revise abaixo — dá para editar tudo.` };
 }
 
 /*

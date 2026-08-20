@@ -8,6 +8,7 @@ import {
   aprovarProjeto,
   colarTiktok,
   criarRoteiro,
+  criarRoteiroDeVideo,
   dissecarSelecionados,
   excluirAchado,
   excluirFormula,
@@ -87,9 +88,15 @@ export default function Estudio({
     aprovarProjeto,
     undefined,
   );
+  const [adaptEstado, rodarAdaptar, adaptando] = useActionState<EstadoEstudio, FormData>(
+    criarRoteiroDeVideo,
+    undefined,
+  );
 
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [temaAtivo, setTemaAtivo] = useState("todos");
+  // Qual vídeo está com a transcrição aberta (um por vez).
+  const [aberto, setAberto] = useState<string | null>(null);
 
   /*
    * Enquanto houver vídeo na fila ou renderizando, a tela se atualiza
@@ -269,8 +276,8 @@ export default function Estudio({
 
           <div className="flex max-h-[520px] flex-col gap-1.5 overflow-y-auto">
             {visiveis.map((a) => (
+              <div key={a.id} className="flex flex-col gap-1.5">
               <label
-                key={a.id}
                 className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition ${
                   marcados.has(a.id) ? "border-brand-2 bg-brand/10" : "border-white/10 hover:border-white/25"
                 }`}
@@ -302,6 +309,26 @@ export default function Estudio({
                     {a.transcricao ? " · 📝 transcrição" : ""}
                   </span>
                 </span>
+                {/*
+                  O caminho direto: pegar ESTE vídeo como molde, em vez de
+                  abstrair uma fórmula de vários. Abre o painel abaixo com a
+                  transcrição à vista.
+                */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setAberto((v) => (v === a.id ? null : a.id));
+                  }}
+                  title="Ver a transcrição e criar um roteiro baseado neste vídeo"
+                  className={`flex-none rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
+                    aberto === a.id
+                      ? "bg-brand text-white"
+                      : "border border-white/15 text-paper-dim hover:border-brand-2 hover:text-brand-2"
+                  }`}
+                >
+                  📄 texto
+                </button>
                 <button
                   type="button"
                   onClick={(e) => {
@@ -314,6 +341,70 @@ export default function Estudio({
                   <IconTrash size={13} />
                 </button>
               </label>
+
+              {aberto === a.id && (
+                <div className="rounded-lg border border-brand-2/30 bg-brand/5 p-3">
+                  <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-paper-dim">
+                    Transcrição do vídeo original
+                  </p>
+                  {a.transcricao ? (
+                    <textarea
+                      readOnly
+                      value={a.transcricao}
+                      rows={7}
+                      onFocus={(e) => e.currentTarget.select()}
+                      className={`${inputClass} w-full resize-y text-xs leading-relaxed`}
+                    />
+                  ) : (
+                    <p className="rounded-lg border border-white/10 bg-black/25 p-3 text-xs text-paper-dim">
+                      Ainda não busquei a transcrição deste vídeo — ela é baixada quando você
+                      clica em criar o roteiro abaixo. Se o dono do canal desligou as legendas,
+                      não existe transcrição para pegar.
+                    </p>
+                  )}
+
+                  <div className="mt-3 flex flex-wrap items-end gap-2">
+                    <input type="hidden" name="achado_id" value={a.id} form={`adp-${a.id}`} />
+                    <div className="min-w-0 flex-1">
+                      <label className={labelClass}>
+                        Sobre o que é o SEU vídeo? (vazio = mesmo tema, sua versão)
+                      </label>
+                      <input
+                        name="assunto"
+                        form={`adp-${a.id}`}
+                        placeholder="deixe vazio para seguir o mesmo tema"
+                        className={`${inputClass} mt-1 w-full text-xs`}
+                      />
+                    </div>
+                    <select
+                      name="duracao"
+                      form={`adp-${a.id}`}
+                      defaultValue={String(Math.min(90, Math.max(30, a.duracao_s || 45)))}
+                      className={`${inputClass} w-20 text-xs`}
+                    >
+                      {[30, 45, 60, 90].map((d) => (
+                        <option key={d} value={d}>
+                          {d}s
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="submit"
+                      form={`adp-${a.id}`}
+                      disabled={adaptando}
+                      className="rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+                    >
+                      {adaptando ? "Escrevendo…" : "✍️ Criar roteiro deste vídeo"}
+                    </button>
+                  </div>
+                  <p className="mt-2 text-[11px] text-paper-dim">
+                    Segue a mesma estrutura, ordem de argumentos e ritmo do original — reescrito
+                    com palavras próprias. Copiar o texto igual daria conteúdo duplicado, que as
+                    plataformas penalizam.
+                  </p>
+                </div>
+              )}
+              </div>
             ))}
           </div>
 
@@ -445,7 +536,21 @@ export default function Estudio({
         </div>
       )}
 
-      {/* Um form por fórmula, fora dos cards — HTML não aninha formulários. */}
+      {/* Um form por vídeo e um por fórmula, fora dos cards — HTML não aninha formulários. */}
+      {achados.map((a) => (
+        <form key={`adp-${a.id}`} id={`adp-${a.id}`} action={rodarAdaptar} className="hidden" />
+      ))}
+      {adaptEstado?.error && (
+        <p className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-2 text-sm text-danger">
+          {adaptEstado.error}
+        </p>
+      )}
+      {adaptEstado?.ok && (
+        <p className="rounded-lg border border-ok/40 bg-ok/10 px-4 py-2 text-sm text-ok">
+          ✅ {adaptEstado.ok}
+        </p>
+      )}
+
       {formulas.map((f) => (
         <form key={`rot-${f.id}`} id={`rot-${f.id}`} action={rodarRoteiro} className="hidden" />
       ))}
