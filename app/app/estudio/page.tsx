@@ -55,6 +55,8 @@ export type ProjetoRow = {
   erro: string | null;
   formato_16x9: boolean;
   duracao_alvo_s: number;
+  musica: string;
+  musica_volume: number;
   arquivo: string | null;
   arquivo_16x9: string | null;
   agente: string | null;

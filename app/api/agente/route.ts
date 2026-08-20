@@ -238,7 +238,7 @@ export async function POST(req: Request) {
           .eq("id", candidato.id)
           .eq("org_id", org)
           .eq("status", "na_fila")
-          .select("id, titulo, roteiro, termos, formato_16x9, duracao_alvo_s");
+          .select("id, titulo, roteiro, termos, formato_16x9, duracao_alvo_s, musica, musica_volume");
         return j({ projeto: (presa as unknown[] | null)?.[0] ?? null });
       }
 

@@ -165,6 +165,8 @@ export type ProjetoVideo = {
   termos: string[];
   formato_16x9: boolean;
   duracao_alvo_s: number;
+  musica: string;
+  musica_volume: number;
 };
 
 export const videoProximo = () =>

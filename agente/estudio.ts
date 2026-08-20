@@ -151,8 +151,12 @@ async function gerarUm(
       subtitle_enabled: true,
       video_clip_duration: 5,
       video_count: 1,
-      bgm_type: "random",
-      bgm_volume: 0.2,
+      // Como o MPT entende música: "random" sorteia da pasta dele; "" com
+      // bgm_file vazio é SILÊNCIO; "" com caminho toca aquele arquivo.
+      bgm_type: projeto.musica === "aleatoria" ? "random" : "",
+      bgm_file:
+        projeto.musica === "aleatoria" || projeto.musica === "nenhuma" ? "" : projeto.musica,
+      bgm_volume: Math.min(100, Math.max(0, projeto.musica_volume ?? 15)) / 100,
     }),
   });
   const taskId = criada.data?.task_id ?? criada.task_id;

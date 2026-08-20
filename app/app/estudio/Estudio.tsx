@@ -524,6 +524,58 @@ export default function Estudio({
                       className={`${inputClass} mt-1 w-full font-mono text-xs`}
                     />
                   </div>
+                  {/*
+                    Música: o MoneyPrinterTurbo sorteia de uma pastinha própria,
+                    e a seleção padrão dele é pequena e melancólica. Aqui você
+                    escolhe por vídeo — e o volume nasce em 15%, não nos 20%
+                    dele, que abafam a narração.
+                  */}
+                  <div className="flex flex-wrap items-end gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                    <div>
+                      <label className={labelClass}>🎵 Música de fundo</label>
+                      <select
+                        name="musica_modo"
+                        defaultValue={
+                          p.musica === "nenhuma"
+                            ? "nenhuma"
+                            : p.musica === "aleatoria"
+                              ? "aleatoria"
+                              : "arquivo"
+                        }
+                        className={`${inputClass} mt-1 w-48 text-xs`}
+                      >
+                        <option value="nenhuma">Sem música (só a voz)</option>
+                        <option value="aleatoria">Sorteio do MoneyPrinter</option>
+                        <option value="arquivo">Arquivo meu →</option>
+                      </select>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <label className={labelClass}>Caminho do MP3 (se escolheu “arquivo meu”)</label>
+                      <input
+                        name="musica_arquivo"
+                        defaultValue={
+                          p.musica === "nenhuma" || p.musica === "aleatoria" ? "" : p.musica
+                        }
+                        placeholder="C:\\MPT\\MoneyPrinterTurbo\\resource\\songs\\minha.mp3"
+                        className={`${inputClass} mt-1 w-full font-mono text-xs`}
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Volume</label>
+                      <select
+                        name="musica_volume"
+                        defaultValue={String(p.musica_volume ?? 15)}
+                        className={`${inputClass} mt-1 w-24 text-xs`}
+                      >
+                        {[5, 10, 15, 20, 30, 40].map((v) => (
+                          <option key={v} value={v}>
+                            {v}%
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
                   <button
                     type="submit"
                     disabled={aprovando}

@@ -243,11 +243,28 @@ export async function aprovarProjeto(_prev: EstadoEstudio, formData: FormData): 
   if (roteiro.length < 60) return { error: "Roteiro curto demais." };
   if (termos.length === 0) return { error: "Escreva ao menos um termo de busca (em inglês)." };
 
+  /*
+   * Música: 'nenhuma' (silêncio), 'aleatoria' (sorteio da pasta do MPT) ou o
+   * caminho de um arquivo da máquina que renderiza. O volume padrão do MPT
+   * (20%) abafa a narração em vídeo falado — 15% deixa a voz na frente.
+   */
+  const musicaModo = String(formData.get("musica_modo") ?? "aleatoria");
+  const musicaArquivo = String(formData.get("musica_arquivo") ?? "").trim().slice(0, 400);
+  const musica =
+    musicaModo === "arquivo"
+      ? musicaArquivo || "aleatoria"
+      : musicaModo === "nenhuma"
+        ? "nenhuma"
+        : "aleatoria";
+  const volume = Math.min(60, Math.max(0, Number(formData.get("musica_volume")) || 15));
+
   const { error } = await ctx.admin
     .from("estudio_projetos")
     .update({
       roteiro,
       termos,
+      musica,
+      musica_volume: volume,
       status: "na_fila",
       erro: null,
       progresso: "aguardando o computador com o Estúdio ligado",
