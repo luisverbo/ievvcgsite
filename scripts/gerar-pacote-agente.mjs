@@ -18,11 +18,18 @@ const RAIZ = process.cwd();
 
 // Escrita à mão, e não varredura de pasta: um `**/*` acabaria empacotando
 // node_modules, o .env do servidor ou o perfil do navegador.
+//
+// ⚠️ Arquivo novo no agente ENTRA AQUI. Esquecer disto gera um zip que só
+// quebra na máquina do cliente ("Cannot find module ... espelho.ts") — foi
+// exatamente o que aconteceu com espelho.ts e estudio.ts. A conferência de
+// imports no fim deste script existe para isso não se repetir.
 const ARQUIVOS = [
   "agente/api.ts",
   "agente/abordagem.ts",
   "agente/capturaIg.ts",
   "agente/coletor.ts",
+  "agente/espelho.ts",
+  "agente/estudio.ts",
   "agente/instagram.ts",
   "agente/prospectar.ts",
   "agente/servico.ts",
@@ -36,9 +43,35 @@ const ARQUIVOS = [
 ];
 
 const partes = [];
+const conteudos = new Map();
 for (const relativo of ARQUIVOS) {
   const conteudo = await fs.readFile(path.join(RAIZ, relativo), "utf8");
+  conteudos.set(relativo, conteudo);
   partes.push(`  ${JSON.stringify(relativo)}: ${JSON.stringify(conteudo)},`);
+}
+
+/*
+ * A trava: todo import relativo dos arquivos empacotados TEM que estar na
+ * lista acima.
+ *
+ * Sem isto, esquecer um arquivo novo gera um zip que instala normalmente e
+ * só quebra quando o cliente aperta LIGAR — com um erro de Node que não diz
+ * nada a ele. Melhor quebrar aqui, no build, onde quem lê sou eu.
+ */
+const faltando = [];
+for (const [relativo, conteudo] of conteudos) {
+  if (!relativo.endsWith(".ts")) continue;
+  const pasta = path.dirname(relativo);
+  for (const m of conteudo.matchAll(/from\s+["'](\.[^"']+)["']/g)) {
+    const alvo = path.posix.normalize(path.posix.join(pasta, m[1]));
+    if (!conteudos.has(alvo)) faltando.push(`${relativo} importa ${alvo}`);
+  }
+}
+if (faltando.length > 0) {
+  console.error("\n✗ O pacote do agente ficaria quebrado — arquivos que faltam na lista ARQUIVOS:");
+  for (const f of new Set(faltando)) console.error(`   ${f}`);
+  console.error("");
+  process.exit(1);
 }
 
 const saida = `// GERADO AUTOMATICAMENTE — não edite.
