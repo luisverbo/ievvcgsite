@@ -1,6 +1,7 @@
 import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
+import { textoDaResposta } from "@/lib/estudio/llm";
 import { contaDaOrg, cobrar } from "@/lib/creditos/conta";
 import { ramoDe } from "./mensagem";
 import type { ProspectoRow } from "./tipos";
@@ -133,7 +134,7 @@ export async function escreverMensagens(
           descricao: `Mensagens de abordagem escritas pela IA (${lote.length} leads)`,
         });
 
-        const bruto = resposta.content[0]?.type === "text" ? resposta.content[0].text : "";
+        const bruto = textoDaResposta(resposta.content as { type: string; text?: string }[]);
         const ids = new Set(lote.map((p) => p.id));
         for (const item of extrairJson(bruto)) {
           if (ids.has(item.id)) textos.set(item.id, item.msg);

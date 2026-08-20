@@ -1,6 +1,7 @@
 import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
+import { textoDaResposta } from "@/lib/estudio/llm";
 import { contaDaOrg, cobrar } from "@/lib/creditos/conta";
 
 /*
@@ -89,7 +90,7 @@ export async function classificarResposta(
       descricao: "Classificação de resposta do WhatsApp",
     });
 
-    const bruto = (resposta.content[0]?.type === "text" ? resposta.content[0].text : "")
+    const bruto = textoDaResposta(resposta.content as { type: string; text?: string }[])
       .trim()
       .toLowerCase();
     if (["interesse", "preco", "duvida", "recusa", "outro"].includes(bruto)) {

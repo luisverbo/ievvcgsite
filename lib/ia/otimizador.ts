@@ -1,6 +1,7 @@
 import "server-only";
 
 import Anthropic from "@anthropic-ai/sdk";
+import { textoDaResposta } from "@/lib/estudio/llm";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { contaDaOrg, cobrar } from "@/lib/creditos/conta";
 import { MODELO_PADRAO } from "./modelos";
@@ -238,7 +239,7 @@ export async function analisarPagina(
     referenciaId: site.id,
   });
 
-  const bruto = resposta.content[0]?.type === "text" ? resposta.content[0].text : "";
+  const bruto = textoDaResposta(resposta.content as { type: string; text?: string }[]);
   const sugestoes = extrairJson(bruto);
   if (sugestoes.length === 0) {
     return { ok: false, motivo: "A IA não devolveu sugestões desta vez — tente de novo em instantes." };

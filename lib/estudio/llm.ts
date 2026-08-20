@@ -70,7 +70,28 @@ async function chaveOpenai(): Promise<string | null> {
   return (data as { valor: string } | null)?.valor?.trim() || null;
 }
 
-export type RespostaLLM = { texto: string; modelo: string; entrada: number; saida: number };
+export type RespostaLLM = {
+  texto: string;
+  modelo: string;
+  entrada: number;
+  saida: number;
+  /* "max_tokens" quando a resposta foi CORTADA — a causa mais comum de JSON pela metade. */
+  parou: string | null;
+};
+
+/*
+ * O texto de uma resposta pode vir em VÁRIOS blocos, e o primeiro nem sempre
+ * é texto (um bloco de raciocínio pode vir na frente). Ler só content[0]
+ * devolvia string vazia e o erro saía como "a IA não devolveu JSON" — culpa
+ * nossa, com cara de culpa do modelo.
+ */
+export function textoDaResposta(blocos: { type: string; text?: string }[]): string {
+  return blocos
+    .filter((b) => b.type === "text" && typeof b.text === "string")
+    .map((b) => b.text as string)
+    .join("\n")
+    .trim();
+}
 
 /*
  * Uma chamada, dois provedores. A OpenAI vai por fetch puro (o projeto não
@@ -105,7 +126,7 @@ export async function chamarLLM(
       throw new Error(`OpenAI (${modelo}) respondeu ${res.status}: ${corpo.slice(0, 200)}`);
     }
     const d = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
+      choices?: { message?: { content?: string }; finish_reason?: string }[];
       usage?: { prompt_tokens?: number; completion_tokens?: number };
     };
     return {
@@ -113,6 +134,7 @@ export async function chamarLLM(
       modelo: `openai:${modelo}`,
       entrada: d.usage?.prompt_tokens ?? 0,
       saida: d.usage?.completion_tokens ?? 0,
+      parou: d.choices?.[0]?.finish_reason === "length" ? "max_tokens" : null,
     };
   }
 
@@ -126,9 +148,10 @@ export async function chamarLLM(
     messages: [{ role: "user", content: usuario }],
   });
   return {
-    texto: resposta.content[0]?.type === "text" ? resposta.content[0].text : "",
+    texto: textoDaResposta(resposta.content as { type: string; text?: string }[]),
     modelo: `anthropic:${modelo}`,
     entrada: resposta.usage.input_tokens ?? 0,
     saida: resposta.usage.output_tokens ?? 0,
+    parou: resposta.stop_reason ?? null,
   };
 }
