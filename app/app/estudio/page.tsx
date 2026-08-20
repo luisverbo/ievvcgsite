@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { ehAdmin } from "@/lib/painel/admin";
 import { modeloDaTarefa } from "@/lib/estudio/llm";
+import { briefPadrao } from "@/lib/estudio/brief";
 import type { Formula } from "@/lib/estudio/dissecar";
 import Estudio from "./Estudio";
 
@@ -50,6 +51,7 @@ export type ProjetoRow = {
   tema: string | null;
   roteiro: string | null;
   termos: string[];
+  ganchos: string[] | null;
   status: "rascunho" | "roteiro_pronto" | "na_fila" | "gerando" | "pronto" | "erro";
   progresso: string | null;
   erro: string | null;
@@ -69,7 +71,7 @@ export default async function EstudioPage() {
   if (!org) notFound();
 
   const admin = createAdminClient();
-  const [{ data: achadosRaw }, { data: formulasRaw }, { data: projetosRaw }, mDissec, mRoteiro] = await Promise.all([
+  const [{ data: achadosRaw }, { data: formulasRaw }, { data: projetosRaw }, mDissec, mRoteiro, brief] = await Promise.all([
     admin
       .from("estudio_achados")
       .select("id, fonte, url, titulo, canal, views, publicado_em, duracao_s, score_outlier, views_por_dia, thumbnail, transcricao, tema, created_at")
@@ -90,6 +92,7 @@ export default async function EstudioPage() {
       .limit(40),
     modeloDaTarefa("dissecacao"),
     modeloDaTarefa("roteiro"),
+    briefPadrao(),
   ]);
 
   const temYoutubeKey = !!process.env.YOUTUBE_API_KEY;
@@ -121,6 +124,7 @@ export default async function EstudioPage() {
         projetos={(projetosRaw as ProjetoRow[] | null) ?? []}
         modeloDissecacao={`${mDissec.provedor}:${mDissec.modelo}`}
         modeloRoteiro={`${mRoteiro.provedor}:${mRoteiro.modelo}`}
+        brief={brief}
       />
     </div>
   );

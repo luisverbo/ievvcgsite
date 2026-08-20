@@ -94,6 +94,17 @@ export function textoDaResposta(blocos: { type: string; text?: string }[]): stri
 }
 
 /*
+ * Modelos que aceitam raciocínio adaptativo — o modelo pensa antes de
+ * responder, e para escrever roteiro isso muda o resultado: ele planeja o
+ * gancho e a virada em vez de sair escrevendo a primeira frase que vem.
+ *
+ * A lista é explícita de propósito: mandar "thinking" para um modelo que não
+ * suporta devolve 400. Se mesmo assim vier recusa, a chamada repete sem
+ * pensar — melhor um roteiro comum que erro na cara do dono.
+ */
+const PENSA = /claude-(opus-(5|4-8|4-7|4-6)|sonnet-(5|4-6)|fable-5)/;
+
+/*
  * Uma chamada, dois provedores. A OpenAI vai por fetch puro (o projeto não
  * tem o SDK dela e uma chamada de chat não justifica a dependência).
  */
@@ -102,6 +113,7 @@ export async function chamarLLM(
   system: string,
   usuario: string,
   maxTokens = 2000,
+  opcoes: { pensar?: boolean } = {},
 ): Promise<RespostaLLM> {
   const { provedor, modelo } = await modeloDaTarefa(tarefa);
 
@@ -141,12 +153,26 @@ export async function chamarLLM(
   const chave = await chaveAnthropicDaPlataforma();
   if (!chave) throw new Error("Sem chave da Anthropic (ANTHROPIC_API_KEY na Vercel).");
   const client = new Anthropic({ apiKey: chave });
-  const resposta = await client.messages.create({
+
+  const pensar = !!opcoes.pensar && PENSA.test(modelo);
+  const pedido = {
     model: modelo,
     max_tokens: maxTokens,
     system,
-    messages: [{ role: "user", content: usuario }],
-  });
+    messages: [{ role: "user" as const, content: usuario }],
+  };
+
+  let resposta;
+  try {
+    resposta = await client.messages.create(
+      pensar ? { ...pedido, thinking: { type: "adaptive" as const } } : pedido,
+    );
+  } catch (e) {
+    // Modelo novo demais ou antigo demais para "thinking": tenta sem.
+    if (!pensar) throw e;
+    resposta = await client.messages.create(pedido);
+  }
+
   return {
     texto: textoDaResposta(resposta.content as { type: string; text?: string }[]),
     modelo: `anthropic:${modelo}`,

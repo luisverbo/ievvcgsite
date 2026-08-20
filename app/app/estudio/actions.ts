@@ -6,7 +6,8 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { ehAdmin } from "@/lib/painel/admin";
 import { garimparYoutube, transcricaoDoYoutube, oembedTiktok } from "@/lib/estudio/youtube";
 import { dissecar, type EntradaDissecacao, type Formula } from "@/lib/estudio/dissecar";
-import { escreverRoteiro, adaptarRoteiro } from "@/lib/estudio/roteiro";
+import { escreverRoteiro, adaptarRoteiro, type Brief } from "@/lib/estudio/roteiro";
+import { briefPadrao, salvarBriefPadrao } from "@/lib/estudio/brief";
 import { salvarModeloDaTarefa, type TarefaLLM } from "@/lib/estudio/llm";
 
 /*
@@ -182,6 +183,21 @@ export async function excluirFormula(id: string) {
 
 /* -------------------------------- projetos --------------------------------- */
 
+/*
+ * O briefing de um roteiro: o que muda por vídeo vem do formulário, o que
+ * não muda (público, CTA) vem dos Ajustes. Assim o formulário fica com duas
+ * caixas em vez de cinco e mesmo assim o modelo recebe o contexto inteiro.
+ */
+async function montarBrief(formData: FormData): Promise<Brief> {
+  const padrao = await briefPadrao();
+  return {
+    assunto: String(formData.get("assunto") ?? "").trim(),
+    angulo: String(formData.get("angulo") ?? "").trim(),
+    publico: padrao.publico,
+    cta: padrao.cta,
+  };
+}
+
 export async function criarRoteiro(_prev: EstadoEstudio, formData: FormData): Promise<EstadoEstudio> {
   const ctx = await admDono();
   if (!ctx) return { error: "Sem permissão." };
@@ -203,7 +219,7 @@ export async function criarRoteiro(_prev: EstadoEstudio, formData: FormData): Pr
 
   let r;
   try {
-    r = await escreverRoteiro(assunto, f.formula, duracao);
+    r = await escreverRoteiro(await montarBrief(formData), f.formula, duracao);
   } catch (e) {
     return { error: (e as Error).message };
   }
@@ -215,6 +231,7 @@ export async function criarRoteiro(_prev: EstadoEstudio, formData: FormData): Pr
     formula_id: f.id,
     roteiro: r.roteiro,
     termos: r.termos,
+    ganchos: r.ganchos,
     status: "roteiro_pronto",
     formato_16x9: dezesseisPorNove,
     duracao_alvo_s: duracao,
@@ -222,7 +239,9 @@ export async function criarRoteiro(_prev: EstadoEstudio, formData: FormData): Pr
   if (error) return { error: error.message };
 
   revalidatePath("/app/estudio");
-  return { ok: `Roteiro pronto: “${r.titulo}”. Revise abaixo e aprove para gerar.` };
+  return {
+    ok: `Roteiro pronto: “${r.titulo}” — ${r.palavras} palavras, ~${r.segundos}s de narração. Revise abaixo e aprove para gerar.`,
+  };
 }
 
 /*
@@ -239,7 +258,6 @@ export async function criarRoteiroDeVideo(
   if (!ctx) return { error: "Sem permissão." };
 
   const achadoId = String(formData.get("achado_id") ?? "");
-  const assunto = String(formData.get("assunto") ?? "").trim();
   const duracao = Math.min(180, Math.max(15, Number(formData.get("duracao")) || 45));
   const dezesseisPorNove = String(formData.get("formato_16x9") ?? "") === "1";
 
@@ -286,7 +304,7 @@ export async function criarRoteiroDeVideo(
 
   let r;
   try {
-    r = await adaptarRoteiro(transcricao, assunto, duracao, a.titulo ?? a.tema);
+    r = await adaptarRoteiro(transcricao, await montarBrief(formData), duracao, a.titulo ?? a.tema);
   } catch (e) {
     return { error: (e as Error).message };
   }
@@ -297,6 +315,7 @@ export async function criarRoteiroDeVideo(
     tema: a.tema,
     roteiro: r.roteiro,
     termos: r.termos,
+    ganchos: r.ganchos,
     status: "roteiro_pronto",
     formato_16x9: dezesseisPorNove,
     duracao_alvo_s: duracao,
@@ -304,7 +323,9 @@ export async function criarRoteiroDeVideo(
   if (error) return { error: error.message };
 
   revalidatePath("/app/estudio");
-  return { ok: `Roteiro criado a partir de “${(a.titulo ?? "").slice(0, 50)}…”. Revise abaixo — dá para editar tudo.` };
+  return {
+    ok: `Roteiro criado a partir de “${(a.titulo ?? "").slice(0, 50)}…” — ${r.palavras} palavras, ~${r.segundos}s. Revise abaixo — dá para editar tudo.`,
+  };
 }
 
 /*
@@ -392,4 +413,19 @@ export async function salvarModelos(_prev: EstadoEstudio, formData: FormData): P
   }
   revalidatePath("/app/estudio");
   return { ok: "Modelos salvos." };
+}
+
+/*
+ * Público e CTA: escritos uma vez, valem para todo roteiro. É o contexto que
+ * o modelo não tem como adivinhar e que, faltando, faz o texto sair genérico.
+ */
+export async function salvarBrief(_prev: EstadoEstudio, formData: FormData): Promise<EstadoEstudio> {
+  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  const erro = await salvarBriefPadrao({
+    publico: String(formData.get("publico") ?? ""),
+    cta: String(formData.get("cta") ?? ""),
+  });
+  if (erro) return { error: erro };
+  revalidatePath("/app/estudio");
+  return { ok: "Briefing salvo — vale para os próximos roteiros." };
 }

@@ -14,6 +14,7 @@ import {
   excluirFormula,
   excluirProjeto,
   garimpar,
+  salvarBrief,
   salvarModelos,
   voltarParaEdicao,
   type EstadoEstudio,
@@ -49,18 +50,91 @@ function corDoScore(s: number | null): string {
   return "text-paper-dim";
 }
 
+/*
+ * A narração do Edge TTS em português fala perto de 150 palavras por minuto.
+ * O contador existe porque a causa nº 1 de vídeo com buraco no fim é roteiro
+ * curto demais para a duração pedida — e isso só se enxerga contando.
+ */
+const PALAVRAS_POR_SEGUNDO = 2.5;
+
+/*
+ * Troca só a ABERTURA, mantendo o resto. O gancho é o que decide o vídeo,
+ * e testar outra primeira frase não deveria custar um roteiro inteiro novo.
+ */
+function trocarAbertura(texto: string, gancho: string): string {
+  const m = /[.!?](\s|$)/.exec(texto);
+  const resto = m ? texto.slice(m.index + 1).trim() : "";
+  return resto ? `${gancho.trim()} ${resto}` : gancho.trim();
+}
+
+function EditorRoteiro({
+  roteiro,
+  ganchos,
+  alvoS,
+}: {
+  roteiro: string;
+  ganchos: string[];
+  alvoS: number;
+}) {
+  const [texto, setTexto] = useState(roteiro);
+  const palavras = texto.trim().split(/\s+/).filter(Boolean).length;
+  const segundos = Math.round(palavras / PALAVRAS_POR_SEGUNDO);
+  const alvo = Math.round(alvoS * PALAVRAS_POR_SEGUNDO);
+  const desvio = alvo > 0 ? Math.abs(segundos - alvoS) / alvoS : 0;
+  const cor = desvio <= 0.15 ? "text-ok" : desvio <= 0.3 ? "text-warn" : "text-danger";
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <label className={labelClass}>Roteiro (é isto que vira narração — revise)</label>
+        <span className={`text-xs font-bold tabular-nums ${cor}`}>
+          {palavras} palavras · ~{segundos}s de {alvoS}s
+        </span>
+      </div>
+      <textarea
+        name="roteiro"
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        rows={8}
+        className={`${inputClass} mt-1 w-full resize-y text-xs leading-relaxed`}
+      />
+      {ganchos.length > 0 && (
+        <div className="mt-2 rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
+          <p className="mb-1.5 text-xs font-bold text-paper-dim">
+            Outras aberturas — clique para trocar só a primeira frase:
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {ganchos.map((g, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setTexto((t) => trocarAbertura(t, g))}
+                className="rounded-lg border border-white/10 bg-black/25 px-3 py-2 text-left text-xs leading-relaxed text-paper-dim transition hover:border-brand-2/50 hover:text-paper"
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Estudio({
   achados,
   formulas,
   projetos,
   modeloDissecacao,
   modeloRoteiro,
+  brief,
 }: {
   achados: AchadoRow[];
   formulas: FormulaRow[];
   projetos: ProjetoRow[];
   modeloDissecacao: string;
   modeloRoteiro: string;
+  brief: { publico: string; cta: string };
 }) {
   const router = useRouter();
   const [garimpoEstado, rodarGarimpo, garimpando] = useActionState<EstadoEstudio, FormData>(
@@ -77,6 +151,10 @@ export default function Estudio({
   );
   const [cfgEstado, salvarCfg, salvandoCfg] = useActionState<EstadoEstudio, FormData>(
     salvarModelos,
+    undefined,
+  );
+  const [briefEstado, salvarBriefing, salvandoBrief] = useActionState<EstadoEstudio, FormData>(
+    salvarBrief,
     undefined,
   );
 
@@ -376,6 +454,12 @@ export default function Estudio({
                         placeholder="deixe vazio para seguir o mesmo tema"
                         className={`${inputClass} mt-1 w-full text-xs`}
                       />
+                      <input
+                        name="angulo"
+                        form={`adp-${a.id}`}
+                        placeholder="Ângulo (opcional): a tese que o vídeo defende"
+                        className={`${inputClass} mt-1.5 w-full text-xs`}
+                      />
                     </div>
                     <select
                       name="duracao"
@@ -495,12 +579,25 @@ export default function Estudio({
                 </p>
                 <div className="flex flex-wrap items-end gap-2">
                   <input type="hidden" name="formula_id" value={f.id} form={`rot-${f.id}`} />
-                  <input
-                    name="assunto"
-                    form={`rot-${f.id}`}
-                    placeholder="Sobre o que é o SEU vídeo? ex.: por que todo dentista precisa de site"
-                    className={`${inputClass} min-w-0 flex-1 text-xs`}
-                  />
+                  <div className="min-w-0 flex-1">
+                    <input
+                      name="assunto"
+                      form={`rot-${f.id}`}
+                      placeholder="Sobre o que é o SEU vídeo? ex.: por que todo dentista precisa de site"
+                      className={`${inputClass} w-full text-xs`}
+                    />
+                    {/*
+                      O ângulo é o campo que mais muda o resultado: sem uma tese,
+                      o modelo escreve "sobre" o assunto — e escrever "sobre" é
+                      exatamente o que sai fraco.
+                    */}
+                    <input
+                      name="angulo"
+                      form={`rot-${f.id}`}
+                      placeholder="Ângulo (opcional, mas é o que faz diferença): ex.: cartão de visita não traz cliente, site traz"
+                      className={`${inputClass} mt-1.5 w-full text-xs`}
+                    />
+                  </div>
                   <select
                     name="duracao"
                     form={`rot-${f.id}`}
@@ -613,15 +710,11 @@ export default function Estudio({
                       Falhou: {p.erro}
                     </p>
                   )}
-                  <div>
-                    <label className={labelClass}>Roteiro (é isto que vira narração — revise)</label>
-                    <textarea
-                      name="roteiro"
-                      defaultValue={p.roteiro ?? ""}
-                      rows={6}
-                      className={`${inputClass} mt-1 w-full resize-y text-xs leading-relaxed`}
-                    />
-                  </div>
+                  <EditorRoteiro
+                    roteiro={p.roteiro ?? ""}
+                    ganchos={p.ganchos ?? []}
+                    alvoS={p.duracao_alvo_s}
+                  />
                   <div>
                     <label className={labelClass}>Termos de busca dos clipes (inglês, por vírgula)</label>
                     <input
@@ -731,6 +824,68 @@ export default function Estudio({
           ))}
         </div>
       )}
+
+      {/* ------------------------- briefing padrão --------------------------- */}
+      {/*
+        Escrito uma vez, vale para todo roteiro. É o contexto que o modelo não
+        tem como adivinhar — e, faltando, ele preenche com lugar-comum. Fica
+        aberto enquanto está vazio, justamente porque é o que mais melhora o
+        texto.
+      */}
+      <details
+        open={!brief.publico && !brief.cta}
+        className="anim-entrada d4 rounded-xl border border-white/10 bg-ink-2"
+      >
+        <summary className="cursor-pointer list-none p-4 text-sm font-bold text-paper-dim transition hover:text-paper [&::-webkit-details-marker]:hidden">
+          🎯 Briefing padrão{" "}
+          {brief.publico ? (
+            <span className="text-paper">({brief.publico.slice(0, 60)})</span>
+          ) : (
+            <span className="text-warn">— vazio: preencha, é o que mais melhora o roteiro</span>
+          )}
+        </summary>
+        <form action={salvarBriefing} className="flex flex-col gap-3 px-4 pb-4">
+          <div>
+            <label className={labelClass} htmlFor="publico">
+              Quem assiste os seus vídeos?
+            </label>
+            <input
+              id="publico"
+              name="publico"
+              defaultValue={brief.publico}
+              placeholder="ex.: dono de clínica, salão e oficina que vende no WhatsApp e não tem site"
+              className={`${inputClass} mt-1 w-full text-xs`}
+            />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="cta">
+              O que você pede no fim de cada vídeo?
+            </label>
+            <input
+              id="cta"
+              name="cta"
+              defaultValue={brief.cta}
+              placeholder="ex.: chamar no WhatsApp do link da bio para receber um site pronto em 5 minutos"
+              className={`${inputClass} mt-1 w-full text-xs`}
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={salvandoBrief}
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+            >
+              {salvandoBrief ? "Salvando…" : "Salvar briefing"}
+            </button>
+            {briefEstado?.error && <p className="text-sm text-danger">{briefEstado.error}</p>}
+            {briefEstado?.ok && <p className="text-sm text-ok">✅ {briefEstado.ok}</p>}
+          </div>
+          <p className="text-[11px] text-paper-dim">
+            Isso não muda de vídeo para vídeo, então fica aqui. No formulário de cada roteiro você
+            só diz o <b>assunto</b> e o <b>ângulo</b> — a tese que aquele vídeo defende.
+          </p>
+        </form>
+      </details>
 
       {/* ------------------------------ modelos ------------------------------ */}
       <details className="anim-entrada d4 rounded-xl border border-white/10 bg-ink-2">
