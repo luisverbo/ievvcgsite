@@ -283,7 +283,97 @@ ${JSON.stringify(formula, null, 2)}`;
   );
 }
 
-/* ---------------------- caminho 2: adaptando UM vídeo ---------------------- */
+/* --------------------------- caminho 2: do zero --------------------------- */
+
+/*
+ * Sem garimpo, sem fórmula, sem vídeo de ninguém: você diz o assunto e sai
+ * o roteiro.
+ *
+ * Existe porque a maior parte das ideias não nasce de um vídeo que estourou
+ * — nasce de uma dúvida que o cliente acabou de mandar no WhatsApp. Obrigar
+ * essa ideia a passar pelo YouTube era caminho longo à toa.
+ *
+ * Sem fórmula para copiar a mecânica, o próprio modelo escolhe a estrutura
+ * — por isso o prompt manda escolher UMA e dizer qual foi: estrutura
+ * escolhida de propósito é o que separa isto de "texto sobre um tema".
+ */
+const SYSTEM_ZERO = `Você é roteirista de vídeos curtos (Shorts/Reels/TikTok) em português do Brasil, para narração em off. Você escreve para quem rola o feed com o dedo no ar.
+
+Você recebe um BRIEFING e escreve o roteiro. Não há fórmula pronta: a estrutura é escolha sua.
+
+ANTES DE ESCREVER, decida em silêncio:
+- Qual é a ÚNICA ideia do vídeo. Escreva a tese em uma frase para você mesmo, e não escreva nada que não sirva a ela.
+- Qual crença errada do público você vai derrubar. Vídeo que só informa não segura; vídeo que corrige alguém segura.
+- Qual estrutura serve melhor a esta ideia. Escolha UMA e siga até o fim:
+  · problema → por que o jeito comum falha → o jeito certo → CTA
+  · afirmação polêmica → prova → o que fazer → CTA
+  · erro que quase todo mundo comete → o custo real dele → correção → CTA
+  · história curta de um caso → a virada → a lição → CTA
+  · pergunta que a pessoa não sabe responder sobre si → resposta → CTA
+  · antes/depois → o que mudou no meio → CTA
+
+${OFICIO}
+
+${SAIDA_JSON}`;
+
+export async function escreverDoZero(brief: Brief, duracaoAlvoS: number): Promise<RoteiroGerado> {
+  const r = await chamarLLM("roteiro", SYSTEM_ZERO, textoDoBrief(brief, duracaoAlvoS), 8000, {
+    pensar: true,
+  });
+  const bruto = extrairJson(r.texto, r.modelo, r.parou);
+
+  const roteiro = limparNarracao(String(bruto.roteiro ?? ""));
+  if (roteiro.length < 60) throw new Error("O roteiro veio curto demais — tente de novo.");
+
+  return editar(
+    {
+      titulo: String(bruto.titulo ?? brief.assunto).trim().slice(0, 200),
+      roteiro,
+      termos: limparTermos(bruto.termos),
+    },
+    brief,
+    duracaoAlvoS,
+  );
+}
+
+/* ------------------- caminho 3: o texto já é seu, colado ------------------- */
+
+/*
+ * Você escreveu, a máquina só monta.
+ *
+ * Aqui a IA NÃO reescreve nada — mexer no texto de alguém que já sabe o que
+ * quer dizer é estragar. Ela só olha o texto e devolve o que o
+ * MoneyPrinterTurbo precisa e que ninguém quer digitar: um título e as
+ * palavras em inglês para buscar os clipes.
+ */
+const SYSTEM_TERMOS = `Você lê um roteiro de vídeo curto em português e devolve apenas os metadados para montá-lo. NÃO reescreva, não comente e não corrija o roteiro.
+
+TÍTULO: uma linha que descreva o vídeo.
+TERMOS: 4 a 6 palavras EM INGLÊS para buscar clipes de banco de imagens que ilustrem este roteiro. Palavras únicas, concretas e comuns ("office", "laptop", "handshake", "city").
+
+Responda APENAS com JSON válido, sem markdown:
+{"titulo":"...","termos":["office","laptop"]}`;
+
+export async function metadadosDoRoteiro(
+  texto: string,
+): Promise<{ titulo: string; termos: string[] }> {
+  const r = await chamarLLM("roteiro", SYSTEM_TERMOS, texto.slice(0, 8000), 500);
+  try {
+    const bruto = extrairJson(r.texto, r.modelo, r.parou);
+    return {
+      titulo: String(bruto.titulo ?? "").trim().slice(0, 200) || texto.trim().slice(0, 60),
+      termos: limparTermos(bruto.termos),
+    };
+  } catch {
+    /*
+     * O roteiro é do dono e já está pronto: falha em achar título não pode
+     * impedir o vídeo. Cai no genérico — ele edita os termos na aprovação.
+     */
+    return { titulo: texto.trim().slice(0, 60), termos: limparTermos(null) };
+  }
+}
+
+/* ---------------------- caminho 4: adaptando UM vídeo ---------------------- */
 
 /*
  * Adaptar UM vídeo específico: seguir de perto o que ele faz, com palavras

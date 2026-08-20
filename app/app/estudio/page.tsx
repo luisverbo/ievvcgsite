@@ -105,8 +105,8 @@ export default async function EstudioPage() {
         </Link>
         <h1 className="mt-2 font-display text-3xl font-extrabold">Estúdio de Vídeos 🎬</h1>
         <p className="mt-1 max-w-3xl text-sm text-paper-dim">
-          Ferramenta sua, invisível para clientes. Garimpe o que está estourando no nicho, disseque
-          a fórmula — e (na Etapa 2) gere o vídeo original na sua máquina.
+          Ferramenta sua, invisível para clientes. Escreva um vídeo do zero — ou garimpe o que está
+          estourando no nicho e disseque a fórmula antes. O vídeo é renderizado na sua máquina.
         </p>
       </div>
 

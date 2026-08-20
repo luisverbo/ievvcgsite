@@ -6,7 +6,15 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { ehAdmin } from "@/lib/painel/admin";
 import { garimparYoutube, transcricaoDoYoutube, oembedTiktok } from "@/lib/estudio/youtube";
 import { dissecar, type EntradaDissecacao, type Formula } from "@/lib/estudio/dissecar";
-import { escreverRoteiro, adaptarRoteiro, type Brief } from "@/lib/estudio/roteiro";
+import {
+  escreverRoteiro,
+  escreverDoZero,
+  adaptarRoteiro,
+  metadadosDoRoteiro,
+  contarPalavras,
+  segundosDoTexto,
+  type Brief,
+} from "@/lib/estudio/roteiro";
 import { briefPadrao, salvarBriefPadrao } from "@/lib/estudio/brief";
 import { salvarModeloDaTarefa, type TarefaLLM } from "@/lib/estudio/llm";
 
@@ -195,6 +203,104 @@ async function montarBrief(formData: FormData): Promise<Brief> {
     angulo: String(formData.get("angulo") ?? "").trim(),
     publico: padrao.publico,
     cta: padrao.cta,
+  };
+}
+
+/* Duração e formato, lidos igual nos três caminhos de criação. */
+function formatoDoForm(formData: FormData, padrao: number) {
+  return {
+    duracao: Math.min(180, Math.max(15, Number(formData.get("duracao")) || padrao)),
+    dezesseisPorNove: String(formData.get("formato_16x9") ?? "") === "1",
+  };
+}
+
+/*
+ * Do zero: sem garimpo, sem fórmula, sem vídeo de ninguém.
+ *
+ * A maior parte das ideias não nasce de um vídeo que estourou — nasce de uma
+ * dúvida que o cliente mandou no WhatsApp. Fazer essa ideia dar a volta pelo
+ * YouTube era caminho longo à toa.
+ */
+export async function criarRoteiroDoZero(
+  _prev: EstadoEstudio,
+  formData: FormData,
+): Promise<EstadoEstudio> {
+  const ctx = await admDono();
+  if (!ctx) return { error: "Sem permissão." };
+
+  const brief = await montarBrief(formData);
+  if (brief.assunto.length < 5) return { error: "Diga sobre o que é o vídeo." };
+  const { duracao, dezesseisPorNove } = formatoDoForm(formData, 45);
+
+  let r;
+  try {
+    r = await escreverDoZero(brief, duracao);
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const { error } = await ctx.admin.from("estudio_projetos").insert({
+    org_id: ctx.orgId,
+    titulo: r.titulo,
+    tema: brief.assunto.slice(0, 120),
+    roteiro: r.roteiro,
+    termos: r.termos,
+    ganchos: r.ganchos,
+    status: "roteiro_pronto",
+    formato_16x9: dezesseisPorNove,
+    duracao_alvo_s: duracao,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/estudio");
+  return {
+    ok: `Roteiro pronto: “${r.titulo}” — ${r.palavras} palavras, ~${r.segundos}s. Revise abaixo e aprove para gerar.`,
+  };
+}
+
+/*
+ * O texto já é seu: a IA não encosta nele.
+ *
+ * Reescrever o texto de quem já sabe o que quer dizer é estragar. Aqui ela
+ * só resolve o que ninguém quer digitar — título e os termos em inglês dos
+ * clipes.
+ */
+export async function criarRoteiroColado(
+  _prev: EstadoEstudio,
+  formData: FormData,
+): Promise<EstadoEstudio> {
+  const ctx = await admDono();
+  if (!ctx) return { error: "Sem permissão." };
+
+  const roteiro = String(formData.get("roteiro") ?? "").trim();
+  if (roteiro.length < 60) return { error: "Cole o roteiro — pelo menos umas linhas de narração." };
+  const { dezesseisPorNove } = formatoDoForm(formData, 45);
+
+  // A duração vem do TEXTO, não de um menu: o texto é que manda a narração.
+  const duracao = Math.min(180, Math.max(15, segundosDoTexto(roteiro)));
+
+  let meta;
+  try {
+    meta = await metadadosDoRoteiro(roteiro);
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const { error } = await ctx.admin.from("estudio_projetos").insert({
+    org_id: ctx.orgId,
+    titulo: meta.titulo,
+    tema: null,
+    roteiro,
+    termos: meta.termos,
+    status: "roteiro_pronto",
+    formato_16x9: dezesseisPorNove,
+    duracao_alvo_s: duracao,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/estudio");
+  return {
+    ok: `Seu roteiro entrou como “${meta.titulo}” — ${contarPalavras(roteiro)} palavras, ~${duracao}s. Confira os termos dos clipes e aprove.`,
   };
 }
 

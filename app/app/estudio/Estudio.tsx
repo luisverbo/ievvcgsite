@@ -8,7 +8,9 @@ import {
   aprovarProjeto,
   colarTiktok,
   criarRoteiro,
+  criarRoteiroColado,
   criarRoteiroDeVideo,
+  criarRoteiroDoZero,
   dissecarSelecionados,
   excluirAchado,
   excluirFormula,
@@ -170,6 +172,16 @@ export default function Estudio({
     criarRoteiroDeVideo,
     undefined,
   );
+  const [zeroEstado, rodarZero, escrevendoZero] = useActionState<EstadoEstudio, FormData>(
+    criarRoteiroDoZero,
+    undefined,
+  );
+  const [coladoEstado, rodarColado, colandoRoteiro] = useActionState<EstadoEstudio, FormData>(
+    criarRoteiroColado,
+    undefined,
+  );
+  // "ia" = a máquina escreve; "meu" = o texto é seu e ela não encosta nele.
+  const [modoZero, setModoZero] = useState<"ia" | "meu">("ia");
 
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [temaAtivo, setTemaAtivo] = useState("todos");
@@ -210,6 +222,152 @@ export default function Estudio({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* ---------------------------- vídeo do zero --------------------------- */}
+      {/*
+        A porta direta, primeira na tela de propósito: a maior parte das
+        ideias não vem de um vídeo que estourou, vem de uma dúvida que o
+        cliente mandou no WhatsApp. O garimpo continua logo abaixo para
+        quando a ideia AINDA não existe.
+      */}
+      <div className={`anim-entrada d1 ${cardClass}`}>
+        <h2 className="mb-1 text-lg font-bold">✍️ Criar um vídeo do zero</h2>
+        <p className="mb-3 text-sm text-paper-dim">
+          Sem garimpo e sem vídeo de ninguém. Você diz o assunto — ou cola o texto que já
+          escreveu — e vai direto para a fila.
+        </p>
+
+        <div className="mb-4 flex gap-2">
+          {(
+            [
+              ["ia", "A IA escreve"],
+              ["meu", "Já tenho o texto"],
+            ] as const
+          ).map(([modo, rotulo]) => (
+            <button
+              key={modo}
+              type="button"
+              onClick={() => setModoZero(modo)}
+              className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition ${
+                modoZero === modo
+                  ? "bg-brand text-white"
+                  : "bg-white/5 text-paper-dim hover:text-paper"
+              }`}
+            >
+              {rotulo}
+            </button>
+          ))}
+        </div>
+
+        {modoZero === "ia" ? (
+          <form action={rodarZero} className="flex flex-col gap-3">
+            <div>
+              <label className={labelClass} htmlFor="zero-assunto">
+                Sobre o que é o vídeo?
+              </label>
+              <input
+                id="zero-assunto"
+                name="assunto"
+                placeholder="ex.: por que clínica que só atende por WhatsApp perde paciente"
+                className={`${inputClass} mt-1 w-full`}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="zero-angulo">
+                Ângulo — a tese que o vídeo defende (opcional, mas é o que faz diferença)
+              </label>
+              <input
+                id="zero-angulo"
+                name="angulo"
+                placeholder="ex.: quem responde em 1 hora já perdeu; o concorrente respondeu em 2 minutos"
+                className={`${inputClass} mt-1 w-full`}
+              />
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className={labelClass} htmlFor="zero-duracao">
+                  Duração
+                </label>
+                <select
+                  id="zero-duracao"
+                  name="duracao"
+                  defaultValue="45"
+                  className={`${inputClass} mt-1 w-24`}
+                >
+                  {[30, 45, 60, 90].map((d) => (
+                    <option key={d} value={d}>
+                      {d}s
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <label className="flex items-center gap-1.5 pb-2.5 text-xs text-paper-dim">
+                <input
+                  type="checkbox"
+                  name="formato_16x9"
+                  value="1"
+                  className="h-3.5 w-3.5 accent-[var(--color-brand)]"
+                />
+                gerar também em 16:9
+              </label>
+              <button
+                type="submit"
+                disabled={escrevendoZero}
+                className="ml-auto rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+              >
+                {escrevendoZero ? "Escrevendo…" : "Escrever roteiro"}
+              </button>
+            </div>
+            {!brief.publico && (
+              <p className="text-xs text-warn">
+                💡 Preencha o <b>Briefing padrão</b> lá embaixo (quem assiste e o que você pede no
+                fim) — é o que separa um roteiro seu de um roteiro genérico.
+              </p>
+            )}
+            {zeroEstado?.error && <p className="text-sm text-danger">{zeroEstado.error}</p>}
+            {zeroEstado?.ok && <p className="text-sm text-ok">✅ {zeroEstado.ok}</p>}
+          </form>
+        ) : (
+          <form action={rodarColado} className="flex flex-col gap-3">
+            <div>
+              <label className={labelClass} htmlFor="zero-roteiro">
+                Cole a narração (só o que será falado — a IA não vai reescrever)
+              </label>
+              <textarea
+                id="zero-roteiro"
+                name="roteiro"
+                rows={7}
+                placeholder="Cole aqui o seu texto. A duração do vídeo sai do tamanho dele."
+                className={`${inputClass} mt-1 w-full resize-y text-sm leading-relaxed`}
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-1.5 text-xs text-paper-dim">
+                <input
+                  type="checkbox"
+                  name="formato_16x9"
+                  value="1"
+                  className="h-3.5 w-3.5 accent-[var(--color-brand)]"
+                />
+                gerar também em 16:9
+              </label>
+              <button
+                type="submit"
+                disabled={colandoRoteiro}
+                className="ml-auto rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+              >
+                {colandoRoteiro ? "Preparando…" : "Usar este roteiro"}
+              </button>
+            </div>
+            <p className="text-xs text-paper-dim">
+              A IA só olha o texto para sugerir o título e as palavras em inglês que buscam os
+              clipes. Nada do que você escreveu é alterado.
+            </p>
+            {coladoEstado?.error && <p className="text-sm text-danger">{coladoEstado.error}</p>}
+            {coladoEstado?.ok && <p className="text-sm text-ok">✅ {coladoEstado.ok}</p>}
+          </form>
+        )}
+      </div>
+
       {/* ------------------------------ garimpo ------------------------------ */}
       <form action={rodarGarimpo} className={`anim-entrada d1 ${cardClass}`}>
         <h2 className="mb-1 text-lg font-bold">🔎 Garimpar no YouTube</h2>
