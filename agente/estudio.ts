@@ -27,32 +27,59 @@ export const estudioLigado = () => !!MPT;
  * nada). Em vez de exigir que o dono descubra isso, descobrimos aqui: a
  * prova é a resposta ser JSON de verdade, não HTML da interface.
  */
+/*
+ * Onde vive a API deste MoneyPrinterTurbo.
+ *
+ * O prefixo muda entre versões, e o pacote Portable serve a interface e a
+ * API na MESMA porta — com um detalhe cruel: endereço desconhecido devolve
+ * a tela principal em HTML, com status 200. Ou seja, "abriu" não prova nada.
+ *
+ * O que prova: a resposta ser JSON. Um servidor FastAPI responde JSON até
+ * quando não conhece a rota (`{"detail":"Not Found"}`) — então JSON em
+ * qualquer status já diz "a API está montada aqui". HTML diz "isto é a
+ * interface".
+ *
+ * Quando nada casa, imprimimos o que cada endereço devolveu: sem isso o
+ * dono fica adivinhando porta, e eu fico adivinhando junto.
+ */
 const PREFIXOS = ["/api/v1", "/v1", "/api", ""];
 let baseApi: string | null = null;
+let jaDiagnosticou = false;
 
 async function descobrirApi(log: (m: string) => void): Promise<string | null> {
   if (baseApi !== null) return baseApi;
+  const relatorio: string[] = [];
+
   for (const prefixo of PREFIXOS) {
+    const alvo = `${MPT}${prefixo}/tasks`;
     try {
-      const res = await fetch(`${MPT}${prefixo}/tasks`, {
+      const res = await fetch(alvo, {
         headers: { Accept: "application/json" },
         signal: AbortSignal.timeout(8000),
       });
-      const tipo = res.headers.get("content-type") ?? "";
-      if (res.ok && tipo.includes("json")) {
+      const tipo = (res.headers.get("content-type") ?? "").toLowerCase();
+      const ehJson = tipo.includes("json");
+
+      // JSON em qualquer status (menos erro de servidor) = API montada aqui.
+      if (ehJson && res.status < 500) {
         baseApi = `${MPT}${prefixo}`;
         log(`API do MoneyPrinterTurbo encontrada em ${baseApi}`);
         return baseApi;
       }
-    } catch {
-      // Porta errada ou programa fechado: tenta o próximo prefixo.
+      const amostra = (await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 60);
+      relatorio.push(`   ${prefixo || "/"}  →  ${res.status} ${tipo || "sem tipo"} · ${amostra}`);
+    } catch (e) {
+      relatorio.push(`   ${prefixo || "/"}  →  não respondeu (${(e as Error).message.slice(0, 40)})`);
     }
   }
-  log(
-    "⚠️  não achei a API do MoneyPrinterTurbo em " +
-      MPT +
-      " — confira se ele está aberto e se a porta do MPT_URL está certa.",
-  );
+
+  if (!jaDiagnosticou) {
+    jaDiagnosticou = true;
+    log(`⚠️  não achei a API do MoneyPrinterTurbo em ${MPT}. O que cada endereço devolveu:`);
+    for (const linha of relatorio) log(linha);
+    log("   Se tudo acima devolveu HTML, a API REST não está ligada nesta porta:");
+    log("   procure na pasta do MPT um arquivo com 'api' no nome e abra ele também.");
+  }
   return null;
 }
 
