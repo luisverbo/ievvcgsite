@@ -15,9 +15,46 @@
 import * as api from "./api.ts";
 
 const MPT = (process.env.MPT_URL || "").replace(/\/$/, "");
-const BASE_API = `${MPT}/api/v1`;
 
 export const estudioLigado = () => !!MPT;
+
+/*
+ * Onde vive a API deste MoneyPrinterTurbo.
+ *
+ * O prefixo muda entre versões (o projeto original usa /api/v1; o pacote
+ * Portable serve a interface e a API na MESMA porta, e endereço
+ * desconhecido cai na tela principal — então "abriu uma página" não prova
+ * nada). Em vez de exigir que o dono descubra isso, descobrimos aqui: a
+ * prova é a resposta ser JSON de verdade, não HTML da interface.
+ */
+const PREFIXOS = ["/api/v1", "/v1", "/api", ""];
+let baseApi: string | null = null;
+
+async function descobrirApi(log: (m: string) => void): Promise<string | null> {
+  if (baseApi !== null) return baseApi;
+  for (const prefixo of PREFIXOS) {
+    try {
+      const res = await fetch(`${MPT}${prefixo}/tasks`, {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(8000),
+      });
+      const tipo = res.headers.get("content-type") ?? "";
+      if (res.ok && tipo.includes("json")) {
+        baseApi = `${MPT}${prefixo}`;
+        log(`API do MoneyPrinterTurbo encontrada em ${baseApi}`);
+        return baseApi;
+      }
+    } catch {
+      // Porta errada ou programa fechado: tenta o próximo prefixo.
+    }
+  }
+  log(
+    "⚠️  não achei a API do MoneyPrinterTurbo em " +
+      MPT +
+      " — confira se ele está aberto e se a porta do MPT_URL está certa.",
+  );
+  return null;
+}
 
 let ocupado = false;
 // Sem MPT no ar não adianta perguntar por job a cada volta de 8s.
@@ -33,7 +70,9 @@ type TarefaMpt = {
 };
 
 async function mpt<T>(caminho: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_API}${caminho}`, {
+  const base = baseApi;
+  if (!base) throw new Error("API do MoneyPrinterTurbo não localizada.");
+  const res = await fetch(`${base}${caminho}`, {
     ...init,
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
     signal: AbortSignal.timeout(60_000),
@@ -127,6 +166,12 @@ async function gerarUm(
 
 export async function rodarEstudio(log: (m: string) => void): Promise<void> {
   if (!MPT || ocupado || Date.now() < proximaChecagemEm) return;
+
+  // Sem API localizada não há o que fazer — e não adianta martelar.
+  if (!(await descobrirApi(log))) {
+    proximaChecagemEm = Date.now() + 60_000;
+    return;
+  }
 
   let projeto: api.ProjetoVideo | null;
   try {
