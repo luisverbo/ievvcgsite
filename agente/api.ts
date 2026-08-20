@@ -33,12 +33,26 @@ export function faltaConfig(): string {
   return "";
 }
 
-async function chamar<T>(acao: string, dados: Record<string, unknown> = {}): Promise<T> {
+/*
+ * Token separado para o Estúdio de Vídeos.
+ *
+ * Este PC pode rodar o agente numa conta de teste, enquanto a fila de vídeo
+ * é da conta ADMIN. Com PAGINAPRO_TOKEN_ESTUDIO no .env, a mesma máquina
+ * atende as duas contas sem misturar dado nenhum. Sem ele, usa o token
+ * normal (o caso de quem roda tudo na mesma conta).
+ */
+const TOKEN_ESTUDIO = (process.env.PAGINAPRO_TOKEN_ESTUDIO || "").trim() || TOKEN;
+
+async function chamar<T>(
+  acao: string,
+  dados: Record<string, unknown> = {},
+  token = TOKEN,
+): Promise<T> {
   const res = await fetch(`${BASE}/api/agente`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${TOKEN}`,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ acao, ...dados }),
     // Coleta e envio são lentos; o servidor tem 300s.
@@ -142,6 +156,30 @@ export const resumoPendente = () =>
   );
 
 export const resumoFalhou = () => chamar("resumo_falhou");
+
+/* --------------------------- estúdio de vídeos ---------------------------- */
+export type ProjetoVideo = {
+  id: string;
+  titulo: string;
+  roteiro: string;
+  termos: string[];
+  formato_16x9: boolean;
+  duracao_alvo_s: number;
+};
+
+export const videoProximo = () =>
+  chamar<{ projeto: ProjetoVideo | null }>("video_proximo", {}, TOKEN_ESTUDIO).then((r) => r.projeto);
+
+export const videoProgresso = (id: string, progresso: string) =>
+  chamar("video_progresso", { id, progresso }, TOKEN_ESTUDIO);
+
+export const videoFim = (dados: {
+  id: string;
+  ok: boolean;
+  arquivo?: string;
+  arquivo_16x9?: string;
+  erro?: string;
+}) => chamar("video_fim", dados, TOKEN_ESTUDIO);
 
 export const zapEstado = (estado: string, mensagem?: string, qr?: string | null) =>
   chamar("zap_estado", { estado, mensagem, ...(qr !== undefined ? { qr } : {}) });

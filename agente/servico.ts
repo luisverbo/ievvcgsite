@@ -15,6 +15,7 @@ import { coletarDoGoogle } from "./coletor.ts";
 import { rodarAbordagem, fecharSessaoZap } from "./abordagem.ts";
 import { capturarInstagramDoProspecto } from "./capturaIg.ts";
 import { capturarEspelhoDoProspecto } from "./espelho.ts";
+import { rodarEstudio, estudioLigado } from "./estudio.ts";
 
 const AGENTE = process.env.AGENTE_NOME || os.hostname();
 const INTERVALO_MS = Math.max(3000, Number(process.env.AGENTE_INTERVALO_MS) || 8000);
@@ -175,6 +176,7 @@ async function main() {
   }
 
   log(`agente "${AGENTE}" no ar · navegador ${HEADLESS ? "oculto" : "visível"}`);
+  if (estudioLigado()) log(`🎬 Estúdio de Vídeos ligado — MoneyPrinterTurbo em ${process.env.MPT_URL}`);
   log(`checando a fila a cada ${INTERVALO_MS / 1000}s · pausa de ${PAUSA_MS}ms entre empresas`);
 
   let ocioso = true;
@@ -193,6 +195,14 @@ async function main() {
           await rodarAbordagem(HEADLESS, (m) => log(`   ${m}`));
         } catch (e) {
           log(`⚠️  abordagem: ${(e as Error).message}`);
+        }
+
+        // E, se esta máquina tiver o MoneyPrinterTurbo, a fila de vídeos.
+        // Sem MPT_URL no .env isto nem consulta o painel.
+        try {
+          await rodarEstudio((m) => log(`   ${m}`));
+        } catch (e) {
+          log(`⚠️  estúdio: ${(e as Error).message}`);
         }
         if (ocioso) {
           log(

@@ -5,7 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { ehAdmin } from "@/lib/painel/admin";
 import { garimparYoutube, transcricaoDoYoutube, oembedTiktok } from "@/lib/estudio/youtube";
-import { dissecar, type EntradaDissecacao } from "@/lib/estudio/dissecar";
+import { dissecar, type EntradaDissecacao, type Formula } from "@/lib/estudio/dissecar";
+import { escreverRoteiro } from "@/lib/estudio/roteiro";
 import { salvarModeloDaTarefa, type TarefaLLM } from "@/lib/estudio/llm";
 
 /*
@@ -176,6 +177,108 @@ export async function excluirFormula(id: string) {
   const ctx = await admDono();
   if (!ctx) return;
   await ctx.admin.from("estudio_formulas").delete().eq("id", id).eq("org_id", ctx.orgId);
+  revalidatePath("/app/estudio");
+}
+
+/* -------------------------------- projetos --------------------------------- */
+
+export async function criarRoteiro(_prev: EstadoEstudio, formData: FormData): Promise<EstadoEstudio> {
+  const ctx = await admDono();
+  if (!ctx) return { error: "Sem permissão." };
+
+  const formulaId = String(formData.get("formula_id") ?? "");
+  const assunto = String(formData.get("assunto") ?? "").trim();
+  const duracao = Math.min(180, Math.max(15, Number(formData.get("duracao")) || 60));
+  const dezesseisPorNove = String(formData.get("formato_16x9") ?? "") === "1";
+  if (assunto.length < 5) return { error: "Diga sobre o que é o vídeo novo." };
+
+  const { data: fRaw } = await ctx.admin
+    .from("estudio_formulas")
+    .select("id, formula, tema")
+    .eq("id", formulaId)
+    .eq("org_id", ctx.orgId)
+    .maybeSingle();
+  const f = fRaw as { id: string; formula: Formula; tema: string | null } | null;
+  if (!f) return { error: "Fórmula não encontrada." };
+
+  let r;
+  try {
+    r = await escreverRoteiro(assunto, f.formula, duracao);
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const { error } = await ctx.admin.from("estudio_projetos").insert({
+    org_id: ctx.orgId,
+    titulo: r.titulo,
+    tema: f.tema,
+    formula_id: f.id,
+    roteiro: r.roteiro,
+    termos: r.termos,
+    status: "roteiro_pronto",
+    formato_16x9: dezesseisPorNove,
+    duracao_alvo_s: duracao,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/estudio");
+  return { ok: `Roteiro pronto: “${r.titulo}”. Revise abaixo e aprove para gerar.` };
+}
+
+/*
+ * Aprovar É colocar na fila. A porta única de revisão que o dono pediu: daqui
+ * em diante quem trabalha é a máquina dele.
+ */
+export async function aprovarProjeto(_prev: EstadoEstudio, formData: FormData): Promise<EstadoEstudio> {
+  const ctx = await admDono();
+  if (!ctx) return { error: "Sem permissão." };
+
+  const id = String(formData.get("id") ?? "");
+  const roteiro = String(formData.get("roteiro") ?? "").trim();
+  const termos = String(formData.get("termos") ?? "")
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean)
+    .slice(0, 6);
+  if (roteiro.length < 60) return { error: "Roteiro curto demais." };
+  if (termos.length === 0) return { error: "Escreva ao menos um termo de busca (em inglês)." };
+
+  const { error } = await ctx.admin
+    .from("estudio_projetos")
+    .update({
+      roteiro,
+      termos,
+      status: "na_fila",
+      erro: null,
+      progresso: "aguardando o computador com o Estúdio ligado",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("org_id", ctx.orgId)
+    .in("status", ["roteiro_pronto", "erro"]);
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/estudio");
+  return { ok: "Na fila! O vídeo começa assim que o computador com o MoneyPrinterTurbo estiver ligado." };
+}
+
+export async function voltarParaEdicao(id: string) {
+  const ctx = await admDono();
+  if (!ctx) return;
+  // Só quem ainda não começou volta — não se cancela render pela metade.
+  await ctx.admin
+    .from("estudio_projetos")
+    .update({ status: "roteiro_pronto", progresso: null })
+    .eq("id", id)
+    .eq("org_id", ctx.orgId)
+    .eq("status", "na_fila");
+  revalidatePath("/app/estudio");
+}
+
+export async function excluirProjeto(id: string) {
+  const ctx = await admDono();
+  if (!ctx) return;
+  await ctx.admin.from("estudio_projetos").delete().eq("id", id).eq("org_id", ctx.orgId);
   revalidatePath("/app/estudio");
 }
 

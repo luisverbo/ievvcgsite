@@ -200,6 +200,85 @@ export async function POST(req: Request) {
         return j({ ok: true, fotos: fotos.length });
       }
 
+      /* ------------------------- estúdio de vídeos -------------------------- */
+      /*
+       * A fila de vídeo é escopada pela organização do token, como todo o
+       * resto — e como só o admin CRIA projeto (ehAdmin nas actions), na
+       * prática só a organização dele tem fila.
+       *
+       * Consequência prática para quem roda dois agentes: o do PC costuma
+       * estar logado numa conta de teste, e a fila de vídeo é da conta
+       * ADMIN. Por isso o agente aceita um token separado só para o Estúdio
+       * (PAGINAPRO_TOKEN_ESTUDIO no .env) — assim uma máquina só atende as
+       * duas contas sem misturar nada.
+       *
+       * O roteamento entre VPS e PC não precisa de código: quem tem MPT
+       * instalado é que pergunta por estes jobs.
+       */
+      case "video_proximo": {
+        const { data: fila } = await admin
+          .from("estudio_projetos")
+          .select("id")
+          .eq("org_id", org)
+          .eq("status", "na_fila")
+          .order("created_at")
+          .limit(1);
+        const candidato = (fila as { id: string }[] | null)?.[0];
+        if (!candidato) return j({ projeto: null });
+
+        // O filtro no UPDATE é o que impede duas máquinas de pegarem o mesmo.
+        const { data: presa } = await admin
+          .from("estudio_projetos")
+          .update({
+            status: "gerando",
+            agente: agente.nome,
+            iniciado_em: agora(),
+            progresso: "preparando",
+          })
+          .eq("id", candidato.id)
+          .eq("org_id", org)
+          .eq("status", "na_fila")
+          .select("id, titulo, roteiro, termos, formato_16x9, duracao_alvo_s");
+        return j({ projeto: (presa as unknown[] | null)?.[0] ?? null });
+      }
+
+      case "video_progresso": {
+        await admin
+          .from("estudio_projetos")
+          .update({ progresso: String(corpo.progresso ?? "").slice(0, 120) })
+          .eq("id", String(corpo.id))
+          .eq("org_id", org)
+          .eq("status", "gerando");
+        return j({ ok: true });
+      }
+
+      case "video_fim": {
+        const id = idValido(corpo.id);
+        if (!id) return j({ erro: "Id inválido." }, 400);
+        await admin
+          .from("estudio_projetos")
+          .update(
+            corpo.ok
+              ? {
+                  status: "pronto",
+                  arquivo: String(corpo.arquivo ?? "").slice(0, 500) || null,
+                  arquivo_16x9: String(corpo.arquivo_16x9 ?? "").slice(0, 500) || null,
+                  progresso: null,
+                  erro: null,
+                  concluido_em: agora(),
+                }
+              : {
+                  status: "erro",
+                  erro: String(corpo.erro ?? "falhou").slice(0, 400),
+                  progresso: null,
+                  concluido_em: agora(),
+                },
+          )
+          .eq("id", id)
+          .eq("org_id", org);
+        return j({ ok: true });
+      }
+
       /* ------------------------------ espelho ------------------------------ */
       case "gravar_espelho": {
         const id = idValido(corpo.id);

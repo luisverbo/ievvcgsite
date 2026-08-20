@@ -2,16 +2,22 @@
 
 import { useMemo, useState } from "react";
 import { useActionState } from "react";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
+  aprovarProjeto,
   colarTiktok,
+  criarRoteiro,
   dissecarSelecionados,
   excluirAchado,
   excluirFormula,
+  excluirProjeto,
   garimpar,
   salvarModelos,
+  voltarParaEdicao,
   type EstadoEstudio,
 } from "./actions";
-import type { AchadoRow, FormulaRow } from "./page";
+import type { AchadoRow, FormulaRow, ProjetoRow } from "./page";
 import { inputClass, labelClass, cardClass } from "@/components/painel/ui";
 import { IconTrash } from "@/components/painel/icons";
 import Robo from "@/components/painel/Robo";
@@ -26,6 +32,15 @@ import Robo from "@/components/painel/Robo";
 
 const n = (v: number | null | undefined) => (v == null ? "—" : v.toLocaleString("pt-BR"));
 
+const ROTULO_STATUS: Record<string, { rotulo: string; classe: string }> = {
+  rascunho: { rotulo: "rascunho", classe: "bg-white/10 text-paper-dim" },
+  roteiro_pronto: { rotulo: "aguardando sua aprovação", classe: "bg-warn/15 text-warn" },
+  na_fila: { rotulo: "na fila", classe: "bg-brand/20 text-brand-2" },
+  gerando: { rotulo: "gerando…", classe: "bg-brand/20 text-brand-2" },
+  pronto: { rotulo: "pronto ✓", classe: "bg-ok/15 text-ok" },
+  erro: { rotulo: "falhou", classe: "bg-danger/15 text-danger" },
+};
+
 function corDoScore(s: number | null): string {
   if (s == null) return "text-paper-dim";
   if (s >= 10) return "text-ok";
@@ -36,14 +51,17 @@ function corDoScore(s: number | null): string {
 export default function Estudio({
   achados,
   formulas,
+  projetos,
   modeloDissecacao,
   modeloRoteiro,
 }: {
   achados: AchadoRow[];
   formulas: FormulaRow[];
+  projetos: ProjetoRow[];
   modeloDissecacao: string;
   modeloRoteiro: string;
 }) {
+  const router = useRouter();
   const [garimpoEstado, rodarGarimpo, garimpando] = useActionState<EstadoEstudio, FormData>(
     garimpar,
     undefined,
@@ -61,8 +79,29 @@ export default function Estudio({
     undefined,
   );
 
+  const [roteiroEstado, rodarRoteiro, escrevendo] = useActionState<EstadoEstudio, FormData>(
+    criarRoteiro,
+    undefined,
+  );
+  const [aprovEstado, rodarAprovar, aprovando] = useActionState<EstadoEstudio, FormData>(
+    aprovarProjeto,
+    undefined,
+  );
+
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
   const [temaAtivo, setTemaAtivo] = useState("todos");
+
+  /*
+   * Enquanto houver vídeo na fila ou renderizando, a tela se atualiza
+   * sozinha: o progresso chega da máquina que está renderizando, e ficar
+   * apertando F5 para ver "40%" seria trabalho manual à toa.
+   */
+  const trabalhando = projetos.some((p) => p.status === "na_fila" || p.status === "gerando");
+  useEffect(() => {
+    if (!trabalhando) return;
+    const id = window.setInterval(() => router.refresh(), 10_000);
+    return () => window.clearInterval(id);
+  }, [trabalhando, router]);
 
   const temas = useMemo(() => {
     const mapa = new Map<string, number>();
@@ -357,10 +396,180 @@ export default function Estudio({
                   ))}
                 </ol>
               </div>
-              <p className="mt-2 text-[11px] text-paper-dim">
-                Na Etapa 2, o botão “Criar roteiro com esta fórmula” entra aqui.
-              </p>
+              {/* Cria um vídeo NOVO com esta mecânica — sobre o que você quiser. */}
+              <div className="mt-3 rounded-lg border border-brand-2/30 bg-brand/10 p-3">
+                <p className="mb-2 text-xs font-bold text-paper">
+                  ✍️ Escrever um roteiro com esta fórmula
+                </p>
+                <div className="flex flex-wrap items-end gap-2">
+                  <input type="hidden" name="formula_id" value={f.id} form={`rot-${f.id}`} />
+                  <input
+                    name="assunto"
+                    form={`rot-${f.id}`}
+                    placeholder="Sobre o que é o SEU vídeo? ex.: por que todo dentista precisa de site"
+                    className={`${inputClass} min-w-0 flex-1 text-xs`}
+                  />
+                  <select
+                    name="duracao"
+                    form={`rot-${f.id}`}
+                    defaultValue="45"
+                    className={`${inputClass} w-24 text-xs`}
+                  >
+                    <option value="30">30s</option>
+                    <option value="45">45s</option>
+                    <option value="60">60s</option>
+                    <option value="90">90s</option>
+                  </select>
+                  <label className="flex items-center gap-1.5 text-xs text-paper-dim">
+                    <input
+                      type="checkbox"
+                      name="formato_16x9"
+                      value="1"
+                      form={`rot-${f.id}`}
+                      className="h-3.5 w-3.5 accent-[var(--color-brand)]"
+                    />
+                    + 16:9
+                  </label>
+                  <button
+                    type="submit"
+                    form={`rot-${f.id}`}
+                    disabled={escrevendo}
+                    className="rounded-lg bg-brand px-4 py-2 text-xs font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+                  >
+                    {escrevendo ? "Escrevendo…" : "Criar roteiro"}
+                  </button>
+                </div>
+              </div>
             </details>
+          ))}
+        </div>
+      )}
+
+      {/* Um form por fórmula, fora dos cards — HTML não aninha formulários. */}
+      {formulas.map((f) => (
+        <form key={`rot-${f.id}`} id={`rot-${f.id}`} action={rodarRoteiro} className="hidden" />
+      ))}
+      {roteiroEstado?.error && (
+        <p className="rounded-lg border border-danger/40 bg-danger/10 px-4 py-2 text-sm text-danger">
+          {roteiroEstado.error}
+        </p>
+      )}
+      {roteiroEstado?.ok && (
+        <p className="rounded-lg border border-ok/40 bg-ok/10 px-4 py-2 text-sm text-ok">
+          ✅ {roteiroEstado.ok}
+        </p>
+      )}
+
+      {/* ------------------------------ projetos ----------------------------- */}
+      {projetos.length > 0 && (
+        <div className="anim-entrada d3 flex flex-col gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-paper-dim">
+            Vídeos ({projetos.length})
+          </h2>
+          {aprovEstado?.error && <p className="text-sm text-danger">{aprovEstado.error}</p>}
+          {aprovEstado?.ok && <p className="text-sm text-ok">✅ {aprovEstado.ok}</p>}
+
+          {projetos.map((p) => (
+            <div key={p.id} className={`${cardClass} flex flex-col gap-3`}>
+              <div className="flex flex-wrap items-center gap-3">
+                <Robo
+                  estado={
+                    p.status === "gerando" ? "trabalhando" : p.status === "pronto" ? "trabalhando" : "dormindo"
+                  }
+                  tamanho={36}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-bold text-paper">{p.titulo}</span>
+                  <span className="block text-xs text-paper-dim">
+                    {p.duracao_alvo_s}s · 9:16{p.formato_16x9 ? " + 16:9" : ""}
+                    {p.tema ? ` · ${p.tema}` : ""}
+                  </span>
+                </span>
+                <span className={`flex-none rounded-md px-2.5 py-1 text-xs font-bold ${ROTULO_STATUS[p.status].classe}`}>
+                  {ROTULO_STATUS[p.status].rotulo}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => excluirProjeto(p.id)}
+                  title="Excluir projeto"
+                  className="flex-none rounded-lg p-1.5 text-paper-dim transition hover:text-danger"
+                >
+                  <IconTrash size={13} />
+                </button>
+              </div>
+
+              {/* ROTEIRO_PRONTO / ERRO: a porta de aprovação — dá para editar antes. */}
+              {(p.status === "roteiro_pronto" || p.status === "erro") && (
+                <form action={rodarAprovar} className="flex flex-col gap-2">
+                  <input type="hidden" name="id" value={p.id} />
+                  {p.erro && (
+                    <p className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+                      Falhou: {p.erro}
+                    </p>
+                  )}
+                  <div>
+                    <label className={labelClass}>Roteiro (é isto que vira narração — revise)</label>
+                    <textarea
+                      name="roteiro"
+                      defaultValue={p.roteiro ?? ""}
+                      rows={6}
+                      className={`${inputClass} mt-1 w-full resize-y text-xs leading-relaxed`}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Termos de busca dos clipes (inglês, por vírgula)</label>
+                    <input
+                      name="termos"
+                      defaultValue={(p.termos ?? []).join(", ")}
+                      className={`${inputClass} mt-1 w-full font-mono text-xs`}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={aprovando}
+                    className="self-start rounded-lg bg-ok/20 px-5 py-2.5 text-sm font-bold text-ok transition hover:bg-ok/30 disabled:opacity-60"
+                  >
+                    {aprovando ? "Enviando…" : "✓ Aprovar e gerar vídeo"}
+                  </button>
+                </form>
+              )}
+
+              {(p.status === "na_fila" || p.status === "gerando") && (
+                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5 text-xs text-paper-dim">
+                  <span className="pp-pontinhos text-brand-2">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                  <span>
+                    {p.progresso ?? "aguardando"}
+                    {p.agente ? ` · ${p.agente}` : ""}
+                  </span>
+                  {p.status === "na_fila" && (
+                    <button
+                      type="button"
+                      onClick={() => voltarParaEdicao(p.id)}
+                      className="ml-auto underline transition hover:text-paper"
+                    >
+                      voltar para edição
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {p.status === "pronto" && (
+                <div className="rounded-lg border border-ok/30 bg-ok/10 px-3 py-2.5 text-xs">
+                  <p className="font-bold text-ok">🎉 Vídeo pronto na máquina que renderizou</p>
+                  <p className="mt-1 break-all font-mono text-[11px] text-paper-dim">{p.arquivo}</p>
+                  {p.arquivo_16x9 && (
+                    <p className="break-all font-mono text-[11px] text-paper-dim">{p.arquivo_16x9}</p>
+                  )}
+                  <p className="mt-1.5 text-paper-dim">
+                    Abra a interface do MoneyPrinterTurbo para assistir e baixar.
+                  </p>
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}

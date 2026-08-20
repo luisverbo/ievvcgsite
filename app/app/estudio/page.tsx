@@ -44,13 +44,30 @@ export type FormulaRow = {
   created_at: string;
 };
 
+export type ProjetoRow = {
+  id: string;
+  titulo: string;
+  tema: string | null;
+  roteiro: string | null;
+  termos: string[];
+  status: "rascunho" | "roteiro_pronto" | "na_fila" | "gerando" | "pronto" | "erro";
+  progresso: string | null;
+  erro: string | null;
+  formato_16x9: boolean;
+  duracao_alvo_s: number;
+  arquivo: string | null;
+  arquivo_16x9: string | null;
+  agente: string | null;
+  created_at: string;
+};
+
 export default async function EstudioPage() {
   if (!(await ehAdmin())) notFound();
   const org = await getMinhaOrg();
   if (!org) notFound();
 
   const admin = createAdminClient();
-  const [{ data: achadosRaw }, { data: formulasRaw }, mDissec, mRoteiro] = await Promise.all([
+  const [{ data: achadosRaw }, { data: formulasRaw }, { data: projetosRaw }, mDissec, mRoteiro] = await Promise.all([
     admin
       .from("estudio_achados")
       .select("id, fonte, url, titulo, canal, views, publicado_em, duracao_s, score_outlier, views_por_dia, thumbnail, transcricao, tema, created_at")
@@ -63,6 +80,12 @@ export default async function EstudioPage() {
       .eq("org_id", org.id)
       .order("created_at", { ascending: false })
       .limit(30),
+    admin
+      .from("estudio_projetos")
+      .select("*")
+      .eq("org_id", org.id)
+      .order("created_at", { ascending: false })
+      .limit(40),
     modeloDaTarefa("dissecacao"),
     modeloDaTarefa("roteiro"),
   ]);
@@ -93,6 +116,7 @@ export default async function EstudioPage() {
       <Estudio
         achados={(achadosRaw as AchadoRow[] | null) ?? []}
         formulas={(formulasRaw as FormulaRow[] | null) ?? []}
+        projetos={(projetosRaw as ProjetoRow[] | null) ?? []}
         modeloDissecacao={`${mDissec.provedor}:${mDissec.modelo}`}
         modeloRoteiro={`${mRoteiro.provedor}:${mRoteiro.modelo}`}
       />
