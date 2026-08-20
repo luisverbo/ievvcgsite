@@ -267,9 +267,20 @@ export async function criarRoteiroDeVideo(
     }
   }
   if (!transcricao) {
+    /*
+     * Do servidor, o YouTube quase sempre recusa (IP de datacenter). Quem
+     * consegue é o agente, com IP residencial — então marcamos para ele
+     * pegar e explicamos a espera, em vez de acusar o dono do vídeo de ter
+     * desligado a legenda (era o que a mensagem antiga fazia, errado).
+     */
+    await ctx.admin
+      .from("estudio_achados")
+      .update({ transcricao_tentada_em: null })
+      .eq("id", a.id)
+      .eq("org_id", ctx.orgId);
     return {
       error:
-        "Este vídeo não tem transcrição disponível (o dono desligou as legendas). Use a dissecação por fórmula, ou cole a transcrição na mão.",
+        "Ainda não tenho a transcrição deste vídeo. Deixe o agente do seu computador ligado — ele busca em alguns minutos e o texto aparece aqui. Depois é só clicar de novo.",
     };
   }
 

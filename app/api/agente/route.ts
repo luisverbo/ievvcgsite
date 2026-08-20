@@ -215,6 +215,44 @@ export async function POST(req: Request) {
        * O roteamento entre VPS e PC não precisa de código: quem tem MPT
        * instalado é que pergunta por estes jobs.
        */
+      /*
+       * Transcrição pendente. O agente do dono busca com IP residencial —
+       * do servidor, o YouTube devolve tela de consentimento e o sintoma
+       * mentia ("este vídeo não tem legenda").
+       *
+       * Só entrega quem ainda não foi tentado, ou foi há mais de um dia:
+       * vídeo realmente sem legenda não pode virar tentativa eterna.
+       */
+      case "transcricao_pendente": {
+        const ontem = new Date(Date.now() - 86_400_000).toISOString();
+        const { data } = await admin
+          .from("estudio_achados")
+          .select("id, video_id, titulo")
+          .eq("org_id", org)
+          .eq("fonte", "youtube")
+          .is("transcricao", null)
+          .or(`transcricao_tentada_em.is.null,transcricao_tentada_em.lt.${ontem}`)
+          .order("score_outlier", { ascending: false, nullsFirst: false })
+          .limit(1);
+        return j({ achado: (data as unknown[] | null)?.[0] ?? null });
+      }
+
+      case "transcricao_gravar": {
+        const id = idValido(corpo.id);
+        if (!id) return j({ erro: "Id inválido." }, 400);
+        const texto = String(corpo.texto ?? "").trim().slice(0, 12_000);
+        await admin
+          .from("estudio_achados")
+          .update({
+            // Sem texto marca a tentativa: não volta na fila hoje de novo.
+            ...(texto.length > 40 ? { transcricao: texto } : {}),
+            transcricao_tentada_em: agora(),
+          })
+          .eq("id", id)
+          .eq("org_id", org);
+        return j({ ok: true });
+      }
+
       case "video_proximo": {
         const { data: fila } = await admin
           .from("estudio_projetos")

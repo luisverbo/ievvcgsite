@@ -33,6 +33,7 @@ const ARQUIVOS = [
   "agente/instagram.ts",
   "agente/prospectar.ts",
   "agente/servico.ts",
+  "agente/transcricao.ts",
   "agente/whatsapp.ts",
   "agente/package.json",
   "agente/tsconfig.json",

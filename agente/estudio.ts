@@ -13,6 +13,7 @@
  */
 
 import * as api from "./api.ts";
+import { transcreverVideo } from "./transcricao.ts";
 
 const MPT = (process.env.MPT_URL || "").replace(/\/$/, "");
 
@@ -211,7 +212,26 @@ export async function rodarEstudio(log: (m: string) => void): Promise<void> {
     // Falha de rede aqui não é notícia: a próxima volta tenta de novo.
     return;
   }
-  if (!projeto) return;
+
+  /*
+   * Sem vídeo para renderizar, a máquina ociosa vai buscando as
+   * transcrições que faltam — uma por volta, sem pressa. É trabalho de
+   * fundo: quando o dono for criar o roteiro, o texto já está lá.
+   */
+  if (!projeto) {
+    try {
+      const achado = await api.transcricaoPendente();
+      if (achado) {
+        log(`buscando transcrição: ${(achado.titulo ?? achado.video_id).slice(0, 50)}`);
+        const texto = await transcreverVideo(achado.video_id, log);
+        await api.transcricaoGravar(achado.id, texto);
+        log(texto ? `📝 transcrição salva (${texto.length} caracteres)` : "sem legenda pública neste");
+      }
+    } catch {
+      // Transcrição é bônus: falhar aqui não pode atrapalhar a fila de vídeo.
+    }
+    return;
+  }
 
   ocupado = true;
   log(`🎬 gerando vídeo: ${projeto.titulo}`);

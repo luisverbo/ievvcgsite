@@ -169,6 +169,16 @@ export type ProjetoVideo = {
   musica_volume: number;
 };
 
+export type AchadoSemTexto = { id: string; video_id: string; titulo: string | null };
+
+export const transcricaoPendente = () =>
+  chamar<{ achado: AchadoSemTexto | null }>("transcricao_pendente", {}, TOKEN_ESTUDIO).then(
+    (r) => r.achado,
+  );
+
+export const transcricaoGravar = (id: string, texto: string | null) =>
+  chamar("transcricao_gravar", { id, texto }, TOKEN_ESTUDIO);
+
 export const videoProximo = () =>
   chamar<{ projeto: ProjetoVideo | null }>("video_proximo", {}, TOKEN_ESTUDIO).then((r) => r.projeto);
 

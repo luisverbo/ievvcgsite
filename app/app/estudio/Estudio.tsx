@@ -357,9 +357,10 @@ export default function Estudio({
                     />
                   ) : (
                     <p className="rounded-lg border border-white/10 bg-black/25 p-3 text-xs text-paper-dim">
-                      Ainda não busquei a transcrição deste vídeo — ela é baixada quando você
-                      clica em criar o roteiro abaixo. Se o dono do canal desligou as legendas,
-                      não existe transcrição para pegar.
+                      Ainda sem transcrição. Quem busca é o <b className="text-paper">agente do
+                      seu computador</b> — do servidor, o YouTube recusa (IP de datacenter).
+                      Deixe o agente ligado: ele pega as pendentes sozinho, uma a cada volta, e o
+                      texto aparece aqui. Vídeo sem legenda pública nenhuma é raro, mas existe.
                     </p>
                   )}
 
