@@ -73,6 +73,12 @@ export default async function PainelLayout({ children }: { children: React.React
             {admin && (
               <>
                 <Link
+                  href="/app/estudio"
+                  className="rounded-lg px-3 py-1.5 font-semibold text-warn/80 transition hover:bg-warn/10 hover:text-warn"
+                >
+                  Estúdio 🎬
+                </Link>
+                <Link
                   href="/app/sites"
                   className="hidden rounded-lg px-3 py-1.5 font-semibold text-warn/80 transition hover:bg-warn/10 hover:text-warn lg:block"
                 >

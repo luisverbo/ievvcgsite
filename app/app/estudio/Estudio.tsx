@@ -1,0 +1,426 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useActionState } from "react";
+import {
+  colarTiktok,
+  dissecarSelecionados,
+  excluirAchado,
+  excluirFormula,
+  garimpar,
+  salvarModelos,
+  type EstadoEstudio,
+} from "./actions";
+import type { AchadoRow, FormulaRow } from "./page";
+import { inputClass, labelClass, cardClass } from "@/components/painel/ui";
+import { IconTrash } from "@/components/painel/icons";
+import Robo from "@/components/painel/Robo";
+
+/*
+ * A tela do Estúdio, Etapa 1: garimpo → seleção → dissecação → fórmulas.
+ *
+ * O número que manda aqui é o SCORE DE OUTLIER (views ÷ média do canal):
+ * 40x num canal de bairro diz mais sobre o CONTEÚDO do que 1M de views num
+ * canal que sempre faz 1M. A tabela nasce ordenada por ele.
+ */
+
+const n = (v: number | null | undefined) => (v == null ? "—" : v.toLocaleString("pt-BR"));
+
+function corDoScore(s: number | null): string {
+  if (s == null) return "text-paper-dim";
+  if (s >= 10) return "text-ok";
+  if (s >= 3) return "text-warn";
+  return "text-paper-dim";
+}
+
+export default function Estudio({
+  achados,
+  formulas,
+  modeloDissecacao,
+  modeloRoteiro,
+}: {
+  achados: AchadoRow[];
+  formulas: FormulaRow[];
+  modeloDissecacao: string;
+  modeloRoteiro: string;
+}) {
+  const [garimpoEstado, rodarGarimpo, garimpando] = useActionState<EstadoEstudio, FormData>(
+    garimpar,
+    undefined,
+  );
+  const [tkEstado, rodarTiktok, colando] = useActionState<EstadoEstudio, FormData>(
+    colarTiktok,
+    undefined,
+  );
+  const [dissecEstado, rodarDissec, dissecando] = useActionState<EstadoEstudio, FormData>(
+    dissecarSelecionados,
+    undefined,
+  );
+  const [cfgEstado, salvarCfg, salvandoCfg] = useActionState<EstadoEstudio, FormData>(
+    salvarModelos,
+    undefined,
+  );
+
+  const [marcados, setMarcados] = useState<Set<string>>(new Set());
+  const [temaAtivo, setTemaAtivo] = useState("todos");
+
+  const temas = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const a of achados) mapa.set(a.tema, (mapa.get(a.tema) ?? 0) + 1);
+    return [...mapa.entries()].sort((a, b) => b[1] - a[1]);
+  }, [achados]);
+
+  const visiveis = useMemo(() => {
+    const lista = temaAtivo === "todos" ? achados : achados.filter((a) => a.tema === temaAtivo);
+    return [...lista].sort((a, b) => (b.score_outlier ?? 0) - (a.score_outlier ?? 0));
+  }, [achados, temaAtivo]);
+
+  function alternar(id: string) {
+    setMarcados((s) => {
+      const novo = new Set(s);
+      if (novo.has(id)) novo.delete(id);
+      else if (novo.size < 5) novo.add(id);
+      return novo;
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* ------------------------------ garimpo ------------------------------ */}
+      <form action={rodarGarimpo} className={`anim-entrada d1 ${cardClass}`}>
+        <h2 className="mb-1 text-lg font-bold">🔎 Garimpar no YouTube</h2>
+        <p className="mb-4 text-sm text-paper-dim">
+          O score de outlier é views ÷ média do canal: <b className="text-paper">40x num canal
+          pequeno</b> diz mais sobre o conteúdo do que 1M de views num canal que sempre faz 1M.
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-0 flex-1 sm:max-w-xs">
+            <label className={labelClass} htmlFor="tema">
+              Tema / nicho
+            </label>
+            <input
+              id="tema"
+              name="tema"
+              placeholder="ex.: renda extra com sites"
+              className={`${inputClass} mt-1 w-full`}
+            />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="min_views">
+              Mín. de views
+            </label>
+            <input
+              id="min_views"
+              name="min_views"
+              type="number"
+              defaultValue={10_000}
+              className={`${inputClass} mt-1 w-28`}
+            />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="periodo">
+              Últimos (dias)
+            </label>
+            <input
+              id="periodo"
+              name="periodo"
+              type="number"
+              defaultValue={90}
+              className={`${inputClass} mt-1 w-24`}
+            />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="duracao">
+              Duração
+            </label>
+            <select id="duracao" name="duracao" className={`${inputClass} mt-1 w-32`}>
+              <option value="curto">Shorts (&lt;60s)</option>
+              <option value="qualquer">Qualquer</option>
+            </select>
+          </div>
+          <button
+            type="submit"
+            disabled={garimpando}
+            className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+          >
+            {garimpando ? "Garimpando…" : "Garimpar"}
+          </button>
+        </div>
+        {garimpoEstado?.error && <p className="mt-2 text-sm text-danger">{garimpoEstado.error}</p>}
+        {garimpoEstado?.ok && <p className="mt-2 text-sm text-ok">✅ {garimpoEstado.ok}</p>}
+
+        {/* TikTok manual: oEmbed oficial e gratuito; transcrição colada na mão. */}
+        <details className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+          <summary className="cursor-pointer list-none text-sm font-bold text-paper-dim transition hover:text-paper [&::-webkit-details-marker]:hidden">
+            + Colar um TikTok na mão (garimpo automático de TikTok não existe de graça)
+          </summary>
+          <div className="mt-3 flex flex-col gap-2">
+            <div className="flex flex-wrap gap-2">
+              <input
+                name="url"
+                form="form-tiktok"
+                placeholder="https://www.tiktok.com/@usuario/video/…"
+                className={`${inputClass} min-w-0 flex-1`}
+              />
+              <input
+                name="tema"
+                form="form-tiktok"
+                placeholder="tema (para agrupar)"
+                className={`${inputClass} w-44`}
+              />
+            </div>
+            <textarea
+              name="transcricao"
+              form="form-tiktok"
+              rows={2}
+              placeholder="Transcrição (opcional — cole se tiver; melhora muito a dissecação)"
+              className={`${inputClass} w-full resize-y text-xs`}
+            />
+            <button
+              type="submit"
+              form="form-tiktok"
+              disabled={colando}
+              className="self-start rounded-lg border border-white/15 px-4 py-2 text-xs font-bold text-paper-dim transition hover:border-brand-2 hover:text-brand-2 disabled:opacity-60"
+            >
+              {colando ? "Lendo…" : "Adicionar TikTok"}
+            </button>
+            {tkEstado?.error && <p className="text-sm text-danger">{tkEstado.error}</p>}
+            {tkEstado?.ok && <p className="text-sm text-ok">✅ {tkEstado.ok}</p>}
+          </div>
+        </details>
+      </form>
+      {/* O form do TikTok vive fora do form do garimpo (HTML não deixa aninhar). */}
+      <form id="form-tiktok" action={rodarTiktok} className="hidden" />
+
+      {/* ------------------------------ achados ------------------------------ */}
+      {achados.length > 0 && (
+        <form action={rodarDissec} className={`anim-entrada d2 ${cardClass}`}>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-bold">Vídeos garimpados ({visiveis.length})</h2>
+            {temas.length > 1 && (
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setTemaAtivo("todos")}
+                  className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
+                    temaAtivo === "todos"
+                      ? "bg-brand text-white"
+                      : "border border-white/15 text-paper-dim hover:text-paper"
+                  }`}
+                >
+                  Todos
+                </button>
+                {temas.map(([t, qtd]) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTemaAtivo(t)}
+                    className={`rounded-lg px-3 py-1 text-xs font-bold transition ${
+                      temaAtivo === t
+                        ? "bg-brand text-white"
+                        : "border border-white/15 text-paper-dim hover:text-paper"
+                    }`}
+                  >
+                    {t} ({qtd})
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex max-h-[520px] flex-col gap-1.5 overflow-y-auto">
+            {visiveis.map((a) => (
+              <label
+                key={a.id}
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition ${
+                  marcados.has(a.id) ? "border-brand-2 bg-brand/10" : "border-white/10 hover:border-white/25"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  name="achado"
+                  value={a.id}
+                  checked={marcados.has(a.id)}
+                  onChange={() => alternar(a.id)}
+                  className="h-4 w-4 flex-none accent-[var(--color-brand)]"
+                />
+                <span className={`w-14 flex-none text-right font-display text-lg font-extrabold tabular-nums ${corDoScore(a.score_outlier)}`}>
+                  {a.score_outlier != null ? `${a.score_outlier}x` : a.fonte === "tiktok" ? "TT" : "—"}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <a
+                    href={a.url ?? "#"}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="block truncate text-sm font-bold text-paper hover:underline"
+                  >
+                    {a.titulo ?? "(sem título)"} ↗
+                  </a>
+                  <span className="block truncate text-xs text-paper-dim">
+                    {a.canal ?? "?"} · {n(a.views)} views · {n(a.views_por_dia)}/dia
+                    {a.duracao_s ? ` · ${a.duracao_s}s` : ""}
+                    {a.transcricao ? " · 📝 transcrição" : ""}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    excluirAchado(a.id);
+                  }}
+                  title="Remover"
+                  className="flex-none rounded-lg p-1.5 text-paper-dim transition hover:text-danger"
+                >
+                  <IconTrash size={13} />
+                </button>
+              </label>
+            ))}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <span className="text-sm text-paper-dim">{marcados.size} de até 5 marcados</span>
+            <button
+              type="submit"
+              disabled={dissecando || marcados.size === 0}
+              className="rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-50"
+            >
+              {dissecando ? "🧠 Dissecando (busca transcrições + IA)…" : "🧠 Dissecar a fórmula"}
+            </button>
+            {dissecando && (
+              <span className="text-xs text-paper-dim">isso leva ~30–60s</span>
+            )}
+          </div>
+          {dissecEstado?.error && <p className="mt-2 text-sm text-danger">{dissecEstado.error}</p>}
+          {dissecEstado?.ok && <p className="mt-2 text-sm text-ok">✅ {dissecEstado.ok}</p>}
+        </form>
+      )}
+
+      {/* ------------------------------ fórmulas ------------------------------ */}
+      {formulas.length > 0 && (
+        <div className="anim-entrada d3 flex flex-col gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-paper-dim">
+            Fórmulas salvas ({formulas.length})
+          </h2>
+          {formulas.map((f) => (
+            <details key={f.id} className="card-aurora group/f rounded-xl p-4">
+              <summary className="flex cursor-pointer list-none items-center gap-3 [&::-webkit-details-marker]:hidden">
+                <Robo estado="trabalhando" tamanho={36} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-paper">{f.nome}</span>
+                  <span className="block truncate text-xs text-paper-dim">
+                    {f.formula.promessa} · {f.achados.length} vídeo{f.achados.length > 1 ? "s" : ""}
+                    {f.modelo ? ` · ${f.modelo.split(":")[1]}` : ""}
+                  </span>
+                </span>
+                <span className="flex-none text-xs font-bold text-paper-dim group-open/f:hidden">
+                  abrir ▾
+                </span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    excluirFormula(f.id);
+                  }}
+                  title="Excluir fórmula"
+                  className="flex-none rounded-lg p-1.5 text-paper-dim transition hover:text-danger"
+                >
+                  <IconTrash size={13} />
+                </button>
+              </summary>
+              <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                <Campo rotulo="🪝 Gancho" valor={f.formula.gancho} />
+                <Campo rotulo="🎁 Promessa" valor={f.formula.promessa} />
+                <Campo rotulo="🏷️ Padrão de título" valor={f.formula.padrao_titulo} />
+                <Campo rotulo="🥁 Ritmo" valor={f.formula.ritmo} />
+                <Campo
+                  rotulo="📣 CTA"
+                  valor={`${f.formula.cta.momento} — ${f.formula.cta.como}`}
+                />
+                <Campo rotulo="💡 Observações" valor={f.formula.observacoes} />
+              </div>
+              <div className="mt-2 rounded-lg border border-white/10 bg-black/25 p-3">
+                <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-paper-dim">
+                  Estrutura
+                </p>
+                <ol className="flex flex-col gap-1">
+                  {f.formula.estrutura.map((b, i) => (
+                    <li key={i} className="flex gap-2 text-xs">
+                      <span className="w-14 flex-none font-bold tabular-nums text-brand-2">
+                        {b.segundos}
+                      </span>
+                      <span className="text-paper">
+                        <b>{b.bloco}</b>
+                        <span className="text-paper-dim"> — {b.funcao}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              <p className="mt-2 text-[11px] text-paper-dim">
+                Na Etapa 2, o botão “Criar roteiro com esta fórmula” entra aqui.
+              </p>
+            </details>
+          ))}
+        </div>
+      )}
+
+      {/* ------------------------------ modelos ------------------------------ */}
+      <details className="anim-entrada d4 rounded-xl border border-white/10 bg-ink-2">
+        <summary className="cursor-pointer list-none p-4 text-sm font-bold text-paper-dim transition hover:text-paper [&::-webkit-details-marker]:hidden">
+          ⚙️ Modelos de IA (dissecação: <span className="text-paper">{modeloDissecacao}</span> ·
+          roteiro: <span className="text-paper">{modeloRoteiro}</span>)
+        </summary>
+        <form action={salvarCfg} className="flex flex-wrap items-end gap-3 px-4 pb-4">
+          <div>
+            <label className={labelClass} htmlFor="modelo_dissecacao">
+              Dissecação (JSON estruturado — pode ser barato)
+            </label>
+            <input
+              id="modelo_dissecacao"
+              name="modelo_dissecacao"
+              defaultValue={modeloDissecacao}
+              placeholder="anthropic:claude-haiku-4-5"
+              className={`${inputClass} mt-1 w-72 font-mono text-xs`}
+            />
+          </div>
+          <div>
+            <label className={labelClass} htmlFor="modelo_roteiro">
+              Roteiro (a escrita que vai ao ar — vale o bom)
+            </label>
+            <input
+              id="modelo_roteiro"
+              name="modelo_roteiro"
+              defaultValue={modeloRoteiro}
+              placeholder="anthropic:claude-opus-5"
+              className={`${inputClass} mt-1 w-72 font-mono text-xs`}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={salvandoCfg}
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+          >
+            {salvandoCfg ? "Salvando…" : "Salvar"}
+          </button>
+          <p className="w-full text-[11px] text-paper-dim">
+            Formato <code>provedor:modelo</code> — aceita qualquer modelo dos dois provedores
+            (anthropic / openai), usando as chaves que a plataforma já tem.
+          </p>
+          {cfgEstado?.error && <p className="text-sm text-danger">{cfgEstado.error}</p>}
+          {cfgEstado?.ok && <p className="text-sm text-ok">✅ {cfgEstado.ok}</p>}
+        </form>
+      </details>
+    </div>
+  );
+}
+
+function Campo({ rotulo, valor }: { rotulo: string; valor: string }) {
+  if (!valor?.trim()) return null;
+  return (
+    <div className="rounded-lg border border-white/10 bg-black/25 p-3">
+      <p className="mb-1 text-xs font-bold uppercase tracking-wide text-paper-dim">{rotulo}</p>
+      <p className="text-xs leading-relaxed text-paper">{valor}</p>
+    </div>
+  );
+}
