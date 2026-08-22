@@ -84,35 +84,76 @@ textarea:focus-visible {
  * fundo claro sumiriam. CSS fora de @layer vence os utilitários do Tailwind,
  * então nada de !important.
  */
+/*
+ * CLARO — cinza-azulado suave, nunca branco puro.
+ *
+ * A primeira versão usava #f7f9fe de fundo com cartões #ffffff e cansava a
+ * vista em tela grande: branco puro em área cheia é brilho demais, e o
+ * contraste entre fundo e cartão era tão baixo que a página virava um borrão
+ * claro só. Agora o fundo é claramente cinza e o cartão claramente mais
+ * claro que ele — separação por diferença real, sem chegar ao branco.
+ */
 .tema-prospector {
-  --color-ink: #f7f9fe;
-  --color-ink-2: #ffffff;
-  --color-ink-3: #eef2fb;
-  --color-paper: #1a1c22;
-  --color-paper-dim: #5f6672;
+  --color-ink: #e6eaf2;
+  --color-ink-2: #f6f8fc;
+  --color-ink-3: #dbe1ec;
+  --color-paper: #1f2430;
+  --color-paper-dim: #59606f;
   --color-brand: #4285f4;
-  --color-brand-2: #1a73e8;
+  --color-brand-2: #1967d2;
   --color-ok: #1e8e3e;
-  --color-warn: #a56b00; /* o amarelo Google puro é ilegível sobre branco */
-  --color-danger: #ea4335;
-  --line: rgba(26, 28, 34, 0.1);
-  --line-2: rgba(26, 28, 34, 0.2);
+  --color-warn: #a56b00; /* o amarelo Google puro é ilegível sobre claro */
+  --color-danger: #d93025;
+  --line: rgba(31, 36, 48, 0.12);
+  --line-2: rgba(31, 36, 48, 0.22);
   background: var(--color-ink);
   color: var(--color-paper);
   min-height: 100dvh;
 }
 .tema-prospector [class*="border-white/"] {
-  border-color: rgba(26, 28, 34, 0.12);
+  border-color: rgba(31, 36, 48, 0.14);
 }
 .tema-prospector [class*="bg-white/"] {
-  background-color: rgba(26, 28, 34, 0.05);
+  background-color: rgba(31, 36, 48, 0.045);
 }
 .tema-prospector [class*="bg-black/"] {
-  background-color: rgba(26, 28, 34, 0.06);
+  background-color: rgba(31, 36, 48, 0.06);
 }
+
+/*
+ * ESCURO — a mesma identidade Google, à noite.
+ *
+ * Não é o azul-petróleo do painel principal: o fundo é neutro-frio e os
+ * acentos usam os tons claros do Google (o #4285f4 puro sobre fundo escuro
+ * fica pesado para ler).
+ */
+.tema-prospector.escuro {
+  --color-ink: #14171f;
+  --color-ink-2: #1c2029;
+  --color-ink-3: #262b36;
+  --color-paper: #e8eaf0;
+  --color-paper-dim: #9aa2b1;
+  --color-brand: #4285f4;
+  --color-brand-2: #8ab4f8;
+  --color-ok: #81c995;
+  --color-warn: #fdd663;
+  --color-danger: #f28b82;
+  --line: rgba(232, 234, 240, 0.12);
+  --line-2: rgba(232, 234, 240, 0.22);
+}
+.tema-prospector.escuro [class*="border-white/"] {
+  border-color: rgba(232, 234, 240, 0.13);
+}
+.tema-prospector.escuro [class*="bg-white/"] {
+  background-color: rgba(232, 234, 240, 0.06);
+}
+.tema-prospector.escuro [class*="bg-black/"] {
+  background-color: rgba(0, 0, 0, 0.28);
+}
+
 /* O brilho roxo dos hovers vira azul Google, num tamanho único. */
 .tema-prospector [class*="rgba(108,92,231"] {
-  box-shadow: 0 14px 44px -20px rgba(66, 133, 244, 0.45);
+  box-shadow: 0 14px 44px -20px rgba(66, 133, 244, 0.4);
 }
 .tema-prospector .card-aurora {
   background:

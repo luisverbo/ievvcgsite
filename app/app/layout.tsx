@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { ehAdmin } from "@/lib/painel/admin";
 import { podeUsar } from "@/lib/painel/permissoes";
 import { modoProspector } from "@/lib/painel/prospector";
-import { sair } from "./actions";
+import { alternarTema, sair } from "./actions";
 
 /*
  * O menu mostra SÓ o que o usuário pode usar.
@@ -25,15 +26,24 @@ export default async function PainelLayout({ children }: { children: React.React
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [admin, temProspeccao, temConstrutor, prospector] = await Promise.all([
+  const [admin, temProspeccao, temConstrutor, prospector, jar] = await Promise.all([
     ehAdmin(),
     podeUsar("prospeccao"),
     podeUsar("construtor"),
     modoProspector(),
+    cookies(),
   ]);
+  // Lido no servidor: a página já sai na cor certa, sem piscar branco antes.
+  const escuro = jar.get("pp_tema")?.value === "escuro";
 
   return (
-    <div className={prospector ? "tema-prospector min-h-screen" : "min-h-screen"}>
+    <div
+      className={
+        prospector
+          ? `tema-prospector ${escuro ? "escuro " : ""}min-h-screen`
+          : "min-h-screen"
+      }
+    >
       <header className="sticky top-0 z-40 h-14 border-b border-white/10 bg-ink/85 backdrop-blur">
         <div className="mx-auto flex h-full max-w-[1400px] items-center gap-3 px-4 sm:gap-6 sm:px-6">
           {/* No modo Prospector até o logo muda: é OUTRO produto na cabeça
@@ -128,10 +138,28 @@ export default async function PainelLayout({ children }: { children: React.React
               <span className="hidden max-w-[14ch] truncate lg:block">{user?.email}</span>
               <span className="text-xs">⚙</span>
             </Link>
+            {/* Claro ↔ escuro. Só no Prospector: o painel principal já é escuro. */}
+            {prospector && (
+              <form action={alternarTema}>
+                <button
+                  type="submit"
+                  title={escuro ? "Mudar para o modo claro" : "Mudar para o modo escuro"}
+                  aria-label={escuro ? "Mudar para o modo claro" : "Mudar para o modo escuro"}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-base text-paper-dim transition hover:border-brand-2 hover:text-paper"
+                >
+                  {escuro ? "☀️" : "🌙"}
+                </button>
+              </form>
+            )}
+            {/*
+              "Sair" com borda: sem ela, cinza sobre fundo claro não parecia
+              clicável nem se enxergava direito — era o único item do topo sem
+              contorno.
+            */}
             <form action={sair}>
               <button
                 type="submit"
-                className="rounded-lg px-3 py-1.5 font-semibold text-paper-dim transition hover:bg-danger/10 hover:text-danger"
+                className="rounded-lg border border-white/10 px-3 py-1.5 font-semibold text-paper-dim transition hover:border-danger/50 hover:bg-danger/10 hover:text-danger"
               >
                 Sair
               </button>

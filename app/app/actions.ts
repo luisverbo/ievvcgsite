@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { ehAdmin } from "@/lib/painel/admin";
@@ -11,6 +12,25 @@ export async function sair() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+/*
+ * Claro ↔ escuro do painel Prospector.
+ *
+ * A preferência mora num COOKIE, não no navegador via JavaScript: assim o
+ * servidor já entrega a página na cor certa. Guardado no localStorage, a
+ * página nasceria clara e piscaria para escura a cada carregamento — que é
+ * justamente o flash que machuca quem escolheu o escuro.
+ */
+export async function alternarTema() {
+  const jar = await cookies();
+  const atual = jar.get("pp_tema")?.value === "escuro" ? "escuro" : "claro";
+  jar.set("pp_tema", atual === "escuro" ? "claro" : "escuro", {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: "lax",
+  });
+  revalidatePath("/app", "layout");
 }
 
 export type NovoSiteState = { error?: string } | undefined;
