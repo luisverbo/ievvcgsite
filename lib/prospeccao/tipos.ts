@@ -75,6 +75,9 @@ export type ProspectoRow = {
   ig_erro: string | null;
   ig_capturado_em: string | null;
   anotacao: string | null;
+  // Etiqueta livre de quem vende ("quente", "ligar sexta"). Opcional —
+  // coluna de migração nova, pode não existir ainda.
+  etiqueta?: string | null;
   site_ia_id: string | null;
   // Link único do lead (/p/codigo) — Termômetro e Espelho penduram nele.
   link_codigo?: string | null;

@@ -11,7 +11,9 @@ import Vigia from "./Vigia";
 import Robo from "@/components/painel/Robo";
 import {
   capturarInstagram,
+  etiquetarDoForm,
   excluirProspecto,
+  mudarEtiqueta,
   gerarSiteParaProspecto,
   mudarStatus,
   pedirEspelho,
@@ -64,12 +66,12 @@ function linkWhatsapp(telefone: string | null) {
 export default async function ProspeccaoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ f?: string; b?: string; q?: string }>;
+  searchParams: Promise<{ f?: string; b?: string; q?: string; tag?: string }>;
 }) {
   if (!(await podeUsar("prospeccao"))) notFound();
   const org = await getMinhaOrg();
   if (!org) notFound();
-  const { f, b, q: qBruto } = await searchParams;
+  const { f, b, q: qBruto, tag } = await searchParams;
   const filtro = FILTROS.some((x) => x.chave === f) ? f! : "todos";
   // b = a busca que originou as empresas (nicho|local), para separar dentista
   // de advogado em vez de misturar tudo numa lista só.
@@ -91,8 +93,32 @@ export default async function ProspeccaoPage({
     q = q.eq("nicho_busca", nicho).eq("local_busca", local);
   }
   if (procura) q = q.ilike("nome", `%${procura}%`);
+  // Filtro por etiqueta — a marcação de quem vende, feita nos cards.
+  const tagAtiva = (tag ?? "").trim().slice(0, 30);
+  if (tagAtiva) q = q.eq("etiqueta", tagAtiva);
   const { data } = await q;
   const lista = (data as ProspectoRow[] | null) ?? [];
+
+  /*
+   * As etiquetas EM USO viram chips de filtro. Consulta separada (e tolerante:
+   * antes da migração a coluna não existe e a lista só fica vazia).
+   */
+  let tagsEmUso: { nome: string; total: number }[] = [];
+  {
+    const { data: tagsRaw } = await supabase
+      .from("prospeccao")
+      .select("etiqueta")
+      .eq("org_id", org.id)
+      .not("etiqueta", "is", null);
+    const conta = new Map<string, number>();
+    for (const t of (tagsRaw as { etiqueta: string | null }[] | null) ?? []) {
+      if (t.etiqueta) conta.set(t.etiqueta, (conta.get(t.etiqueta) ?? 0) + 1);
+    }
+    tagsEmUso = [...conta.entries()]
+      .map(([nome, total]) => ({ nome, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 12);
+  }
   const espelhoLigado = await funcaoLigada("espelho");
   /*
    * Plano Prospector: só prospecção, sem construtor. Os botões de site
@@ -464,6 +490,29 @@ export default async function ProspeccaoPage({
             ))}
           </div>
           <BuscaNome />
+          {/* Chips das etiquetas em uso — a marcação de quem vende vira filtro. */}
+          {tagsEmUso.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {tagsEmUso.map((t) => (
+                <Link
+                  key={t.nome}
+                  href={
+                    tagAtiva === t.nome
+                      ? "/app/prospeccao"
+                      : `/app/prospeccao?tag=${encodeURIComponent(t.nome)}`
+                  }
+                  className={`rounded-full border px-2.5 py-1 text-xs font-bold transition ${
+                    tagAtiva === t.nome
+                      ? "border-warn/60 bg-warn/15 text-warn"
+                      : "border-white/15 text-paper-dim hover:border-warn/50 hover:text-warn"
+                  }`}
+                >
+                  🏷️ {t.nome} · {t.total}
+                  {tagAtiva === t.nome ? " ✕" : ""}
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -577,6 +626,66 @@ export default async function ProspeccaoPage({
                       🚫 Pediu para não receber mais mensagens — o agente respeita sozinho.
                     </p>
                   )}
+
+                  {/*
+                    Etiqueta: a marcação de QUEM VENDE, separada do funil.
+                    Um clique nos atalhos, ou texto livre ("ligar sexta").
+                    Vira chip de filtro lá em cima.
+                  */}
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                    {p.etiqueta ? (
+                      <>
+                        <span className="rounded-full border border-warn/50 bg-warn/15 px-2.5 py-1 font-bold text-warn">
+                          🏷️ {p.etiqueta}
+                        </span>
+                        <form action={mudarEtiqueta.bind(null, p.id, null)}>
+                          <button
+                            type="submit"
+                            title="Tirar a etiqueta"
+                            className="rounded-full border border-white/10 px-2 py-1 text-paper-dim transition hover:border-danger/50 hover:text-danger"
+                          >
+                            ✕
+                          </button>
+                        </form>
+                      </>
+                    ) : (
+                      <span className="text-paper-dim">🏷️ Marcar:</span>
+                    )}
+                    {["🔥 quente", "🌡️ morno", "❄️ frio"]
+                      .filter((t) => t !== p.etiqueta)
+                      .map((t) => (
+                        <form key={t} action={mudarEtiqueta.bind(null, p.id, t)}>
+                          <button
+                            type="submit"
+                            className="rounded-full border border-white/10 px-2.5 py-1 text-paper-dim transition hover:border-warn/50 hover:text-warn"
+                          >
+                            {t}
+                          </button>
+                        </form>
+                      ))}
+                    <details className="relative">
+                      <summary className="cursor-pointer list-none rounded-full border border-white/10 px-2.5 py-1 text-paper-dim transition hover:border-warn/50 hover:text-warn [&::-webkit-details-marker]:hidden">
+                        ✏️ outra
+                      </summary>
+                      <form
+                        action={etiquetarDoForm.bind(null, p.id)}
+                        className="absolute left-0 top-full z-20 mt-1 flex gap-1 rounded-lg border border-white/15 bg-ink-2 p-1.5 shadow-xl"
+                      >
+                        <input
+                          name="etiqueta"
+                          maxLength={30}
+                          placeholder="ex.: ligar sexta"
+                          className="w-36 rounded-md border border-white/10 bg-black/30 px-2 py-1 text-xs text-paper outline-none focus:border-warn/50"
+                        />
+                        <button
+                          type="submit"
+                          className="rounded-md bg-brand px-2.5 py-1 text-xs font-bold text-white transition hover:bg-brand-2"
+                        >
+                          OK
+                        </button>
+                      </form>
+                    </details>
+                  </div>
 
                   {p.avaliacoes !== null && (
                     <p className="mt-0.5 text-xs text-paper-dim">

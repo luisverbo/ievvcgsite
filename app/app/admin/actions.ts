@@ -17,7 +17,7 @@ export async function ehAdmin(): Promise<boolean> {
   return checarAdmin();
 }
 
-export async function alterarPlano(orgId: string, novoPlano: "free" | "pro" | "agencia") {
+export async function alterarPlano(orgId: string, novoPlano: "free" | "pro" | "agencia" | "prospector") {
   if (!(await ehAdmin())) return;
   const admin = createAdminClient();
 

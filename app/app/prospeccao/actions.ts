@@ -271,6 +271,27 @@ export async function pedirEspelho(id: string) {
   revalidatePath("/app/prospeccao");
 }
 
+/*
+ * Etiqueta: a opinião de quem vende sobre o lead ("quente", "ligar sexta").
+ * Não confundir com o status, que é o funil e anda sozinho. Texto curto e
+ * livre; null limpa.
+ */
+export async function mudarEtiqueta(id: string, etiqueta: string | null) {
+  if (!(await podeUsar("prospeccao"))) return;
+  const limpa = (etiqueta ?? "").trim().slice(0, 30);
+  const supabase = await createClient();
+  await supabase
+    .from("prospeccao")
+    .update({ etiqueta: limpa || null, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  revalidatePath("/app/prospeccao");
+}
+
+// A versão para <form>: o texto vem do campo, o id vem no bind.
+export async function etiquetarDoForm(id: string, formData: FormData) {
+  await mudarEtiqueta(id, String(formData.get("etiqueta") ?? ""));
+}
+
 export async function mudarStatus(id: string, status: StatusProspecto) {
   if (!(await podeUsar("prospeccao"))) return;
   const supabase = await createClient();
