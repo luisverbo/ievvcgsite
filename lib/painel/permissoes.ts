@@ -23,6 +23,21 @@ export type Recurso =
   // Prospecção no Google + WhatsApp. Exige o agente instalado na máquina do
   // cliente, então é só do plano completo.
   | "prospeccao"
+  /*
+   * A camada de IA DA PROSPECÇÃO: mensagens escritas uma a uma pela IA e
+   * leitura automática das respostas.
+   *
+   * Separada da prospecção de propósito. O Prospector é vendido como
+   * ferramenta de custo fixo — nada de consumo por lead — e sem este recurso
+   * ele roda inteiro sem gastar um centavo de IA: o modelo de mensagem com
+   * variações e o remarketing são texto puro.
+   */
+  | "prospeccao_ia"
+  /*
+   * O resumo diário no WhatsApp do dono. Não custa IA (é consulta ao banco),
+   * mas é recurso do produto completo — no Prospector a tela já mostra tudo.
+   */
+  | "prospeccao_resumo"
   // Hospedar com domínio próprio.
   | "hospedagem";
 
@@ -72,14 +87,24 @@ export const PLANOS: Record<
    * Sem construtor e sem hospedagem de propósito — é outro público e outro
    * preço; quem quiser sites sobe para o Agência.
    *
-   * A cota de US$5 é folgada para o uso real: mensagem com IA custa
-   * ~US$0,002 e a classificação de resposta, fração disso — dá milhares de
-   * mensagens por mês.
+   * E sem NENHUMA camada de IA: nem mensagem escrita pela IA, nem leitura
+   * automática de resposta. O que ele entrega — busca no Maps, mensagem com
+   * variações, remarketing, agenda de envio — é texto puro e consulta ao
+   * banco. Custo de IA zero, para sempre.
+   *
+   * Por isso a cota é 0: não existe caminho neste plano que gaste crédito.
+   * Cota sobrando só serviria para confundir a tela de créditos.
    */
-  prospector: { rotulo: "Prospector", recursos: ["prospeccao"], cota: 5_000_000, sites: 0 },
+  prospector: { rotulo: "Prospector", recursos: ["prospeccao"], cota: 0, sites: 0 },
   agencia: {
     rotulo: "Agência",
-    recursos: ["construtor", "prospeccao", "hospedagem"],
+    recursos: [
+      "construtor",
+      "prospeccao",
+      "prospeccao_ia",
+      "prospeccao_resumo",
+      "hospedagem",
+    ],
     cota: 15_000_000,
     sites: 10,
   },

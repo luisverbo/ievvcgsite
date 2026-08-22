@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { textoDaResposta } from "@/lib/estudio/llm";
 import { contaDaOrg, cobrar } from "@/lib/creditos/conta";
 import { ofertaDaOrg } from "./oferta";
+import { orgPodeUsar } from "@/lib/painel/permissoes";
 
 /*
  * Classifica a resposta de um lead no WhatsApp.
@@ -67,6 +68,16 @@ export async function classificarResposta(
 
   const rapida = porPalavras(limpo);
   if (rapida) return rapida;
+
+  /*
+   * Plano sem a camada de IA (o Prospector): para por aqui, de graça.
+   *
+   * O que importa NÃO se perde: a camada de palavras acima já pega recusa —
+   * que tem obrigação legal de acertar —, pergunta de preço e o "pode mandar".
+   * O que fica de fora é só a mensagem ambígua, que vira "outro" e aparece na
+   * tela do mesmo jeito para a pessoa ler com os próprios olhos.
+   */
+  if (!(await orgPodeUsar(orgId, "prospeccao_ia"))) return "outro";
 
   try {
     const conta = await contaDaOrg(orgId);

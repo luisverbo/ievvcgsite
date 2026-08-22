@@ -348,8 +348,15 @@ export async function prepararAbordagem(
   if (!org) return { error: "Organização não encontrada." };
 
   const modo = String(formData.get("modo")) === "semi" ? "semi" : "auto";
+  /*
+   * A IA só entra se o interruptor do Admin permitir E o plano vender essa
+   * camada. No Prospector ela não existe: a opção nem aparece na tela, e um
+   * formulário reenviado com estrategia=ia cai no modelo em vez de gastar.
+   */
   const estrategia =
-    String(formData.get("estrategia")) === "ia" && (await funcaoLigada("mensagens_ia"))
+    String(formData.get("estrategia")) === "ia" &&
+    (await funcaoLigada("mensagens_ia")) &&
+    (await podeUsar("prospeccao_ia"))
       ? "ia"
       : "modelo";
   const ids = formData.getAll("prospecto").map(String).filter(Boolean);

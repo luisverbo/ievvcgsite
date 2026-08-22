@@ -28,9 +28,9 @@ const PASSOS = [
   },
   {
     n: "2",
-    titulo: "A IA escreve uma mensagem para cada lead",
+    titulo: "Você escreve a mensagem uma vez",
     texto:
-      "Nada de copia-e-cola: cada empresa recebe uma mensagem diferente, citando o negócio dela — e oferecendo O SEU produto, do seguro ao consórcio. Você aprova o texto antes de qualquer envio.",
+      "O texto é seu e fala do SEU produto. Nele você põe o nome da empresa, o bairro, as avaliações — e o sistema preenche sozinho em cada envio. Dá até para deixar duas ou três versões de cada frase: ele sorteia uma a cada mensagem, e é isso que faz não parecer disparo.",
   },
   {
     n: "3",
@@ -40,20 +40,20 @@ const PASSOS = [
   },
   {
     n: "4",
-    titulo: "Ele escuta as respostas e te avisa",
+    titulo: "Quem não respondeu recebe de novo",
     texto:
-      "Respondeu perguntando preço? Pediu detalhe? A IA classifica cada resposta, marca o lead de quente a frio, faz um follow-up educado em quem ficou no vácuo e te manda um resumo diário no seu WhatsApp.",
+      "O remarketing manda uma segunda mensagem depois dos dias que você escolher — uma vez só, com saída fácil no texto. A maioria dos leads não diz “não”: só esquece. E quem pede para não receber sai de todas as filas na hora, para sempre.",
   },
 ];
 
 const INCLUSO = [
   "Busca ilimitada de empresas no Google Maps (via assistente no seu computador)",
   "Nota de potencial por lead: avaliações, presença digital, poder de compra do ramo",
-  "Mensagens escritas por IA, uma por lead, oferecendo o SEU produto",
+  "Mensagem personalizada com os dados de cada empresa e variação automática de texto",
   "Envio automático com ritmo humano e limite diário configurável",
-  "Escuta de respostas com classificação automática (interesse, preço, dúvida, recusa)",
-  "Follow-up automático em quem não respondeu — um só, educado, com saída fácil",
-  "Resumo diário no seu WhatsApp: quem respondeu e o que disse",
+  "Remarketing: segunda mensagem em quem não respondeu, no prazo que você definir",
+  "Painel do funil: novo, contactado, respondeu, fechou — com a resposta de cada um à vista",
+  "Opt-out automático: quem pede para sair some de todas as filas, para sempre",
   "Todas as categorias do Google + busca por ramo digitado à mão",
 ];
 
@@ -76,7 +76,11 @@ const PERGUNTAS = [
   },
   {
     p: "A mensagem oferece o quê?",
-    r: "O que VOCÊ vende. Você escreve em uma linha (“plano de saúde empresarial”, “consórcio de imóveis”) e tanto o modelo pronto quanto a IA passam a oferecer isso — sem falar em site, sem falar em nada que não seja seu.",
+    r: "O que VOCÊ vende. Você diz em uma linha o que é (“plano de saúde empresarial”, “consórcio de imóveis”) e o texto pronto já sai falando disso — depois é só ajustar as palavras do seu jeito.",
+  },
+  {
+    p: "Tem cobrança por lead ou por mensagem?",
+    r: "Nenhuma. A mensalidade é tudo que você paga — não existe crédito para comprar, nem consumo de inteligência artificial por lead. Busque e aborde quantas empresas quiser (dentro do que o WhatsApp aguenta com segurança).",
   },
   {
     p: "De onde vêm os contatos?",
@@ -155,8 +159,8 @@ export default function ProspectorPage() {
             <p className="mx-auto mt-5 max-w-2xl text-base text-paper-dim sm:text-lg">
               Para quem vende <b className="text-paper">seguro, plano de saúde, consórcio ou
               representação</b>: encontre as empresas da sua região no Google Maps e deixe o
-              assistente abordar cada uma no WhatsApp — com mensagem escrita por IA, uma
-              diferente por lead, oferecendo <b className="text-paper">o seu produto</b>.
+              assistente abordar cada uma no WhatsApp — com a sua mensagem, personalizada com os
+              dados de cada empresa, oferecendo <b className="text-paper">o seu produto</b>.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Botao href="/assinar/prospector" grande>
@@ -236,7 +240,8 @@ export default function ProspectorPage() {
               <span className="text-lg font-semibold text-paper-dim">/mês</span>
             </p>
             <p className="mt-2 text-sm text-paper-dim">
-              Prospecção completa, mensagens por IA inclusas, sem cobrança por lead.
+              Tudo incluso. <b className="text-paper">Sem cobrança por lead</b>, sem crédito para
+              comprar, sem consumo escondido.
             </p>
             <div className="mt-6">
               <Botao href="/assinar/prospector" grande>

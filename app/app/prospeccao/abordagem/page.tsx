@@ -149,8 +149,8 @@ export default async function AbordagemPage() {
         mensagens={mensagens}
         nomePorProspecto={nomePorProspecto}
         fechadorLigado={(await funcaoLigada("fechador")) && (await podeUsar("construtor"))}
-        resumoLigado={await funcaoLigada("resumo_diario")}
-        cerebroLigado={await funcaoLigada("mensagens_ia")}
+        resumoLigado={(await funcaoLigada("resumo_diario")) && (await podeUsar("prospeccao_resumo"))}
+        cerebroLigado={(await funcaoLigada("mensagens_ia")) && (await podeUsar("prospeccao_ia"))}
         followupLigado={await funcaoLigada("followup")}
         placar={placar}
       />

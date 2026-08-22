@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { funcaoLigada } from "@/lib/painel/flags";
+import { orgPodeUsar } from "@/lib/painel/permissoes";
 
 /*
  * O Resumo diário: uma vez por dia o agente manda ao PRÓPRIO dono, no
@@ -62,6 +63,9 @@ async function lerConfig(orgId: string): Promise<ConfigResumo | null> {
 export async function resumoDevido(orgId: string): Promise<boolean> {
   try {
     if (!(await funcaoLigada("resumo_diario"))) return false;
+    // Recurso do plano completo. Barrado AQUI (e não só na tela) porque é
+    // esta função que faz o agente abrir o WhatsApp fora da hora do envio.
+    if (!(await orgPodeUsar(orgId, "prospeccao_resumo"))) return false;
     const cfg = await lerConfig(orgId);
     if (!cfg?.resumo_zap) return false;
     if (horaBrasilia() < (cfg.resumo_hora ?? 18)) return false;

@@ -34,7 +34,7 @@ import Robo from "@/components/painel/Robo";
 // tem que saber que está olhando a SEGUNDA conversa com aquele lead.
 const ROTULO_TIPO: Record<string, string> = {
   fechamento: "🤝 com o site",
-  followup: "↩️ follow-up",
+  followup: "🔁 remarketing",
 };
 
 // O nível do Fechador em uma palavra, para o chip das configurações.
@@ -542,7 +542,7 @@ export default function Painel({
       {/* -------------------- configurações (recolhidas) ----------------- */}
       {/*
         Tudo que se configura UMA vez mora atrás deste recolhível: mensagem,
-        Fechador, cérebro, follow-up e resumo. O trabalho de todo dia (quem
+        Fechador, cérebro, remarketing e resumo. O trabalho de todo dia (quem
         abordar, prontas para enviar) fica acima, sem rolagem. Nasce aberto
         só na primeira visita — enquanto o nome do remetente não existe.
       */}
@@ -783,17 +783,23 @@ export default function Painel({
         {cfgEstado?.ok && <p className="mt-2 text-sm text-ok">{cfgEstado.ok}</p>}
       </form>
 
-      {/* ------------------------ follow-up ------------------------------ */}
+      {/* --------------------- remarketing (follow-up) -------------------- */}
+      {/*
+        "Follow-up" é jargão de quem já trabalha com vendas. O nome na tela é
+        REMARKETING e a frase explica o que faz — quem compra a ferramenta
+        precisa entender o botão antes de ligar.
+      */}
       {followupLigado && (
         <form action={salvarFup} className={`anim-entrada d2 ${cardClass}`}>
           <div className="flex flex-wrap items-center gap-3">
             <Robo estado={fupLigado ? "trabalhando" : "dormindo"} tamanho={44} />
             <div className="min-w-0">
-              <h2 className="text-lg font-bold">Follow-up automático ↩️</h2>
+              <h2 className="text-lg font-bold">Remarketing 🔁</h2>
               <p className="text-sm text-paper-dim">
-                A maioria dos leads não diz “não” — só esquece. Quem ficar em silêncio recebe{" "}
-                <b className="text-paper">uma segunda mensagem, uma única vez</b>, no mesmo ritmo
-                humano. Quem respondeu ou pediu para não receber nunca entra.
+                <b className="text-paper">Manda a mensagem de novo para quem não respondeu</b>,
+                depois dos dias que você escolher. A maioria dos leads não diz “não” — só esquece.
+                Uma única vez, no mesmo ritmo humano; quem respondeu ou pediu para não receber
+                nunca entra.
               </p>
             </div>
           </div>
@@ -808,7 +814,7 @@ export default function Painel({
               className="mt-0.5 h-4 w-4 flex-none accent-[var(--color-brand)]"
             />
             <span className="text-sm text-paper">
-              Ligar o follow-up
+              Ligar o remarketing
               <span className="mt-0.5 block text-xs text-paper-dim">
                 Vale para quem foi abordado nos últimos 30 dias. Mensagem mais antiga que isso não
                 é retomada — chegaria como “quem é você?”.
@@ -820,7 +826,7 @@ export default function Painel({
             <>
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <label className={labelClass} htmlFor="followup_dias">
-                  Mandar depois de
+                  Enviar de novo depois de
                 </label>
                 <input
                   id="followup_dias"
