@@ -80,6 +80,16 @@ export default async function PainelHome() {
   ]);
 
   const situacao = situacaoDaAssinatura((assinaturaRes.data as AssinaturaRow | null) ?? null);
+
+  /*
+   * Modo Prospector: a home é OUTRA — a de um produto só de prospecção.
+   * Nada de páginas, visitas ou crédito de IA: quem comprou o Prospector
+   * não tem (nem quer) nada disso na frente.
+   */
+  if (!admin && plano === "prospector") {
+    return <HomeProspector orgId={org.id} nome={org.nome} avisoAssinatura={situacao.aviso} />;
+  }
+
   const paginas = (paginasRes.data as PaginaIA[] | null) ?? [];
   const noAr = paginas.filter((p) => p.publicado).length;
   const visitas30d = visitasRes.count ?? 0;
@@ -444,6 +454,181 @@ export default async function PainelHome() {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------- Prospector -------------------------------- */
+
+/*
+ * A home de quem assina SÓ a prospecção. Três andares, como a principal:
+ * atenção agora (pagamento) → como foi o trabalho (números da prospecção,
+ * não de páginas) → para onde ir. Sem crédito de IA, sem criador de site,
+ * sem "assinar" — ele JÁ assinou, e nada aqui gasta nada.
+ */
+async function HomeProspector({
+  orgId,
+  nome,
+  avisoAssinatura,
+}: {
+  orgId: string;
+  nome: string;
+  avisoAssinatura: string | null;
+}) {
+  const supabase = await createClient();
+  const desde = desde30Dias();
+  const [{ count: empresas }, enviadasRes, respostasRes, { count: naFila }, { data: ag }] =
+    await Promise.all([
+      supabase.from("prospeccao").select("id", { count: "exact", head: true }).eq("org_id", orgId),
+      supabase
+        .from("prospeccao_mensagens")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .eq("status", "enviada")
+        .gte("created_at", desde),
+      supabase
+        .from("prospeccao_mensagens")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .not("resposta_em", "is", null)
+        .gte("created_at", desde),
+      supabase
+        .from("prospeccao_mensagens")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", orgId)
+        .eq("status", "pendente"),
+      supabase
+        .from("agentes")
+        .select("ultimo_contato")
+        .eq("org_id", orgId)
+        .order("ultimo_contato", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+  const linhaAg = ag as { ultimo_contato: string | null } | null;
+  const estadoAgente: EstadoRobo = !linhaAg
+    ? "novo"
+    : linhaAg.ultimo_contato && Date.now() - new Date(linhaAg.ultimo_contato).getTime() < 15 * 60_000
+      ? "trabalhando"
+      : "dormindo";
+
+  const stats = [
+    { rotulo: "Empresas na lista", valor: String(empresas ?? 0) },
+    { rotulo: "Mensagens (30 dias)", valor: String(enviadasRes.count ?? 0) },
+    { rotulo: "Respostas (30 dias)", valor: String(respostasRes.count ?? 0) },
+    { rotulo: "Na fila de envio", valor: String(naFila ?? 0) },
+  ];
+
+  return (
+    <div className="painel-wrap flex flex-col gap-8">
+      <div className="anim-entrada flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm text-paper-dim">{saudacao()} 👋</p>
+          <h1 className="mt-0.5 font-display text-3xl font-extrabold">{nome}</h1>
+          <p className="mt-1.5 text-sm text-paper-dim">
+            Plano{" "}
+            <span className="rounded-full bg-brand/15 px-2 py-0.5 text-xs font-bold text-brand-2">
+              Prospector · ativo
+            </span>
+          </p>
+        </div>
+        <Link
+          href="/app/prospeccao"
+          className="rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-brand-2"
+        >
+          🎯 Abrir a prospecção
+        </Link>
+      </div>
+
+      {avisoAssinatura && (
+        <div className="anim-entrada d1 rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
+          {avisoAssinatura}{" "}
+          <Link href="/app/assinatura" className="font-bold underline underline-offset-2">
+            Resolver agora
+          </Link>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {stats.map((s, i) => (
+          <div
+            key={s.rotulo}
+            className={`anim-entrada d${i + 1} rounded-xl border border-white/10 bg-ink-2 p-4`}
+          >
+            <div className="font-display text-2xl font-extrabold tabular-nums">{s.valor}</div>
+            <div className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-paper-dim">
+              {s.rotulo}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Link
+          href="/app/prospeccao"
+          className="anim-entrada d3 card-aurora rounded-2xl p-5 transition hover:-translate-y-1"
+        >
+          <div className="text-2xl">🔎</div>
+          <h3 className="mt-2 font-display text-lg font-extrabold text-paper">Encontrar clientes</h3>
+          <p className="mt-1 text-sm text-paper-dim">
+            Diga o ramo e o bairro — o assistente varre o Google Maps e monta a sua lista com
+            telefone, avaliações e nota de potencial.
+          </p>
+        </Link>
+
+        <Link
+          href="/app/prospeccao/abordagem"
+          className="anim-entrada d3 rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-1 hover:border-brand-2/50"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <Robo estado={estadoAgente} tamanho={56} />
+            <span
+              className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
+                estadoAgente === "trabalhando"
+                  ? "anim-pulso-ok bg-ok/15 text-ok"
+                  : estadoAgente === "dormindo"
+                    ? "bg-warn/15 text-warn"
+                    : "bg-white/10 text-paper-dim"
+              }`}
+            >
+              {estadoAgente === "trabalhando"
+                ? "● trabalhando agora"
+                : estadoAgente === "dormindo"
+                  ? "◐ dormindo"
+                  : "○ esperando instalação"}
+            </span>
+          </div>
+          <h3 className="mt-2 font-display text-lg font-extrabold text-paper">Abordar no WhatsApp</h3>
+          <p className="mt-1 text-sm text-paper-dim">
+            {estadoAgente === "novo"
+              ? "Instale o assistente no seu computador (2 minutos, o painel te guia) e conecte o seu WhatsApp."
+              : estadoAgente === "dormindo"
+                ? "Seu assistente está dormindo — abra o LIGAR-AGENTE no seu computador para ele voltar ao trabalho."
+                : "Sua mensagem, o seu ritmo, o remarketing em quem não respondeu — tudo daqui."}
+          </p>
+        </Link>
+
+        <Link
+          href="/app/assinatura"
+          className="anim-entrada d4 rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-1 hover:border-brand-2/50"
+        >
+          <div className="text-2xl">📄</div>
+          <h3 className="mt-2 font-display text-lg font-extrabold text-paper">Assinatura</h3>
+          <p className="mt-1 text-sm text-paper-dim">
+            Plano Prospector em dia. Veja faturas, troque o cartão ou cancele quando quiser.
+          </p>
+        </Link>
+
+        <Link
+          href="/app/conta"
+          className="anim-entrada d4 rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-1 hover:border-brand-2/50"
+        >
+          <div className="text-2xl">👤</div>
+          <h3 className="mt-2 font-display text-lg font-extrabold text-paper">Minha conta</h3>
+          <p className="mt-1 text-sm text-paper-dim">Seu nome, e-mail de acesso e senha.</p>
+        </Link>
       </div>
     </div>
   );

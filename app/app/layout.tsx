@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ehAdmin } from "@/lib/painel/admin";
 import { podeUsar } from "@/lib/painel/permissoes";
+import { modoProspector } from "@/lib/painel/prospector";
 import { sair } from "./actions";
 
 /*
@@ -24,19 +25,33 @@ export default async function PainelLayout({ children }: { children: React.React
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [admin, temProspeccao, temConstrutor] = await Promise.all([
+  const [admin, temProspeccao, temConstrutor, prospector] = await Promise.all([
     ehAdmin(),
     podeUsar("prospeccao"),
     podeUsar("construtor"),
+    modoProspector(),
   ]);
 
   return (
-    <div className="min-h-screen">
+    <div className={prospector ? "tema-prospector min-h-screen" : "min-h-screen"}>
       <header className="sticky top-0 z-40 h-14 border-b border-white/10 bg-ink/85 backdrop-blur">
         <div className="mx-auto flex h-full max-w-[1400px] items-center gap-3 px-4 sm:gap-6 sm:px-6">
-          <Link href="/app" className="flex-none font-display text-lg font-extrabold">
-            Página<span className="text-brand-2">Pro</span>
-          </Link>
+          {/* No modo Prospector até o logo muda: é OUTRO produto na cabeça
+              de quem comprou, e a identidade tem que confirmar isso. */}
+          {prospector ? (
+            <Link href="/app" className="flex-none font-display text-lg font-extrabold tracking-tight">
+              <span className="text-[#4285F4]">P</span>
+              <span className="text-[#EA4335]">r</span>
+              <span className="text-[#FBBC05]">o</span>
+              <span className="text-[#4285F4]">s</span>
+              <span className="text-[#34A853]">p</span>
+              <span className="text-[#EA4335]">e</span>ctor
+            </Link>
+          ) : (
+            <Link href="/app" className="flex-none font-display text-lg font-extrabold">
+              Página<span className="text-brand-2">Pro</span>
+            </Link>
+          )}
           {/*
             No celular o menu ROLA para o lado em vez de estourar a tela ou
             esconder metade das páginas atrás de um hambúrguer — os links
@@ -56,9 +71,12 @@ export default async function PainelLayout({ children }: { children: React.React
                 Prospecção 🎯
               </Link>
             )}
-            <Link href="/app/creditos" className={linkClass}>
-              Créditos
-            </Link>
+            {/* Créditos de IA não existem no Prospector — nada ali gasta. */}
+            {!prospector && (
+              <Link href="/app/creditos" className={linkClass}>
+                Créditos
+              </Link>
+            )}
             <Link href="/app/assinatura" className={linkClass}>
               Assinatura
             </Link>

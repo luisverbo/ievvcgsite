@@ -147,7 +147,21 @@ export default async function AssinaturaPage({
         </p>
       )}
 
-      {semAssinatura ? (
+      {semAssinatura && org.plano === "prospector" ? (
+        /*
+         * Prospector liberado na mão (cortesia, sem linha de assinatura):
+         * mostrar a vitrine de Pro/Agência aqui seria vender criador de site
+         * para quem comprou prospecção — o plano dele está ativo e ponto.
+         */
+        <div className="rounded-2xl border border-ok/30 bg-ok/5 p-7">
+          <span className="rounded-full bg-ok/15 px-3 py-1 text-xs font-bold text-ok">✓ Ativo</span>
+          <p className="mt-3 font-display text-2xl font-extrabold">Plano Prospector</p>
+          <p className="mt-2 max-w-xl text-sm text-paper-dim">
+            Seu acesso está liberado — prospecção completa, sem cobrança por lead e sem consumo de
+            créditos. Qualquer dúvida sobre cobrança, fale com o suporte pelo WhatsApp.
+          </p>
+        </div>
+      ) : semAssinatura ? (
         /* ---------------- sem assinatura: a escolha dos planos --------------- */
         <div className="grid gap-5 md:grid-cols-2">
           <div className="rounded-2xl border border-white/15 bg-ink-2 p-7">
