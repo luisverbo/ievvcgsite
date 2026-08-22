@@ -10,7 +10,18 @@ import { cardClass, inputClass } from "@/components/painel/ui";
  * `atual` chega do servidor (o link salvo) para o campo já vir preenchido —
  * assim dá para ver o que está no ar e trocar sem adivinhar.
  */
-export default function VideoLanding({ atual }: { atual: string }) {
+export default function VideoLanding({
+  atual,
+  qual = "principal",
+  titulo = "🎬 Vídeo da página de vendas",
+  descricao = "Cole o link de um vídeo do YouTube e ele aparece no topo da landing page, logo abaixo do título. Deixe vazio e salve para tirar. Perfeito para testar: uma semana com vídeo, outra sem, e você compara as assinaturas.",
+}: {
+  atual: string;
+  /* Qual página de vendas: a principal (criador de sites) ou a do Prospector. */
+  qual?: "principal" | "prospector";
+  titulo?: string;
+  descricao?: string;
+}) {
   const [estado, acao, pendente] = useActionState<VideoLandingState, FormData>(
     salvarVideoLanding,
     undefined,
@@ -19,7 +30,7 @@ export default function VideoLanding({ atual }: { atual: string }) {
   return (
     <div className={cardClass}>
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-lg font-bold">🎬 Vídeo da página de vendas</h2>
+        <h2 className="text-lg font-bold">{titulo}</h2>
         <span
           className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
             atual ? "bg-ok/15 text-ok" : "bg-white/10 text-paper-dim"
@@ -28,12 +39,9 @@ export default function VideoLanding({ atual }: { atual: string }) {
           {atual ? "● no ar" : "○ sem vídeo"}
         </span>
       </div>
-      <p className="mt-2 text-sm text-paper-dim">
-        Cole o link de um vídeo do YouTube e ele aparece no topo da landing page, logo abaixo do
-        título. Deixe vazio e salve para tirar. Perfeito para testar: uma semana com vídeo, outra
-        sem, e você compara as assinaturas.
-      </p>
+      <p className="mt-2 text-sm text-paper-dim">{descricao}</p>
       <form action={acao} className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <input type="hidden" name="qual" value={qual} />
         <input
           name="video_url"
           defaultValue={atual}

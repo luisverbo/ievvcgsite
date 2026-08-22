@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { precoEmReais } from "@/lib/pagamentos/planos";
+import { videoDaLanding } from "@/lib/landing";
 
 /*
  * A landing do PROSPECTOR — página de ANÚNCIO, não de site institucional.
@@ -162,6 +163,10 @@ const PERGUNTAS = [
     r: "Do Google Maps, que é público. O assistente pesquisa como uma pessoa pesquisaria e organiza tudo: nome, telefone, avaliações, endereço, site. Empresa sem celular não entra na fila do WhatsApp.",
   },
   {
+    p: "Consigo levar a lista para fora do sistema?",
+    r: "Sim, num clique. O botão “Exportar planilha” baixa tudo em CSV — abre no Excel e no Google Sheets, com um link de WhatsApp pronto em cada linha. A lista é sua, não fica presa aqui.",
+  },
+  {
     p: "E se eu quiser cancelar?",
     r: "Dois cliques, dentro do painel, sem falar com ninguém. Sem fidelidade, sem multa, sem retenção forçada.",
   },
@@ -169,8 +174,10 @@ const PERGUNTAS = [
 
 /* --------------------------------- página --------------------------------- */
 
-export default function ProspectorPage() {
+export default async function ProspectorPage() {
   const preco = precoEmReais("prospector");
+  // O vídeo é opcional e mora no Admin: cola o link e ele aparece; apaga e some.
+  const video = await videoDaLanding("prospector");
   return (
     <div className="pv min-h-screen overflow-x-hidden bg-[#f7f9fe] text-[#1a1c22]">
       {/* Os efeitos da página, todos em CSS. Prefixo pv- para não vazar. */}
@@ -324,6 +331,41 @@ export default function ProspectorPage() {
             </div>
           </div>
 
+          {/*
+            O vídeo: quando existe, ele é a peça mais forte da página e fica
+            logo abaixo do hero — quem chegou de anúncio decide olhando, não
+            lendo. Sem vídeo cadastrado, a seção inteira não existe (nada de
+            moldura vazia dizendo "em breve").
+          */}
+          {video && (
+            <div className="pv-rev mx-auto mt-20 max-w-3xl">
+              <p className="mb-4 text-center text-sm font-extrabold uppercase tracking-[0.22em] text-[#4285F4]">
+                Veja funcionando em 2 minutos
+              </p>
+              <div className="overflow-hidden rounded-3xl border border-black/10 bg-black shadow-[0_30px_80px_-30px_rgba(26,28,34,.5)]">
+                <div className="relative w-full" style={{ aspectRatio: "16 / 9" }}>
+                  <iframe
+                    src={video.embedUrl}
+                    title="Como funciona o Prospector"
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerPolicy="strict-origin-when-cross-origin"
+                    allowFullScreen
+                    className="absolute inset-0 h-full w-full"
+                  />
+                </div>
+              </div>
+              <p className="mt-4 text-center">
+                <Link
+                  href="/assinar/prospector"
+                  className="inline-block rounded-full bg-[#25D366] px-7 py-3 text-base font-bold text-white shadow-[0_12px_32px_-10px_rgba(37,211,102,.8)] transition hover:-translate-y-0.5 hover:brightness-105"
+                >
+                  Quero usar isso hoje →
+                </Link>
+              </p>
+            </div>
+          )}
+
           <p className="mt-20 text-center text-sm font-semibold text-[#5f6672]">
             ↓ Veja o que muda no seu dia
           </p>
@@ -417,8 +459,9 @@ export default function ProspectorPage() {
               <span className="text-[#25D366]">Do outro, a conversa.</span>
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-[#5f6672]">
-              Cada lead com nota, avaliações e etiqueta sua — 🔥 quente, ❄️ frio, “ligar sexta”.
-              E a resposta de cada um à vista, para você entrar na conversa na hora certa.
+              Cada lead com a nota do Google, as avaliações e a{" "}
+              <b className="text-[#1a1c22]">etiqueta que você deu</b> — 🔥 quente, ❄️ frio, “ligar
+              sexta”. E a resposta de cada um à vista, para você entrar na conversa na hora certa.
             </p>
           </div>
 
@@ -483,6 +526,39 @@ export default function ProspectorPage() {
                 Daqui em diante é com você — o lead já chegou aquecido.
               </p>
             </div>
+          </div>
+
+          {/*
+            Os detalhes que fecham a objeção "e depois, como eu organizo isso?"
+            — cada um é uma coisa que o vendedor já faz na mão hoje.
+          */}
+          <div className="pv-rev mx-auto mt-10 grid max-w-4xl gap-4 sm:grid-cols-3">
+            {[
+              {
+                emoji: "🏷️",
+                titulo: "Etiquete do seu jeito",
+                texto:
+                  "🔥 quente, ❄️ frio, ou o que você escrever — “ligar sexta”, “pediu proposta”. Depois filtra por elas com um clique.",
+              },
+              {
+                emoji: "📊",
+                titulo: "A lista é sua, de verdade",
+                texto:
+                  "Exporte tudo em planilha quando quiser: empresa, telefone, avaliações, etiqueta e um link de WhatsApp pronto para clicar.",
+              },
+              {
+                emoji: "🌙",
+                titulo: "Painel só seu",
+                texto:
+                  "Nada de menu cheio de coisa que você não usa. Só prospecção — e no claro ou no escuro, do jeito que sua vista prefere.",
+              },
+            ].map((c) => (
+              <div key={c.titulo} className="rounded-3xl border border-black/10 bg-white p-6">
+                <span className="text-2xl">{c.emoji}</span>
+                <h3 className="mt-2 text-lg font-extrabold tracking-tight">{c.titulo}</h3>
+                <p className="mt-1.5 text-[15px] leading-relaxed text-[#5f6672]">{c.texto}</p>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -558,6 +634,7 @@ export default function ProspectorPage() {
                     "Mensagens personalizadas e envio automático",
                     "Remarketing em quem não respondeu",
                     "Funil com etiquetas e respostas à vista",
+                    "Exportar tudo em planilha quando quiser",
                     "Sem cobrança por lead. Sem crédito. Sem surpresa.",
                   ].map((t) => (
                     <li key={t} className="flex gap-2.5">

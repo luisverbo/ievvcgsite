@@ -6,6 +6,7 @@ import CriarLanding from "./CriarLanding";
 import ChaveAnthropic from "./ChaveAnthropic";
 import Diagnostico from "./Diagnostico";
 import VideoLanding from "./VideoLanding";
+import { CHAVES_VIDEO } from "@/lib/landing";
 import FuncoesNovas from "./FuncoesNovas";
 import AjusteCredito from "./AjusteCredito";
 import ChaveForm from "./ebooks/ChaveForm";
@@ -44,7 +45,7 @@ export default async function AdminPage() {
     { count: totalEbooks },
     { count: totalProspectos },
     freeAtivo,
-    { data: videoRow },
+    { data: linhasVideoRaw },
   ] = await Promise.all([
     admin
       .from("organizacoes")
@@ -59,9 +60,16 @@ export default async function AdminPage() {
     admin.from("ebooks").select("id", { count: "exact", head: true }),
     admin.from("prospeccao").select("id", { count: "exact", head: true }),
     planoFreeAtivo(),
-    admin.from("config_sistema").select("valor").eq("chave", "landing_video_url").maybeSingle(),
+    admin
+      .from("config_sistema")
+      .select("chave, valor")
+      .in("chave", [CHAVES_VIDEO.principal, CHAVES_VIDEO.prospector]),
   ]);
-  const videoAtual = (videoRow as { valor: string } | null)?.valor ?? "";
+  // Uma consulta para os dois vídeos — cada landing tem a sua chave.
+  const linhasVideo = (linhasVideoRaw as { chave: string; valor: string }[] | null) ?? [];
+  const videoDe = (c: string) => linhasVideo.find((l) => l.chave === c)?.valor ?? "";
+  const videoAtual = videoDe(CHAVES_VIDEO.principal);
+  const videoProspector = videoDe(CHAVES_VIDEO.prospector);
 
   const orgs = (orgsRaw as OrgRow[] | null) ?? [];
   const sites = (sitesRaw as { org_id: string; publicado: boolean }[] | null) ?? [];
@@ -147,6 +155,13 @@ export default async function AdminPage() {
       <Diagnostico />
 
       <VideoLanding atual={videoAtual} />
+
+      <VideoLanding
+        atual={videoProspector}
+        qual="prospector"
+        titulo="🎬 Vídeo da página do Prospector"
+        descricao="O vídeo da landing /prospector — a página que você anuncia para vendedores. Cole o link do YouTube; vazio e salvar remove."
+      />
 
       <FuncoesNovas />
 

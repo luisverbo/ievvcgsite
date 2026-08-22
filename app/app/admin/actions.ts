@@ -161,20 +161,30 @@ export async function salvarVideoLanding(
   formData: FormData,
 ): Promise<VideoLandingState> {
   if (!(await ehAdmin())) return { error: "Sem permissão." };
-  const { idDoYoutube } = await import("@/lib/landing");
+  const { idDoYoutube, CHAVES_VIDEO } = await import("@/lib/landing");
+
+  /*
+   * Qual das duas páginas de vendas. O campo escondido do formulário diz —
+   * e a chave sai do catálogo, nunca do que veio do navegador, senão daria
+   * para escrever em qualquer linha de config_sistema por aqui.
+   */
+  const qual = String(formData.get("qual") ?? "principal");
+  const chave = qual === "prospector" ? CHAVES_VIDEO.prospector : CHAVES_VIDEO.principal;
+  const caminho = qual === "prospector" ? "/prospector" : "/";
+  const onde = qual === "prospector" ? "do Prospector" : "de vendas";
 
   const bruto = String(formData.get("video_url") ?? "").trim();
   const admin = createAdminClient();
 
   if (!bruto) {
     await admin.from("config_sistema").upsert({
-      chave: "landing_video_url",
+      chave,
       valor: "",
       updated_at: new Date().toISOString(),
     });
-    revalidatePath("/");
+    revalidatePath(caminho);
     revalidatePath("/app/admin");
-    return { ok: "Vídeo removido. A página de vendas volta a aparecer sem vídeo." };
+    return { ok: `Vídeo removido. A página ${onde} volta a aparecer sem vídeo.` };
   }
 
   const id = idDoYoutube(bruto);
@@ -186,13 +196,13 @@ export async function salvarVideoLanding(
   }
 
   await admin.from("config_sistema").upsert({
-    chave: "landing_video_url",
+    chave,
     valor: bruto,
     updated_at: new Date().toISOString(),
   });
-  revalidatePath("/");
+  revalidatePath(caminho);
   revalidatePath("/app/admin");
-  return { ok: "Vídeo no ar! Abra a página de vendas para conferir." };
+  return { ok: `Vídeo no ar! Abra a página ${onde} para conferir.` };
 }
 
 /* ---------------------------- chave da Anthropic --------------------------- */

@@ -34,7 +34,21 @@ export function idDoYoutube(bruto: string): string | null {
   return /^[A-Za-z0-9_-]{11}$/.test(url) ? url : null;
 }
 
-export async function videoDaLanding(): Promise<{ embedUrl: string; watchUrl: string } | null> {
+/*
+ * Uma chave por página de vendas: o vídeo do criador de sites e o do
+ * Prospector são produtos diferentes, para públicos diferentes — cada um
+ * com o seu link, trocados de forma independente no Admin.
+ */
+export const CHAVES_VIDEO = {
+  principal: "landing_video_url",
+  prospector: "landing_prospector_video_url",
+} as const;
+
+export type LandingComVideo = keyof typeof CHAVES_VIDEO;
+
+export async function videoDaLanding(
+  qual: LandingComVideo = "principal",
+): Promise<{ embedUrl: string; watchUrl: string } | null> {
   /*
    * NUNCA derruba a página de vendas. A landing é pré-renderizada no build, e
    * build (local, CI) pode não ter as credenciais do banco — nesse caso a
@@ -46,7 +60,7 @@ export async function videoDaLanding(): Promise<{ embedUrl: string; watchUrl: st
     const { data } = await admin
       .from("config_sistema")
       .select("valor")
-      .eq("chave", "landing_video_url")
+      .eq("chave", CHAVES_VIDEO[qual])
       .maybeSingle();
     valor = (data as { valor: string } | null)?.valor ?? "";
   } catch {
