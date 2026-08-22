@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { orgPodeUsar } from "@/lib/painel/permissoes";
 
 /*
  * O que esta organização VENDE quando aborda um lead.
@@ -32,7 +33,20 @@ export async function ofertaDaOrg(orgId: string): Promise<Oferta> {
     .eq("org_id", orgId)
     .maybeSingle();
   const cfg = data as { oferta_tipo: string | null; oferta_resumo: string | null } | null;
+  const resumo = (cfg?.oferta_resumo ?? "").trim();
+
+  /*
+   * Quem não pode criar site não pode OFERECER site — nunca.
+   *
+   * O padrão histórico da config é 'site', e um cliente do plano Prospector
+   * que nunca abrisse o card 🎯 sairia mandando o modelo que promete "uma
+   * demonstração já criada"… que não existe no plano dele. A promessa falsa
+   * seria feita em nome dele, no WhatsApp dele. Então o plano manda: sem
+   * construtor, a oferta é sempre a própria, e as telas cobram o resumo.
+   */
+  if (!(await orgPodeUsar(orgId, "construtor"))) return { tipo: "propria", resumo };
+
   // Coluna ainda não migrada ou config inexistente: modo site, como sempre foi.
   if (cfg?.oferta_tipo !== "propria") return OFERTA_PADRAO;
-  return { tipo: "propria", resumo: (cfg.oferta_resumo ?? "").trim() };
+  return { tipo: "propria", resumo };
 }

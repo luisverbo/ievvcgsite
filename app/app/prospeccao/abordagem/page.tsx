@@ -13,6 +13,8 @@ export default async function AbordagemPage() {
   if (!(await podeUsar("prospeccao"))) notFound();
   const org = await getMinhaOrg();
   if (!org) notFound();
+  // Modo Prospector: os textos falam do produto DELE, nunca de site.
+  const podeSites = await podeUsar("construtor");
 
   const supabase = await createClient();
   const [{ data: cfgRaw }, { data: msgsRaw }, { data: prospRaw }] = await Promise.all([
@@ -125,11 +127,19 @@ export default async function AbordagemPage() {
           ← Prospecção
         </Link>
         <h1 className="mt-2 font-display text-3xl font-extrabold">Abordagem 💬</h1>
-        <p className="mt-1 max-w-3xl text-sm text-paper-dim">
-          A primeira mensagem <b className="text-paper">não leva o link do site</b> — ela pergunta
-          se pode mandar. Só quem responder vira site gerado, então você não gasta com quem nem
-          respondeu.
-        </p>
+        {podeSites ? (
+          <p className="mt-1 max-w-3xl text-sm text-paper-dim">
+            A primeira mensagem <b className="text-paper">não leva o link do site</b> — ela
+            pergunta se pode mandar. Só quem responder vira site gerado, então você não gasta com
+            quem nem respondeu.
+          </p>
+        ) : (
+          <p className="mt-1 max-w-3xl text-sm text-paper-dim">
+            A primeira mensagem <b className="text-paper">não leva link nem preço</b> — ela se
+            apresenta, fala do que você vende e pede permissão. Quem responde aparece aqui e a
+            conversa passa a ser sua.
+          </p>
+        )}
       </div>
 
       <div className="rounded-xl border border-brand-2/30 bg-brand/10 px-4 py-3 text-xs text-paper-dim">
@@ -148,11 +158,12 @@ export default async function AbordagemPage() {
         candidatos={candidatos}
         mensagens={mensagens}
         nomePorProspecto={nomePorProspecto}
-        fechadorLigado={(await funcaoLigada("fechador")) && (await podeUsar("construtor"))}
+        fechadorLigado={(await funcaoLigada("fechador")) && podeSites}
         resumoLigado={(await funcaoLigada("resumo_diario")) && (await podeUsar("prospeccao_resumo"))}
         cerebroLigado={(await funcaoLigada("mensagens_ia")) && (await podeUsar("prospeccao_ia"))}
         followupLigado={await funcaoLigada("followup")}
         placar={placar}
+        somenteOfertaPropria={!podeSites}
       />
     </div>
   );

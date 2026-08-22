@@ -80,13 +80,21 @@ export default async function ProspeccaoPage({
   // texto comum — "50%" busca "50%", não vira padrão.
   const procura = (qBruto ?? "").trim().slice(0, 80).replace(/[%_]/g, "\\$&");
 
+  /*
+   * Plano Prospector: só prospecção, sem construtor. Os botões de site
+   * ("Gerar site", o print do espelho, a captura de Instagram) somem, e a
+   * NOTA DE POTENCIAL sai de cena — ela mede "facilidade de vender um
+   * site" (quem não tem site pontua alto), que para um vendedor de seguro
+   * é ruído. O lugar dela é das avaliações do Google, que qualquer vendedor
+   * lê de relance — e a ordem acompanha: mais avaliado primeiro.
+   */
+  const podeSites = await podeUsar("construtor");
+
   const supabase = await createClient();
-  let q = supabase
-    .from("prospeccao")
-    .select("*")
-    .eq("org_id", org.id)
-    .order("pontuacao", { ascending: false })
-    .limit(300);
+  let q = supabase.from("prospeccao").select("*").eq("org_id", org.id).limit(300);
+  q = podeSites
+    ? q.order("pontuacao", { ascending: false })
+    : q.order("avaliacoes", { ascending: false, nullsFirst: false });
   if (filtro !== "todos") q = q.eq("status", filtro);
   if (busca !== "todas") {
     const [nicho, local] = busca.split("|");
@@ -120,13 +128,6 @@ export default async function ProspeccaoPage({
       .slice(0, 12);
   }
   const espelhoLigado = await funcaoLigada("espelho");
-  /*
-   * Plano Prospector: só prospecção, sem construtor. Os botões de site
-   * ("Gerar site", o print do espelho) somem — link para tela bloqueada é a
-   * pior vitrine que existe.
-   */
-  const podeSites = await podeUsar("construtor");
-
   /*
    * A resposta que o agente escutou, por prospecto — para o card mostrar O QUE
    * o lead disse, não só que disse. É a diferença entre "respondeu" e
@@ -286,7 +287,11 @@ export default async function ProspeccaoPage({
 
   const stats = [
     { rotulo: "Empresas", valor: todos.length },
-    { rotulo: "Prioridade alta", valor: todos.filter((p) => p.pontuacao >= 75).length },
+    // "Prioridade alta" vem da nota de potencial de venda de SITE; no modo
+    // Prospector o que importa é quem dá para chamar agora.
+    podeSites
+      ? { rotulo: "Prioridade alta", valor: todos.filter((p) => p.pontuacao >= 75).length }
+      : { rotulo: "Com WhatsApp", valor: todos.filter((p) => linkWhatsapp(p.telefone)).length },
     { rotulo: "Contactadas", valor: todos.filter((p) => p.status !== "novo").length },
     { rotulo: "Fechadas", valor: todos.filter((p) => p.status === "fechou").length },
   ];
@@ -313,11 +318,19 @@ export default async function ProspeccaoPage({
           ← Painel
         </Link>
         <h1 className="mt-2 font-display text-3xl font-extrabold">Prospecção 🎯</h1>
-        <p className="mt-1 text-sm text-paper-dim">
-          Encontra empresas por nicho e região e dá uma <b className="text-paper">nota de
-          potencial</b> — quanto maior, mais fácil de vender um site. Quem não tem site pontua
-          alto; quem já tem site moderno fica no fim da fila.
-        </p>
+        {podeSites ? (
+          <p className="mt-1 text-sm text-paper-dim">
+            Encontra empresas por nicho e região e dá uma <b className="text-paper">nota de
+            potencial</b> — quanto maior, mais fácil de vender um site. Quem não tem site pontua
+            alto; quem já tem site moderno fica no fim da fila.
+          </p>
+        ) : (
+          <p className="mt-1 text-sm text-paper-dim">
+            Encontra as empresas do ramo e da região que você escolher, com{" "}
+            <b className="text-paper">telefone, WhatsApp e avaliações do Google</b>. Marque as
+            melhores com etiquetas e aborde direto daqui.
+          </p>
+        )}
       </div>
 
       {todos.length > 0 && (
@@ -490,6 +503,15 @@ export default async function ProspeccaoPage({
             ))}
           </div>
           <BuscaNome />
+          {/* A lista é do dono: sai inteira em CSV, direto para o Excel/Sheets. */}
+          <a
+            href="/app/prospeccao/exportar"
+            download
+            title="Baixa todas as empresas em planilha (CSV), com telefone, WhatsApp, avaliações e etiquetas"
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-sm font-bold text-paper-dim transition hover:border-ok/50 hover:text-ok"
+          >
+            ⬇️ Exportar planilha
+          </a>
           {/* Chips das etiquetas em uso — a marcação de quem vende vira filtro. */}
           {tagsEmUso.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
@@ -539,32 +561,60 @@ export default async function ProspeccaoPage({
                 key={p.id}
                 className={`anim-entrada d${Math.min(idx + 1, 6)} flex flex-col gap-3 rounded-2xl border border-white/10 bg-ink-2 p-4 transition hover:border-brand-2/40 hover:shadow-[0_14px_44px_-22px_rgba(108,92,231,0.7)] sm:flex-row`}
               >
-                {/* nota + barra de potencial: o número E o quanto ele enche */}
-                <div className="flex flex-none flex-row items-center gap-3 sm:w-28 sm:flex-col sm:items-stretch sm:gap-1.5">
-                  <div className={`font-display text-4xl font-extrabold tabular-nums ${fx.classe}`}>
-                    {p.pontuacao}
+                {podeSites ? (
+                  /* nota + barra de potencial: o número E o quanto ele enche */
+                  <div className="flex flex-none flex-row items-center gap-3 sm:w-28 sm:flex-col sm:items-stretch sm:gap-1.5">
+                    <div className={`font-display text-4xl font-extrabold tabular-nums ${fx.classe}`}>
+                      {p.pontuacao}
+                    </div>
+                    <div className="hidden h-1.5 overflow-hidden rounded-full bg-white/10 sm:block">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${Math.max(4, Math.min(100, p.pontuacao))}%`,
+                          background: `linear-gradient(90deg, ${fx.barra}66, ${fx.barra})`,
+                        }}
+                      />
+                    </div>
+                    <div className="text-xs font-bold text-paper-dim">
+                      {fx.emoji} {fx.rotulo}
+                    </div>
                   </div>
-                  <div className="hidden h-1.5 overflow-hidden rounded-full bg-white/10 sm:block">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${Math.max(4, Math.min(100, p.pontuacao))}%`,
-                        background: `linear-gradient(90deg, ${fx.barra}66, ${fx.barra})`,
-                      }}
-                    />
+                ) : (
+                  /*
+                   * Modo Prospector: a nota mede "facilidade de vender site" e
+                   * aqui seria ruído. O que um vendedor lê de relance é a
+                   * reputação — nota do Google grande, avaliações embaixo.
+                   */
+                  <div className="flex flex-none flex-row items-center gap-3 sm:w-28 sm:flex-col sm:items-stretch sm:gap-1">
+                    <div className="font-display text-4xl font-extrabold tabular-nums text-paper">
+                      {p.nota_media ? String(p.nota_media).replace(".", ",") : "—"}
+                      {p.nota_media && <span className="ml-1 text-lg text-warn">★</span>}
+                    </div>
+                    <div className="text-xs font-bold text-paper-dim">
+                      {p.avaliacoes
+                        ? `${p.avaliacoes} ${p.avaliacoes === 1 ? "avaliação" : "avaliações"}`
+                        : "sem avaliações"}
+                    </div>
                   </div>
-                  <div className="text-xs font-bold text-paper-dim">
-                    {fx.emoji} {fx.rotulo}
-                  </div>
-                </div>
+                )}
 
                 {/* dados */}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="font-bold">{p.nome}</h3>
-                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-bold text-paper-dim">
-                      {ROTULO_SITUACAO[p.situacao]}
-                    </span>
+                    {/* "Sem site nenhum" é argumento de venda de SITE — fora do modo Prospector. */}
+                    {podeSites ? (
+                      <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-bold text-paper-dim">
+                        {ROTULO_SITUACAO[p.situacao]}
+                      </span>
+                    ) : (
+                      p.categoria && (
+                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-bold text-paper-dim">
+                          {p.categoria}
+                        </span>
+                      )
+                    )}
                     {p.status !== "novo" && (
                       <span className="rounded-full bg-brand/20 px-2 py-0.5 text-[11px] font-bold text-brand-2">
                         {ROTULO_STATUS[p.status]}
@@ -687,14 +737,17 @@ export default async function ProspeccaoPage({
                     </details>
                   </div>
 
-                  {p.avaliacoes !== null && (
+                  {/* No modo Prospector as avaliações já são o número grande à esquerda. */}
+                  {podeSites && p.avaliacoes !== null && (
                     <p className="mt-0.5 text-xs text-paper-dim">
                       ⭐ {p.nota_media ? `${p.nota_media} · ` : ""}
                       {p.avaliacoes} {p.avaliacoes === 1 ? "avaliação" : "avaliações"} no Google
                     </p>
                   )}
 
-                  {p.ig_status === "ok" && (
+                  {/* A captura de Instagram existe para abastecer o SITE com
+                      bio e fotos — sem construtor, o bloco inteiro some. */}
+                  {podeSites && p.ig_status === "ok" && (
                     <div className="mt-2 rounded-lg border border-brand-2/30 bg-brand/10 p-2">
                       <p className="text-xs font-bold text-brand-2">
                         📸 Instagram capturado
@@ -719,17 +772,21 @@ export default async function ProspeccaoPage({
                       )}
                     </div>
                   )}
-                  {p.ig_status && p.ig_status !== "ok" && (
+                  {podeSites && p.ig_status && p.ig_status !== "ok" && (
                     <p className="mt-2 text-xs text-danger">📸 {p.ig_erro ?? p.ig_status}</p>
                   )}
 
-                  <ul className="mt-2 flex flex-col gap-0.5">
-                    {p.motivos.slice(0, 3).map((m, i) => (
-                      <li key={i} className="text-xs text-paper-dim">
-                        • {m}
-                      </li>
-                    ))}
-                  </ul>
+                  {/* Os motivos explicam a nota de venda de site ("não tem
+                      site…") — sem sentido no modo Prospector. */}
+                  {podeSites && (
+                    <ul className="mt-2 flex flex-col gap-0.5">
+                      {p.motivos.slice(0, 3).map((m, i) => (
+                        <li key={i} className="text-xs text-paper-dim">
+                          • {m}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
 
                   <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
                     {p.telefone && <span className="text-paper">📞 {p.telefone}</span>}
@@ -789,7 +846,8 @@ export default async function ProspeccaoPage({
                       WhatsApp
                     </a>
                   )}
-                  {igTentavel &&
+                  {podeSites &&
+                    igTentavel &&
                     (igOcupado || igNoLimite ? (
                       <span
                         title={

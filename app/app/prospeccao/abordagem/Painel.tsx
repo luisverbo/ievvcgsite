@@ -63,6 +63,7 @@ export default function Painel({
   cerebroLigado = false,
   followupLigado = false,
   placar = [],
+  somenteOfertaPropria = false,
 }: {
   config: ConfigAbordagem;
   candidatos: ProspectoRow[];
@@ -75,6 +76,8 @@ export default function Painel({
   followupLigado?: boolean;
   /* Conversão por origem da mensagem (modelo × IA) — o placar honesto. */
   placar?: { origem: string; enviadas: number; respostas: number }[];
+  /* Plano sem construtor: oferecer "site" não é opção — o card 🎯 só pergunta o que ele vende. */
+  somenteOfertaPropria?: boolean;
 }) {
   const router = useRouter();
   const [cfgEstado, salvarCfg, salvandoCfg] = useActionState<EstadoAbordagem, FormData>(
@@ -104,8 +107,9 @@ export default function Painel({
     undefined,
   );
   // O que as mensagens vendem — muda os modelos padrão exibidos nas caixas.
+  // Plano sem construtor não tem a opção "site": nasce e fica em "propria".
   const [ofertaTipo, setOfertaTipo] = useState<"site" | "propria">(
-    config.oferta_tipo === "propria" ? "propria" : "site",
+    somenteOfertaPropria || config.oferta_tipo === "propria" ? "propria" : "site",
   );
   const ofertaPropria = ofertaTipo === "propria";
   const [fupEstado, salvarFup, salvandoFup] = useActionState<EstadoAbordagem, FormData>(
@@ -599,11 +603,18 @@ export default function Painel({
         do dono — e o Fechador (que só sabe criar site) sai de cena sozinho.
       */}
       <form action={salvarOfer} className={`anim-entrada d2 ${cardClass}`}>
-        <h2 className="mb-1 text-lg font-bold">🎯 O que você oferece</h2>
+        <h2 className="mb-1 text-lg font-bold">
+          {somenteOfertaPropria ? "🎯 O que você vende" : "🎯 O que você oferece"}
+        </h2>
         <p className="mb-3 text-sm text-paper-dim">
-          É isso que as mensagens vendem — o modelo padrão, a IA que escreve e a leitura das
-          respostas seguem esta escolha.
+          {somenteOfertaPropria
+            ? "É isso que entra nas mensagens de abordagem e de remarketing. Escreva uma vez e toda mensagem sai falando do seu produto."
+            : "É isso que as mensagens vendem — o modelo padrão, a IA que escreve e a leitura das respostas seguem esta escolha."}
         </p>
+        {/* Sem construtor, "oferecer site" não existe: o valor vai fixo e os
+            rádios nem são renderizados. */}
+        {somenteOfertaPropria && <input type="hidden" name="oferta_tipo" value="propria" />}
+        {!somenteOfertaPropria && (
         <div className="flex flex-col gap-2">
           <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm has-[:checked]:border-brand-2/60">
             <input
@@ -635,8 +646,9 @@ export default function Painel({
             </span>
           </label>
         </div>
+        )}
         {ofertaPropria && (
-          <div className="mt-3">
+          <div className={somenteOfertaPropria ? "" : "mt-3"}>
             <label className={labelClass} htmlFor="oferta_resumo">
               O que você vende, em poucas palavras (vira a variável{" "}
               <code className="text-paper">{"{oferta}"}</code> da mensagem)

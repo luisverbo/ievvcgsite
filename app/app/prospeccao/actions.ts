@@ -176,6 +176,9 @@ export async function limparTarefas() {
 // Enfileira a leitura do Instagram desta empresa para o agente fazer.
 export async function capturarInstagram(id: string) {
   if (!(await podeUsar("prospeccao"))) return;
+  // A captura existe para abastecer o SITE (bio e fotos no briefing). Plano
+  // sem construtor não tem site para abastecer — botão some e a trava é esta.
+  if (!(await podeUsar("construtor"))) return;
   const org = await getMinhaOrg();
   if (!org) return;
   const supabase = await createClient();
@@ -222,6 +225,8 @@ export async function capturarInstagram(id: string) {
  */
 export async function pedirEspelho(id: string) {
   if (!(await podeUsar("prospeccao"))) return;
+  // O espelho compara o site atual com o NOSSO — sem construtor não há "nosso".
+  if (!(await podeUsar("construtor"))) return;
   if (!(await funcaoLigada("espelho"))) return;
   const org = await getMinhaOrg();
   if (!org) return;
