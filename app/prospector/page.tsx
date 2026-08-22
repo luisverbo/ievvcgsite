@@ -42,7 +42,7 @@ const DIA_SEM = [
 
 const DIA_COM = [
   "Você digita o ramo e o bairro — a lista nasce sozinha, com telefone e avaliações",
-  "Cada empresa recebe a SUA mensagem com o nome dela, o bairro, as avaliações",
+  "A IA escreve uma mensagem original para cada empresa, citando o negócio dela",
   "O envio sai no ritmo de uma pessoa: limite diário e pausa entre mensagens",
   "Quem não responde recebe de novo no dia que você escolher — uma vez, com educação",
   "O funil mostra quem respondeu, o que disse e quem você marcou de 🔥 quente",
@@ -53,7 +53,7 @@ const PASSOS: { cor: string; titulo: string; texto: string; visual: React.ReactN
     cor: "#4285F4",
     titulo: "Diga o que procura",
     texto:
-      "“Clínicas de estética em Campinas”. “Advocacia na Barra”. Mais de 90 categorias prontas — ou digite qualquer ramo. O assistente varre o Google Maps e traz nome, WhatsApp, avaliações e endereço.",
+      "“Clínicas de estética em Campinas”. “Advocacia na Barra”. Mais de 90 categorias prontas — ou digite qualquer ramo. O Agente varre o Google Maps e traz nome, WhatsApp, avaliações e endereço.",
     visual: (
       <div className="rounded-full border border-black/10 bg-white px-4 py-2.5 shadow-sm">
         <span className="text-sm text-[#5f6672]">
@@ -66,15 +66,17 @@ const PASSOS: { cor: string; titulo: string; texto: string; visual: React.ReactN
   },
   {
     cor: "#EA4335",
-    titulo: "Escreva sua mensagem uma vez",
+    titulo: "A IA escreve para cada empresa",
     texto:
-      "O texto é seu e vende o SEU produto. As variáveis preenchem sozinhas em cada envio — e as variações de frase fazem cada mensagem sair diferente, que é o que não parece robô.",
+      "Você diz uma vez o que vende. A partir daí o Agente escreve uma mensagem ORIGINAL para cada lead, citando o nome, o bairro e as avaliações daquela empresa — nenhuma igual à outra. Prefere o seu próprio texto? Também dá.",
     visual: (
       <div className="rounded-xl border border-black/10 bg-white p-3 text-left text-xs leading-relaxed text-[#5f6672] shadow-sm">
-        Oi! Achei a <span className="rounded bg-[#4285F4]/10 px-1 font-bold text-[#4285F4]">{"{empresa}"}</span>{" "}
-        aqui em <span className="rounded bg-[#34A853]/10 px-1 font-bold text-[#34A853]">{"{bairro}"}</span> e vi
-        que vocês têm <span className="rounded bg-[#FBBC05]/20 px-1 font-bold text-[#b8860b]">{"{avaliacoes}"}</span>{" "}
-        avaliações…
+        <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-[#4285F4]">
+          ✨ escrito pela IA para esta empresa
+        </span>
+        Oi, Dra. Camila! Achei a <b className="text-[#1a1c22]">Clínica Bella Pele</b> aqui no
+        Cambuí e vi que vocês têm <b className="text-[#1a1c22]">132 avaliações</b> — sinal de que
+        o trabalho é bem falado…
       </div>
     ),
   },
@@ -123,7 +125,7 @@ const PROTECOES = [
   {
     emoji: "🎭",
     titulo: "Nenhuma mensagem igual à outra",
-    texto: "Variações de frase sorteadas a cada envio. Mensagem repetida é o sinal nº 1 de disparo — aqui ela não existe.",
+    texto: "A IA escreve cada mensagem do zero. Texto repetido é o sinal nº 1 de disparo — aqui ele não existe.",
   },
   {
     emoji: "⏳",
@@ -138,18 +140,18 @@ const PROTECOES = [
   {
     emoji: "🔒",
     titulo: "Seu número, sua máquina",
-    texto: "O assistente roda no SEU computador, com o SEU WhatsApp. Nada de número alugado, nada de conta emprestada.",
+    texto: "O Agente trabalha com o SEU WhatsApp, conectado por QR. Nada de número alugado, nada de conta emprestada.",
   },
 ];
 
 const PERGUNTAS = [
   {
     p: "Preciso entender de tecnologia?",
-    r: "Não. Você baixa o assistente no seu computador (o painel te guia passo a passo), escaneia o QR do WhatsApp uma vez e pronto. O resto é apertar botão.",
+    r: "Não. Você cria a conta, conecta o seu WhatsApp lendo um QR code (igual ao WhatsApp Web) e diz o que procura. O painel te guia em cada passo, e leva uns 5 minutos do zero até a primeira lista.",
   },
   {
-    p: "O assistente precisa ficar ligado o tempo todo?",
-    r: "Não. Ele trabalha enquanto o computador está ligado e para quando você fecha — a fila fica guardada esperando. Muita gente deixa rodando de manhã enquanto atende, e à tarde só olha quem respondeu.",
+    p: "O Agente trabalha 24 horas?",
+    r: "Ele trabalha enquanto o seu computador está ligado e para assim que você desliga — a fila fica guardada esperando. Muita gente deixa rodando de manhã enquanto atende e, à tarde, só abre para ver quem respondeu. Isso é proposital: mensagem saindo de madrugada é o que denuncia robô.",
   },
   {
     p: "Ele mexe no meu WhatsApp? Preciso de outro número?",
@@ -169,7 +171,7 @@ const PERGUNTAS = [
   },
   {
     p: "De onde vêm os contatos?",
-    r: "Do Google Maps, que é público. O assistente pesquisa como uma pessoa pesquisaria e organiza tudo: nome, telefone, avaliações, endereço, site. Empresa sem celular não entra na fila do WhatsApp.",
+    r: "Do Google Maps, que é público. O Agente pesquisa como uma pessoa pesquisaria e organiza tudo: nome, telefone, avaliações, endereço, site. Empresa sem celular não entra na fila do WhatsApp.",
   },
   {
     p: "Consigo levar a lista para fora do sistema?",
@@ -269,10 +271,10 @@ export default async function ProspectorPage() {
                 </span>
               </h1>
               <p className="mt-5 max-w-xl text-lg leading-relaxed text-[#5f6672]">
-                Um <b className="text-[#1a1c22]">assistente instalado no seu computador</b>{" "}
-                encontra as empresas da sua região no Google Maps e manda a{" "}
-                <b className="text-[#1a1c22]">sua mensagem</b> no WhatsApp de cada uma — no ritmo
-                de uma pessoa, enquanto você atende quem já respondeu.
+                Um <b className="text-[#1a1c22]">Agente de IA</b> encontra as empresas da sua
+                região no Google Maps e conversa com cada uma no seu WhatsApp — escrevendo uma
+                mensagem diferente para cada empresa, no ritmo de uma pessoa, enquanto você atende
+                quem já respondeu.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-4">
                 <Link
@@ -483,83 +485,74 @@ export default async function ProspectorPage() {
             </span>
             <h2 className="mt-3 font-display text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
               Você não compra uma lista.{" "}
-              <span className="text-[#25D366]">Você ganha um assistente.</span>
+              <span className="text-[#25D366]">Você ganha um Agente de IA.</span>
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-lg text-white/70">
-              O Prospector instala um <b className="text-white">assistente no seu computador</b>.
-              É ele que abre o Google Maps, anota empresa por empresa, cuida do seu WhatsApp e
-              volta a falar com quem não respondeu — sozinho, enquanto você atende cliente.
+              Ele procura as empresas, <b className="text-white">escreve uma mensagem diferente
+              para cada uma</b>, envia no ritmo de gente, lê as respostas e volta a falar com quem
+              ficou em silêncio. Você só entra quando o cliente já está interessado.
             </p>
+            <div className="mt-8 flex justify-center">
+              <Robo estado="trabalhando" tamanho={110} cor="#4285F4" corClara="#8ab4f8" />
+            </div>
+            <p className="mt-2 text-sm font-bold text-[#25D366]">● trabalhando agora</p>
           </div>
 
-          {/* os três estados: é assim que ele aparece no seu painel */}
+          {/* as três habilidades — o que a IA faz, não como ela é instalada */}
           <div className="pv-rev relative mx-auto mt-12 grid max-w-4xl gap-5 sm:grid-cols-3">
             {[
               {
-                estado: "trabalhando" as const,
-                selo: "● trabalhando agora",
-                corSelo: "bg-[#25D366]/15 text-[#25D366]",
-                titulo: "Ligado, ele trabalha",
+                emoji: "🔎",
+                titulo: "Ele procura",
                 texto:
-                  "Varre o Maps, envia no ritmo combinado e fica de olho nas respostas. Você acompanha tudo pelo painel, de onde estiver.",
+                  "Você diz o ramo e a região. Ele varre o Google Maps empresa por empresa e traz telefone, WhatsApp, endereço e as avaliações de cada uma.",
               },
               {
-                estado: "dormindo" as const,
-                selo: "◐ dormindo",
-                corSelo: "bg-[#FBBC05]/15 text-[#FBBC05]",
-                titulo: "Desligado, ele dorme",
+                emoji: "✍️",
+                titulo: "Ele escreve",
                 texto:
-                  "Fechou o computador? Ele para na hora e a fila espera por ele. Nada é enviado pelas suas costas — o controle é seu.",
+                  "Uma mensagem ORIGINAL para cada empresa, citando o nome, o bairro e as avaliações dela — do jeito que você pediria a um assistente atento. Duas empresas nunca recebem o mesmo texto.",
               },
               {
-                estado: "novo" as const,
-                selo: "○ 2 minutos para instalar",
-                corSelo: "bg-white/10 text-white/60",
-                titulo: "Instalar é baixar e abrir",
+                emoji: "👂",
+                titulo: "Ele escuta e insiste",
                 texto:
-                  "Um arquivo, dois cliques, e um QR para conectar o seu WhatsApp — o mesmo de sempre, no seu número. O painel te guia em cada passo.",
+                  "Lê as respostas e separa quem perguntou preço, quem quer saber mais e quem pediu para não receber. Quem ficou em silêncio, ele chama de novo no dia que você marcar.",
               },
             ].map((c) => (
               <div
                 key={c.titulo}
-                className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 text-center"
+                className="rounded-3xl border border-white/10 bg-white/[0.04] p-6"
               >
-                <div className="flex justify-center">
-                  <Robo estado={c.estado} tamanho={72} cor="#4285F4" corClara="#8ab4f8" />
-                </div>
-                <span
-                  className={`mt-3 inline-block rounded-full px-2.5 py-1 text-[11px] font-bold ${c.corSelo}`}
-                >
-                  {c.selo}
-                </span>
+                <span className="text-2xl">{c.emoji}</span>
                 <h3 className="mt-2 text-lg font-extrabold tracking-tight">{c.titulo}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-white/60">{c.texto}</p>
               </div>
             ))}
           </div>
 
-          {/* por que ele mora na SUA máquina — a resposta de confiança */}
+          {/* a diferença que o dono do WhatsApp precisa ouvir */}
           <div className="pv-rev relative mx-auto mt-10 max-w-4xl rounded-3xl border border-white/10 bg-white/[0.04] p-7">
             <h3 className="text-center text-lg font-extrabold tracking-tight">
-              Por que ele fica no <span className="text-[#8ab4f8]">seu computador</span>, e não num
-              servidor nosso
+              A diferença entre um <span className="text-[#8ab4f8]">Agente de IA</span> e um
+              disparador de mensagem
             </h3>
             <div className="mt-5 grid gap-5 sm:grid-cols-3">
               {[
                 {
+                  emoji: "🎭",
+                  t: "Escreve, não copia",
+                  d: "Disparador manda o mesmo texto mil vezes — e é assim que o WhatsApp identifica robô. O Agente escreve cada mensagem do zero.",
+                },
+                {
+                  emoji: "🧠",
+                  t: "Entende a resposta",
+                  d: "Ele lê o que o lead escreveu e te diz quem está quente, quem perguntou preço e quem pediu para sair — antes de você abrir a conversa.",
+                },
+                {
                   emoji: "📱",
                   t: "É o seu WhatsApp",
                   d: "Seu número, sua conta, suas conversas. Nada de chip alugado ou número emprestado que some amanhã.",
-                },
-                {
-                  emoji: "🏠",
-                  t: "É o seu IP, da sua cidade",
-                  d: "O Google trata robô de servidor de um jeito e uma pessoa navegando de casa de outro. Por isso a busca funciona.",
-                },
-                {
-                  emoji: "🔌",
-                  t: "Ninguém entra nele",
-                  d: "O assistente só fala para fora: pergunta ao painel o que fazer e obedece. Não aceita conexão de fora, nem nossa.",
                 },
               ].map((c) => (
                 <div key={c.t}>
@@ -759,7 +752,8 @@ export default async function ProspectorPage() {
                 <ul className="mx-auto mt-6 flex max-w-sm flex-col gap-2.5 text-left text-[15px] text-[#3c4048]">
                   {[
                     "Buscas ilimitadas no Google Maps",
-                    "Mensagens personalizadas e envio automático",
+                    "Mensagens escritas pela IA, uma diferente para cada empresa",
+                    "Envio automático no ritmo de uma pessoa",
                     "Remarketing em quem não respondeu",
                     "Funil com etiquetas e respostas à vista",
                     "Exportar tudo em planilha quando quiser",
@@ -821,8 +815,8 @@ export default async function ProspectorPage() {
               Amanhã de manhã, sua lista está pronta.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-lg text-white/85">
-              Instale hoje, escaneie o QR do seu WhatsApp e diga o ramo e o bairro. O resto,
-              você acompanha pelo painel — com o café na mão.
+              Conecte o seu WhatsApp, diga o ramo e o bairro, e deixe o Agente trabalhar. O
+              resto você acompanha pelo painel — com o café na mão.
             </p>
             <Link
               href="/assinar/prospector"

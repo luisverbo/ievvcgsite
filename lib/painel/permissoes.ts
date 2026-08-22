@@ -87,15 +87,24 @@ export const PLANOS: Record<
    * Sem construtor e sem hospedagem de propósito — é outro público e outro
    * preço; quem quiser sites sobe para o Agência.
    *
-   * E sem NENHUMA camada de IA: nem mensagem escrita pela IA, nem leitura
-   * automática de resposta. O que ele entrega — busca no Maps, mensagem com
-   * variações, remarketing, agenda de envio — é texto puro e consulta ao
-   * banco. Custo de IA zero, para sempre.
+   * A IA das MENSAGENS entra: é ela que escreve um texto diferente para cada
+   * empresa, citando o negócio dela, e lê as respostas para separar quem
+   * quer preço de quem pediu para não receber. É o que o produto anuncia e
+   * o que separa ele de um disparador de lista.
    *
-   * Por isso a cota é 0: não existe caminho neste plano que gaste crédito.
-   * Cota sobrando só serviria para confundir a tela de créditos.
+   * O resumo diário fica de fora (recurso do produto completo).
+   *
+   * Cota de US$3/mês é TETO, não gasto: cada mensagem custa ~US$0,002 e a
+   * leitura de resposta, fração disso — dá umas 1.500 mensagens por mês,
+   * muito além do que o WhatsApp aguarda em envio seguro. O que não for
+   * usado não é cobrado de ninguém.
    */
-  prospector: { rotulo: "Prospector", recursos: ["prospeccao"], cota: 0, sites: 0 },
+  prospector: {
+    rotulo: "Prospector",
+    recursos: ["prospeccao", "prospeccao_ia"],
+    cota: 3_000_000,
+    sites: 0,
+  },
   agencia: {
     rotulo: "Agência",
     recursos: [

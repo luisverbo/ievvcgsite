@@ -121,6 +121,19 @@ export async function escreverMensagens(
   if (!conta.anthropic) {
     throw new Error("Sem crédito de IA disponível — a IA não pode escrever as mensagens agora.");
   }
+  /*
+   * Teto de verdade: sem saldo, NÃO escreve.
+   *
+   * Faltava esta linha. contaDaOrg devolve a chave da plataforma mesmo com
+   * saldo zerado, e cobrar() só debita — então uma conta no vermelho seguia
+   * gastando na nossa fatura. Quem usa chave própria não passa por aqui: lá
+   * o custo é dele, direto no provedor.
+   */
+  if (conta.fonte === "plataforma" && conta.saldo <= 0) {
+    throw new Error(
+      "O crédito de IA deste mês acabou. As mensagens continuam saindo pelo seu modelo de texto — ou espere a cota renovar.",
+    );
+  }
   const client = new Anthropic({ apiKey: conta.anthropic });
   const system = montarSystem(await ofertaDaOrg(orgId));
 
