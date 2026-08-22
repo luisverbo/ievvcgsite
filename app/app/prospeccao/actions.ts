@@ -292,6 +292,13 @@ export async function excluirProspecto(id: string) {
 // com o pedido pronto no chat.
 export async function gerarSiteParaProspecto(id: string) {
   if (!(await podeUsar("prospeccao"))) return;
+  /*
+   * O botão some no plano só de prospecção, mas esconder botão não é trava:
+   * a action continua chamável. Sem esta linha, o Prospector criaria uma
+   * linha órfã em sites_ia e cairia num 404 — o construtor, esse, já é
+   * fechado em todas as telas de /app/ia.
+   */
+  if (!(await podeUsar("construtor"))) return;
   const org = await getMinhaOrg();
   if (!org) return;
 

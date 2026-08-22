@@ -140,6 +140,32 @@ export async function podeUsar(recurso: Recurso): Promise<boolean> {
 }
 
 /*
+ * A mesma pergunta, mas SEM usuário logado — por organização.
+ *
+ * Existe para o que roda fora de uma tela: o Fechador dispara a partir de uma
+ * resposta que o agente escutou, sem sessão nenhuma. Sem esta função ele
+ * chamaria a geração de página direto, e uma conta só de prospecção ganharia
+ * site automático que o plano dela não vende.
+ *
+ * Não tem atalho de admin de propósito: aqui não há "usuário atual" para ser
+ * admin. Quem é dono do sistema tem a org dele no plano que quiser.
+ */
+export async function orgPodeUsar(orgId: string, recurso: Recurso): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("organizacoes")
+    .select("plano")
+    .eq("id", orgId)
+    .maybeSingle();
+  const contratado = (data as { plano: string } | null)?.plano;
+  if (!contratado) return false;
+
+  const plano = await planoVigente(orgId, contratado);
+  if (plano === "free" && !(await planoFreeAtivo())) return false;
+  return planoLibera(plano, recurso);
+}
+
+/*
  * O plano que vale AGORA, já considerando a assinatura.
  *
  * O campo `plano` da organização diz o que foi contratado; a assinatura diz se

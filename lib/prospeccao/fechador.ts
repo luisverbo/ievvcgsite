@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { funcaoLigada } from "@/lib/painel/flags";
+import { orgPodeUsar } from "@/lib/painel/permissoes";
 import { gerarPaginaAutomatica } from "@/lib/ia/gerarAuto";
 import { montarBriefingDoProspecto } from "./briefing";
 import { ofertaDaOrg } from "./oferta";
@@ -49,6 +50,23 @@ export async function dispararFechador(orgId: string, prospectoId: string): Prom
     if (!(await funcaoLigada("fechador"))) return;
 
     const admin = createAdminClient();
+
+    /*
+     * Plano sem construtor (o Prospector) não gera site nem aqui.
+     *
+     * Este é o único caminho do sistema que cria página SEM passar por uma
+     * tela — ele nasce de uma resposta que o agente escutou, sem sessão. Sem
+     * esta trava, bastaria ligar o Fechador para uma conta só de prospecção
+     * ganhar o que o plano dela não vende.
+     */
+    if (!(await orgPodeUsar(orgId, "construtor"))) {
+      await admin
+        .from("prospeccao")
+        .update({ anotacao: "🔥 Respondeu com interesse — assuma a conversa no WhatsApp." })
+        .eq("id", prospectoId)
+        .eq("org_id", orgId);
+      return;
+    }
 
     /*
      * Modo Prospector (oferta própria): o Fechador só sabe fazer UMA coisa —

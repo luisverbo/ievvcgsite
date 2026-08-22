@@ -139,12 +139,16 @@ export default async function AbordagemPage() {
         risco.
       </div>
 
+      {/*
+        O Fechador cria site: no plano só de prospecção o card nem aparece,
+        senão o cliente configuraria algo que nunca vai disparar.
+      */}
       <Painel
         config={config}
         candidatos={candidatos}
         mensagens={mensagens}
         nomePorProspecto={nomePorProspecto}
-        fechadorLigado={await funcaoLigada("fechador")}
+        fechadorLigado={(await funcaoLigada("fechador")) && (await podeUsar("construtor"))}
         resumoLigado={await funcaoLigada("resumo_diario")}
         cerebroLigado={await funcaoLigada("mensagens_ia")}
         followupLigado={await funcaoLigada("followup")}
