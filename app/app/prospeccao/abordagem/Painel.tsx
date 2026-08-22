@@ -13,12 +13,18 @@ import {
   salvarConfig,
   salvarFechador,
   salvarFollowup,
+  salvarOferta,
   salvarResumo,
   type ConfigAbordagem,
   type EstadoAbordagem,
   type MensagemRow,
 } from "./actions";
-import { MODELO_PADRAO, MODELO_FOLLOWUP_PADRAO } from "@/lib/prospeccao/mensagem";
+import {
+  MODELO_PADRAO,
+  MODELO_PADRAO_PROPRIA,
+  MODELO_FOLLOWUP_PADRAO,
+  MODELO_FOLLOWUP_PROPRIA,
+} from "@/lib/prospeccao/mensagem";
 import { faixa, type ProspectoRow } from "@/lib/prospeccao/tipos";
 import { acharNicho } from "@/lib/prospeccao/nichos";
 import { inputClass, labelClass, cardClass } from "@/components/painel/ui";
@@ -93,6 +99,15 @@ export default function Painel({
   );
   const temBriefing = (config.briefing_msg ?? "").trim().length >= 40;
   const [estrategia, setEstrategia] = useState<"modelo" | "ia">("modelo");
+  const [ofertaEstado, salvarOfer, salvandoOfer] = useActionState<EstadoAbordagem, FormData>(
+    salvarOferta,
+    undefined,
+  );
+  // O que as mensagens vendem — muda os modelos padrão exibidos nas caixas.
+  const [ofertaTipo, setOfertaTipo] = useState<"site" | "propria">(
+    config.oferta_tipo === "propria" ? "propria" : "site",
+  );
+  const ofertaPropria = ofertaTipo === "propria";
   const [fupEstado, salvarFup, salvandoFup] = useActionState<EstadoAbordagem, FormData>(
     salvarFollowup,
     undefined,
@@ -542,7 +557,12 @@ export default function Painel({
               <span className={`rounded-md px-2 py-0.5 ${config.remetente_nome ? "bg-ok/15 text-ok" : "bg-warn/15 text-warn"}`}>
                 ✍️ mensagem {config.remetente_nome ? "✓" : "sem remetente"}
               </span>
-              {fechadorLigado && (
+              {ofertaPropria && (
+                <span className="rounded-md bg-brand/20 px-2 py-0.5 text-brand-2">
+                  🎯 vendendo: {(config.oferta_resumo ?? "").slice(0, 30) || "produto próprio"}
+                </span>
+              )}
+              {fechadorLigado && !ofertaPropria && (
                 <span className={`rounded-md px-2 py-0.5 ${nivelFech !== "desligado" ? "bg-ok/15 text-ok" : "bg-white/10 text-paper-dim"}`}>
                   🤝 Fechador: {ROTULO_NIVEL[nivelFech]}
                 </span>
@@ -572,6 +592,77 @@ export default function Painel({
           </span>
         </summary>
         <div className="flex flex-col gap-6 px-5 pb-5">
+      {/* ---------------------- o que você oferece ----------------------- */}
+      {/*
+        O interruptor do modo Prospector. Em 'site' NADA muda em relação ao
+        que sempre foi; em 'propria' a mesma máquina passa a vender o produto
+        do dono — e o Fechador (que só sabe criar site) sai de cena sozinho.
+      */}
+      <form action={salvarOfer} className={`anim-entrada d2 ${cardClass}`}>
+        <h2 className="mb-1 text-lg font-bold">🎯 O que você oferece</h2>
+        <p className="mb-3 text-sm text-paper-dim">
+          É isso que as mensagens vendem — o modelo padrão, a IA que escreve e a leitura das
+          respostas seguem esta escolha.
+        </p>
+        <div className="flex flex-col gap-2">
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm has-[:checked]:border-brand-2/60">
+            <input
+              type="radio"
+              name="oferta_tipo"
+              value="site"
+              checked={!ofertaPropria}
+              onChange={() => setOfertaTipo("site")}
+              className="mt-0.5 accent-[var(--color-brand)]"
+            />
+            <span>
+              <b>Sites</b> — ofereço a demonstração criada pela IA (o modo de sempre; o Fechador
+              pode criar e enviar o site sozinho).
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm has-[:checked]:border-brand-2/60">
+            <input
+              type="radio"
+              name="oferta_tipo"
+              value="propria"
+              checked={ofertaPropria}
+              onChange={() => setOfertaTipo("propria")}
+              className="mt-0.5 accent-[var(--color-brand)]"
+            />
+            <span>
+              <b>Outro produto ou serviço</b> — seguro, plano de saúde, consórcio, representação…
+              As mensagens vendem o que você escrever abaixo, e a resposta quente vira aviso para
+              VOCÊ assumir a conversa.
+            </span>
+          </label>
+        </div>
+        {ofertaPropria && (
+          <div className="mt-3">
+            <label className={labelClass} htmlFor="oferta_resumo">
+              O que você vende, em poucas palavras (vira a variável{" "}
+              <code className="text-paper">{"{oferta}"}</code> da mensagem)
+            </label>
+            <input
+              id="oferta_resumo"
+              name="oferta_resumo"
+              defaultValue={config.oferta_resumo ?? ""}
+              placeholder="ex.: plano de saúde empresarial · consórcio de imóveis · seguro de vida"
+              className={`${inputClass} mt-1 w-full`}
+            />
+          </div>
+        )}
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={salvandoOfer}
+            className="rounded-lg bg-brand px-5 py-2 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+          >
+            {salvandoOfer ? "Salvando…" : "Salvar"}
+          </button>
+          {ofertaEstado?.error && <p className="text-sm text-danger">{ofertaEstado.error}</p>}
+          {ofertaEstado?.ok && <p className="text-sm text-ok">✅ {ofertaEstado.ok}</p>}
+        </div>
+      </form>
+
       {/* ------------------------- a mensagem --------------------------- */}
       <form action={salvarCfg} className={`anim-entrada d2 ${cardClass}`}>
         <h2 className="mb-1 text-lg font-bold">A mensagem</h2>
@@ -603,7 +694,9 @@ export default function Painel({
 
         <textarea
           name="modelo_mensagem"
-          defaultValue={config.modelo_mensagem || MODELO_PADRAO}
+          defaultValue={
+            config.modelo_mensagem || (ofertaPropria ? MODELO_PADRAO_PROPRIA : MODELO_PADRAO)
+          }
           rows={10}
           className={`${inputClass} w-full resize-y font-mono text-xs`}
         />
@@ -749,7 +842,10 @@ export default function Painel({
                   id="followup_msg"
                   name="followup_msg"
                   rows={5}
-                  defaultValue={config.followup_msg_modelo || MODELO_FOLLOWUP_PADRAO}
+                  defaultValue={
+                    config.followup_msg_modelo ||
+                    (ofertaPropria ? MODELO_FOLLOWUP_PROPRIA : MODELO_FOLLOWUP_PADRAO)
+                  }
                   className={`${inputClass} mt-1 w-full resize-y font-mono text-xs`}
                 />
                 <p className="mt-1 text-xs text-paper-dim">
@@ -861,7 +957,9 @@ export default function Painel({
       )}
 
       {/* ------------------------- o Fechador ---------------------------- */}
-      {fechadorLigado && (
+      {/* Só no modo site: o Fechador cria o site de demonstração, e no modo
+          Prospector não há site nenhum na conversa. */}
+      {fechadorLigado && !ofertaPropria && (
         <form action={salvarFech} className="anim-entrada d2 card-aurora rounded-xl p-5">
           <div className="flex flex-wrap items-center gap-3">
             <Robo estado={nivelFech === "desligado" ? "novo" : "trabalhando"} tamanho={44} />

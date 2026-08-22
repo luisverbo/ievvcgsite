@@ -11,7 +11,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { acharNicho } from "../lib/prospeccao/nichos.ts";
+import { termoDeBusca } from "../lib/prospeccao/nichos.ts";
 import type { EmpresaEncontrada } from "../lib/prospeccao/tipos.ts";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
@@ -192,10 +192,12 @@ export async function coletarDoGoogle(
 ): Promise<ResultadoColeta> {
   const log = op.log ?? (() => {});
   const pausa = Math.max(800, op.pausaMs ?? 1800);
-  const nicho = acharNicho(nichoChave);
-  if (!nicho) throw new Error(`Nicho desconhecido: ${nichoChave}`);
-
-  const termo = `${nicho.rotulo.split("/")[0].trim()} ${local}`;
+  /*
+   * Nicho fora do catálogo NÃO é erro: é o ramo que o dono digitou à mão
+   * ("loja de aquário") — o Maps busca por texto e acha do mesmo jeito. O
+   * catálogo só serve para trocar a chave pelo rótulo bonito.
+   */
+  const termo = `${termoDeBusca(nichoChave)} ${local}`;
   let ctx: BrowserContext | undefined;
 
   try {

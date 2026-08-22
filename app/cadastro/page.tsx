@@ -4,7 +4,7 @@ import { cadastrar } from "../login/actions";
 
 import { planoVendidoValido } from "@/lib/pagamentos/planos";
 
-const ROTULO: Record<string, string> = { pro: "Pro", agencia: "Agência" };
+const ROTULO: Record<string, string> = { pro: "Pro", agencia: "Agência", prospector: "Prospector" };
 
 export default async function CadastroPage({
   searchParams,

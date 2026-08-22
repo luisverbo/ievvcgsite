@@ -66,6 +66,17 @@ export const PLANOS: Record<
   // Fora de linha: definido para o futuro, mas nenhum checkout vende o Pro
   // hoje — o produto é vendido num plano só, o Agência.
   pro: { rotulo: "Pro", recursos: ["construtor", "hospedagem"], cota: 5_000_000, sites: 3 },
+  /*
+   * O Prospector: SÓ a prospecção, vendido separado, para quem prospecta o
+   * próprio produto (seguro, plano de saúde, consórcio, representação).
+   * Sem construtor e sem hospedagem de propósito — é outro público e outro
+   * preço; quem quiser sites sobe para o Agência.
+   *
+   * A cota de US$5 é folgada para o uso real: mensagem com IA custa
+   * ~US$0,002 e a classificação de resposta, fração disso — dá milhares de
+   * mensagens por mês.
+   */
+  prospector: { rotulo: "Prospector", recursos: ["prospeccao"], cota: 5_000_000, sites: 0 },
   agencia: {
     rotulo: "Agência",
     recursos: ["construtor", "prospeccao", "hospedagem"],

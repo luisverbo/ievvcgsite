@@ -109,6 +109,10 @@ export default async function Home() {
             <a href="#faq" className="transition hover:text-paper">
               Dúvidas
             </a>
+            {/* O produto irmão: só a prospecção, para quem vende outra coisa. */}
+            <Link href="/prospector" className="font-bold text-brand-2 transition hover:text-paper">
+              Para vendedores 🎯
+            </Link>
           </nav>
           <div className="flex items-center gap-2">
             <Link

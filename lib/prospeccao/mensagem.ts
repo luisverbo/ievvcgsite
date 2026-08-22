@@ -38,6 +38,27 @@ export const MODELO_FOLLOWUP_PADRAO = `[Oi|Olá]{contato}, tudo certo?
 
 Se não for o momento, sem problema nenhum — é só me dizer e eu não incomodo mais. Mas se quiser dar uma olhada, mando o link agora. 🙂`;
 
+/*
+ * Os modelos do modo Prospector: quem vende o PRÓPRIO produto (seguro, plano
+ * de saúde, consórcio). {oferta} é preenchida pelo resumo configurado no
+ * painel — sem site, sem demonstração: a permissão pedida no fim é para
+ * mandar mais detalhes, que é o passo honesto quando não há nada pronto para
+ * mostrar.
+ */
+export const MODELO_PADRAO_PROPRIA = `[Olá|Oi]{contato}! Tudo bem?
+
+Meu nome é {meunome}. [Encontrei|Achei] a {empresa} pesquisando empresas de {ramo}{regiao}{prova}.
+
+[Eu trabalho com|Trabalho com] {oferta} e atendo [empresas|negócios] como o seu aqui da região.
+
+Não quero tomar seu tempo — posso te mandar [um resumo rápido|duas linhas] de como funciona, sem compromisso?`;
+
+export const MODELO_FOLLOWUP_PROPRIA = `[Oi|Olá]{contato}, tudo certo?
+
+[Passando aqui de novo|Voltando rapidinho] só para não deixar passar: te mandei uma mensagem sobre {oferta}.
+
+Se não for o momento, sem problema nenhum — é só me dizer e eu não incomodo mais. Mas se quiser, te explico em duas linhas. 🙂`;
+
 export type DadosEmpresa = {
   nome: string;
   nicho_busca?: string | null;
@@ -98,6 +119,9 @@ function provaDe(e: DadosEmpresa): string {
 export function ramoDe(e: DadosEmpresa): string {
   const rotulo = acharNicho(e.nicho_busca ?? "")?.rotulo;
   if (rotulo) return rotulo.split("/")[0].trim().toLowerCase();
+  // Nicho digitado à mão ("loja de aquário") é o próprio ramo, e melhor que
+  // a categoria do Google, que vem em formato de cadastro.
+  if (e.nicho_busca?.trim()) return e.nicho_busca.trim().toLowerCase();
   return e.categoria?.toLowerCase() || "negócios locais";
 }
 
@@ -158,6 +182,7 @@ export function montarMensagem(
   empresa: DadosEmpresa,
   chave: string,
   remetente = "",
+  extras: Record<string, string> = {},
 ): string {
   const nome = limparNomeEmpresa(empresa.nome);
   const valores: Record<string, string> = {
@@ -170,6 +195,8 @@ export function montarMensagem(
     avaliacoes: String(empresa.avaliacoes ?? ""),
     nota: empresa.nota_media ? String(empresa.nota_media).replace(".", ",") : "",
     prova: provaDe(empresa),
+    // {oferta} e afins: variáveis que não vêm da empresa, vêm de quem envia.
+    ...extras,
   };
 
   const comVariacoes = sortearVariacoes(modelo || MODELO_PADRAO, chave);

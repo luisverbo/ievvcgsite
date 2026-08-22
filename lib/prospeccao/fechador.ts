@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { funcaoLigada } from "@/lib/painel/flags";
 import { gerarPaginaAutomatica } from "@/lib/ia/gerarAuto";
 import { montarBriefingDoProspecto } from "./briefing";
+import { ofertaDaOrg } from "./oferta";
 import { slugify } from "@/lib/format";
 import { codigoSeguro } from "@/lib/codigo";
 import type { ProspectoRow } from "./tipos";
@@ -48,6 +49,22 @@ export async function dispararFechador(orgId: string, prospectoId: string): Prom
     if (!(await funcaoLigada("fechador"))) return;
 
     const admin = createAdminClient();
+
+    /*
+     * Modo Prospector (oferta própria): o Fechador só sabe fazer UMA coisa —
+     * criar o site de demonstração — e aqui não há site nenhum na conversa.
+     * A resposta quente vira recado para o humano assumir, que é o fechamento
+     * certo quando o produto é seguro, consórcio, plano de saúde.
+     */
+    if ((await ofertaDaOrg(orgId)).tipo === "propria") {
+      await admin
+        .from("prospeccao")
+        .update({ anotacao: "🔥 Respondeu com interesse — assuma a conversa no WhatsApp." })
+        .eq("id", prospectoId)
+        .eq("org_id", orgId);
+      return;
+    }
+
     const { data: cfgRaw } = await admin
       .from("prospeccao_config")
       .select(

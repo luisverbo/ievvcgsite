@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { textoDaResposta } from "@/lib/estudio/llm";
 import { contaDaOrg, cobrar } from "@/lib/creditos/conta";
 import { ramoDe } from "./mensagem";
+import { ofertaDaOrg } from "./oferta";
 import type { ProspectoRow } from "./tipos";
 
 /*
@@ -31,18 +32,38 @@ export const CUSTO_ESTIMADO_MSG_MICRO = 2_000;
 // o bastante para a resposta não estourar e o JSON voltar inteiro.
 const POR_CHAMADA = 12;
 
-const SYSTEM = `Você escreve mensagens de primeira abordagem no WhatsApp para donos de pequenos negócios brasileiros, oferecendo criação de site. Recebe um briefing de quem oferece e uma lista de leads com os dados reais de cada um.
+/*
+ * O prompt muda com o que se vende:
+ *   site    — o produto original: a permissão pedida no fim é para mandar o
+ *             link da demonstração já criada para aquela empresa;
+ *   propria — modo Prospector (seguro, plano de saúde, consórcio…): não há
+ *             nada pronto para mostrar, então o fim honesto é pedir permissão
+ *             para explicar em duas linhas.
+ * As regras de proteção (sem link, sem preço, só fatos reais) valem nos dois.
+ */
+function montarSystem(oferta: { tipo: "site" | "propria"; resumo: string }): string {
+  const oQue =
+    oferta.tipo === "propria"
+      ? `oferecendo ${oferta.resumo || "o produto/serviço descrito no briefing"}`
+      : "oferecendo criação de site";
+  const cta =
+    oferta.tipo === "propria"
+      ? "A mensagem termina pedindo permissão para explicar em poucas linhas como funciona — sem empurrar reunião nem ligação."
+      : "A mensagem termina pedindo permissão para mandar o link de uma demonstração já criada para aquela empresa.";
+
+  return `Você escreve mensagens de primeira abordagem no WhatsApp para donos de pequenos negócios brasileiros, ${oQue}. Recebe um briefing de quem oferece e uma lista de leads com os dados reais de cada um.
 
 REGRAS INEGOCIÁVEIS:
 - Uma mensagem POR lead, todas diferentes entre si (variação real de abertura e estrutura, não sinônimos).
 - Curta: 3 a 6 linhas de WhatsApp. Tom humano, direto, sem formalidade engessada e sem exagero de vendedor.
-- NUNCA inclua link, preço, valor ou promessa de prazo. A mensagem termina pedindo permissão para mandar o link de uma demonstração já criada para aquela empresa.
+- NUNCA inclua link, preço, valor ou promessa de prazo. ${cta}
 - Use SOMENTE os fatos fornecidos do lead. Sem dado, sem elogio inventado.
 - Cite o nome da empresa naturalmente. Se houver avaliações relevantes (5 ou mais), pode mencionar como elogio honesto.
 - Assine com o nome de quem envia, do jeito que uma pessoa assina ("— Luis" ou dentro da frase), sem cargo inventado.
 - Português do Brasil. Pode usar no máximo 1 emoji por mensagem, ou nenhum.
 
 RESPONDA APENAS com JSON válido, sem markdown: [{"id":"...","msg":"..."}] — um item por lead, na mesma ordem.`;
+}
 
 type LeadParaIA = {
   id: string;
@@ -101,6 +122,7 @@ export async function escreverMensagens(
     throw new Error("Sem crédito de IA disponível — a IA não pode escrever as mensagens agora.");
   }
   const client = new Anthropic({ apiKey: conta.anthropic });
+  const system = montarSystem(await ofertaDaOrg(orgId));
 
   const lotes: ProspectoRow[][] = [];
   for (let i = 0; i < prospectos.length; i += POR_CHAMADA) {
@@ -113,7 +135,7 @@ export async function escreverMensagens(
         const resposta = await client.messages.create({
           model: MODELO_ESCRITOR,
           max_tokens: 300 * lote.length,
-          system: SYSTEM,
+          system,
           messages: [
             {
               role: "user",

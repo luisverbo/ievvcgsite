@@ -9,7 +9,7 @@ import { podeUsar } from "@/lib/painel/permissoes";
 import { buscarEmpresas, localizar } from "@/lib/prospeccao/overpass";
 import { analisarSite } from "@/lib/prospeccao/site";
 import { calcularPotencial, ehEnderecoSocial } from "@/lib/prospeccao/score";
-import { acharNicho } from "@/lib/prospeccao/nichos";
+import { acharNicho, nichoLivreValido } from "@/lib/prospeccao/nichos";
 import { IG_FILA_MAX, IG_LIMITE_DIA } from "@/lib/prospeccao/instagram";
 import { montarBriefingDoProspecto } from "@/lib/prospeccao/briefing";
 import { funcaoLigada } from "@/lib/painel/flags";
@@ -29,7 +29,16 @@ export async function buscarProspectos(
   const nicho = String(formData.get("nicho") ?? "").trim();
   const local = String(formData.get("local") ?? "").trim();
   const limite = Math.min(60, Math.max(5, Number(formData.get("limite")) || 20));
-  if (!acharNicho(nicho)) return { error: "Escolha um nicho da lista." };
+  // O mapa aberto só busca por etiqueta mapeada — ramo digitado à mão e
+  // categoria sem etiqueta ficam com o Google, que acha qualquer coisa.
+  const doCatalogo = acharNicho(nicho);
+  if (!doCatalogo || doCatalogo.filtros.length === 0) {
+    return {
+      error: doCatalogo
+        ? `"${doCatalogo.rotulo}" só existe na busca do Google — o mapa aberto não tem essa categoria.`
+        : "Ramo digitado à mão só funciona na busca do Google (o botão da esquerda).",
+    };
+  }
   if (local.length < 3) return { error: "Diga a cidade ou o bairro." };
 
   let empresas;
@@ -105,10 +114,20 @@ export async function enfileirarBuscaGoogle(
   const org = await getMinhaOrg();
   if (!org) return { error: "Organização não encontrada." };
 
-  const nicho = String(formData.get("nicho") ?? "").trim();
+  const escolhido = String(formData.get("nicho") ?? "").trim();
+  const livre = String(formData.get("nicho_livre") ?? "").trim();
+  // "__outro__" no seletor = o ramo veio digitado. O Google busca por texto,
+  // então qualquer ramo serve — a validação só barra o que não é um ramo.
+  const nicho = escolhido === "__outro__" ? livre : escolhido;
   const local = String(formData.get("local") ?? "").trim();
   const limite = Math.min(60, Math.max(5, Number(formData.get("limite")) || 20));
-  if (!acharNicho(nicho)) return { error: "Escolha um nicho da lista." };
+  if (escolhido === "__outro__") {
+    if (!nichoLivreValido(livre)) {
+      return { error: "Digite o ramo com 3 a 60 letras — ex.: “loja de aquário”." };
+    }
+  } else if (!acharNicho(nicho)) {
+    return { error: "Escolha um nicho da lista." };
+  }
   if (local.length < 3) return { error: "Diga a cidade ou o bairro." };
 
   const supabase = await createClient();

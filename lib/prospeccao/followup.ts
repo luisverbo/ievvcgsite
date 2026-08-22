@@ -2,7 +2,13 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { funcaoLigada } from "@/lib/painel/flags";
-import { montarMensagem, MODELO_FOLLOWUP_PADRAO, type DadosEmpresa } from "./mensagem";
+import {
+  montarMensagem,
+  MODELO_FOLLOWUP_PADRAO,
+  MODELO_FOLLOWUP_PROPRIA,
+  type DadosEmpresa,
+} from "./mensagem";
+import { ofertaDaOrg } from "./oferta";
 import type { ProspectoRow } from "./tipos";
 
 /*
@@ -117,8 +123,13 @@ export async function prepararFollowups(orgId: string): Promise<number> {
     const prospectos = (prospRaw as ProspectoRow[] | null) ?? [];
     const porId = new Map(prospectos.map((p) => [p.id, p]));
 
-    const modelo = cfg.followup_msg_modelo?.trim() || MODELO_FOLLOWUP_PADRAO;
+    // No modo Prospector o modelo padrão fala da oferta própria, não do site
+    // que não existe. Modelo escrito pelo dono continua mandando nos dois.
+    const oferta = await ofertaDaOrg(orgId);
+    const padrao = oferta.tipo === "propria" ? MODELO_FOLLOWUP_PROPRIA : MODELO_FOLLOWUP_PADRAO;
+    const modelo = cfg.followup_msg_modelo?.trim() || padrao;
     const remetente = (cfg.remetente_nome ?? "").trim();
+    const extras = { oferta: oferta.resumo || "o que eu tinha comentado" };
 
     const linhas: Record<string, unknown>[] = [];
     for (const a of abordagens) {
@@ -134,7 +145,7 @@ export async function prepararFollowups(orgId: string): Promise<number> {
         telefone: a.telefone,
         // A chave do sorteio muda ("fu::"), então o follow-up não repete as
         // mesmas escolhas de [a|b] da primeira mensagem — pareceria cópia.
-        texto: montarMensagem(modelo, p as DadosEmpresa, `fu::${p.id}`, remetente),
+        texto: montarMensagem(modelo, p as DadosEmpresa, `fu::${p.id}`, remetente, extras),
         tipo: "followup",
         modo: a.modo === "semi" ? "semi" : "auto",
         status: "pendente",

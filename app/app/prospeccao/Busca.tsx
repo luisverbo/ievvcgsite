@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { buscarProspectos, enfileirarBuscaGoogle, type BuscaState } from "./actions";
-import { NICHOS } from "@/lib/prospeccao/nichos";
+import { NICHOS, GRUPOS_NICHOS } from "@/lib/prospeccao/nichos";
 import { inputClass, labelClass, fieldClass } from "@/components/painel/ui";
 
 export default function Busca({
@@ -24,6 +24,10 @@ export default function Busca({
   const pendente = pendenteOsm || pendenteGoogle;
   const estado = osm ?? google;
 
+  // "outro" abre o campo livre: o Google acha qualquer ramo por texto.
+  const [nichoEscolhido, setNichoEscolhido] = useState("dentista");
+  const livre = nichoEscolhido === "__outro__";
+
   return (
     <form className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]">
@@ -31,13 +35,34 @@ export default function Busca({
           <label className={labelClass} htmlFor="nicho">
             Nicho
           </label>
-          <select id="nicho" name="nicho" defaultValue="dentista" className={inputClass}>
-            {NICHOS.map((n) => (
-              <option key={n.chave} value={n.chave}>
-                {n.rotulo}
-              </option>
+          <select
+            id="nicho"
+            name="nicho"
+            value={nichoEscolhido}
+            onChange={(e) => setNichoEscolhido(e.target.value)}
+            className={inputClass}
+          >
+            {GRUPOS_NICHOS.map((g) => (
+              <optgroup key={g} label={g}>
+                {NICHOS.filter((n) => n.grupo === g).map((n) => (
+                  <option key={n.chave} value={n.chave}>
+                    {n.rotulo}
+                  </option>
+                ))}
+              </optgroup>
             ))}
+            <optgroup label="Não achou?">
+              <option value="__outro__">✏️ Outro — digitar o ramo</option>
+            </optgroup>
           </select>
+          {livre && (
+            <input
+              name="nicho_livre"
+              autoFocus
+              placeholder="ex.: loja de aquário, energia solar, coworking…"
+              className={`${inputClass} mt-2`}
+            />
+          )}
         </div>
 
         <div className={fieldClass}>
@@ -107,6 +132,13 @@ export default function Busca({
           <p className="mb-1 font-bold">🧭 OpenStreetMap</p>
           <p className="mb-3 text-xs text-paper-dim">
             Na hora, aqui mesmo. Gratuito e sem bloqueio, mas com menos cadastros e sem avaliações.
+            {livre && (
+              <>
+                {" "}
+                <b className="text-warn">Ramo digitado à mão só funciona no Google</b> — o mapa
+                aberto precisa de categoria da lista.
+              </>
+            )}
           </p>
           <button
             type="submit"

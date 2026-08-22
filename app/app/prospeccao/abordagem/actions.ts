@@ -6,11 +6,13 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
 import {
   MODELO_PADRAO,
+  MODELO_PADRAO_PROPRIA,
   montarMensagem,
   telefoneWhatsapp,
   type DadosEmpresa,
 } from "@/lib/prospeccao/mensagem";
 import { escreverMensagens } from "@/lib/prospeccao/escrever";
+import { ofertaDaOrg } from "@/lib/prospeccao/oferta";
 import { funcaoLigada } from "@/lib/painel/flags";
 import type { ProspectoRow } from "@/lib/prospeccao/tipos";
 
@@ -36,6 +38,10 @@ export type ConfigAbordagem = {
   followup_ligado: boolean;
   followup_dias: number;
   followup_msg_modelo: string | null;
+  // O que as mensagens vendem: 'site' (demonstração criada pela IA — o
+  // padrão de sempre) ou 'propria' (modo Prospector: seguro, consórcio…).
+  oferta_tipo?: "site" | "propria" | null;
+  oferta_resumo?: string | null;
 };
 
 export type MensagemRow = {
@@ -277,6 +283,53 @@ export async function salvarBriefing(
 }
 
 /*
+ * O que você vende quando aborda: site (o padrão de sempre) ou o próprio
+ * produto — o modo Prospector. Muda o modelo padrão, o prompt da IA, o
+ * classificador de respostas e desliga o Fechador (que só sabe criar site).
+ */
+export async function salvarOferta(
+  _prev: EstadoAbordagem,
+  formData: FormData,
+): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const tipo = String(formData.get("oferta_tipo")) === "propria" ? "propria" : "site";
+  const resumo = String(formData.get("oferta_resumo") ?? "").trim().slice(0, 160);
+  if (tipo === "propria" && resumo.length < 5) {
+    return {
+      error:
+        'Diga em poucas palavras o que você vende — ex.: "consórcio de imóveis", "plano de saúde empresarial".',
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("prospeccao_config").upsert(
+    {
+      org_id: org.id,
+      oferta_tipo: tipo,
+      oferta_resumo: tipo === "propria" ? resumo : null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "org_id" },
+  );
+  if (error) {
+    return error.message.includes("oferta_tipo")
+      ? { error: "Rode a migração do Prospector no Supabase primeiro (2026-08-22_prospector.sql)." }
+      : { error: error.message };
+  }
+
+  revalidatePath("/app/prospeccao/abordagem");
+  return {
+    ok:
+      tipo === "propria"
+        ? `Salvo! As mensagens agora oferecem: ${resumo}.`
+        : "Salvo! As mensagens voltam a oferecer o site de demonstração.",
+  };
+}
+
+/*
  * Monta a mensagem de cada empresa escolhida e coloca na fila.
  *
  * modo 'auto' -> o agente envia sozinho, respeitando limite e intervalo
@@ -314,8 +367,22 @@ export async function prepararAbordagem(
   ]);
 
   const cfg = cfgRaw as { modelo_mensagem: string | null; remetente_nome: string | null } | null;
-  const modelo = cfg?.modelo_mensagem || MODELO_PADRAO;
+  /*
+   * Modo Prospector: o modelo padrão fala da oferta própria — o de site
+   * ofereceria uma demonstração que não existe. Modelo escrito pelo dono
+   * continua valendo nos dois modos.
+   */
+  const oferta = await ofertaDaOrg(org.id);
+  const modelo =
+    cfg?.modelo_mensagem || (oferta.tipo === "propria" ? MODELO_PADRAO_PROPRIA : MODELO_PADRAO);
   const remetente = (cfg?.remetente_nome ?? "").trim();
+  const extras = { oferta: oferta.resumo || "o meu trabalho" };
+  if (oferta.tipo === "propria" && !oferta.resumo && modelo.includes("{oferta}")) {
+    return {
+      error:
+        'Preencha "O que você vende" no card 🎯 O que você oferece — é isso que entra na mensagem.',
+    };
+  }
 
   // Sem o nome, a mensagem sairia com "Meu nome é." — melhor barrar aqui do
   // que mandar texto quebrado para o cliente. Na IA ele também é obrigatório:
@@ -368,7 +435,7 @@ export async function prepararAbordagem(
       telefone,
       // A chave do sorteio é o id da empresa: a prévia do painel mostra
       // exatamente o texto que vai ser enviado.
-      texto: montarMensagem(modelo, p as DadosEmpresa, p.id, remetente),
+      texto: montarMensagem(modelo, p as DadosEmpresa, p.id, remetente, extras),
       modo,
       status: "pendente",
     });

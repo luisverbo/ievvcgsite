@@ -94,6 +94,12 @@ export default async function ProspeccaoPage({
   const { data } = await q;
   const lista = (data as ProspectoRow[] | null) ?? [];
   const espelhoLigado = await funcaoLigada("espelho");
+  /*
+   * Plano Prospector: só prospecção, sem construtor. Os botões de site
+   * ("Gerar site", o print do espelho) somem — link para tela bloqueada é a
+   * pior vitrine que existe.
+   */
+  const podeSites = await podeUsar("construtor");
 
   /*
    * A resposta que o agente escutou, por prospecto — para o card mostrar O QUE
@@ -697,7 +703,7 @@ export default async function ProspeccaoPage({
                         </button>
                       </form>
                     ))}
-                  {espelhoLigado && p.website && !p.espelho_url && (
+                  {podeSites && espelhoLigado && p.website && !p.espelho_url && (
                     <form action={pedirEspelho.bind(null, p.id)}>
                       <button
                         type="submit"
@@ -708,23 +714,24 @@ export default async function ProspeccaoPage({
                       </button>
                     </form>
                   )}
-                  {p.site_ia_id ? (
-                    <Link
-                      href={`/app/ia/${p.site_ia_id}`}
-                      className="rounded-lg border border-brand-2/50 px-3 py-2 text-xs font-bold text-brand-2 transition hover:bg-brand/10"
-                    >
-                      Ver site
-                    </Link>
-                  ) : (
-                    <form action={gerarSiteParaProspecto.bind(null, p.id)}>
-                      <button
-                        type="submit"
-                        className="rounded-lg bg-brand px-3 py-2 text-xs font-bold text-white transition hover:bg-brand-2"
+                  {podeSites &&
+                    (p.site_ia_id ? (
+                      <Link
+                        href={`/app/ia/${p.site_ia_id}`}
+                        className="rounded-lg border border-brand-2/50 px-3 py-2 text-xs font-bold text-brand-2 transition hover:bg-brand/10"
                       >
-                        ✨ Gerar site
-                      </button>
-                    </form>
-                  )}
+                        Ver site
+                      </Link>
+                    ) : (
+                      <form action={gerarSiteParaProspecto.bind(null, p.id)}>
+                        <button
+                          type="submit"
+                          className="rounded-lg bg-brand px-3 py-2 text-xs font-bold text-white transition hover:bg-brand-2"
+                        >
+                          ✨ Gerar site
+                        </button>
+                      </form>
+                    ))}
                   <form
                     action={mudarStatus.bind(
                       null,

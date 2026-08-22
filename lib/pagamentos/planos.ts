@@ -13,10 +13,10 @@ import "server-only";
  * silencioso possível — por isso os dois nomes ficam lado a lado no .env.
  */
 
-export type PlanoVendido = "pro" | "agencia";
+export type PlanoVendido = "pro" | "agencia" | "prospector";
 
 export function planoVendidoValido(bruto: string): PlanoVendido | null {
-  return bruto === "pro" || bruto === "agencia" ? bruto : null;
+  return bruto === "pro" || bruto === "agencia" || bruto === "prospector" ? bruto : null;
 }
 
 export function precoCentavos(plano: PlanoVendido): number {
@@ -26,6 +26,13 @@ export function precoCentavos(plano: PlanoVendido): number {
    * entende o valor da ferramenta — não quem procura o mais barato.
    */
   if (plano === "pro") return Number(process.env.PRECO_PRO_CENTAVOS) || 14_700; // R$147
+  /*
+   * Prospector a R$97: mais barato que o Pro de propósito — é SÓ a
+   * prospecção, para outro público (vendedor de seguro, plano de saúde,
+   * consórcio), e o degrau baixo é o que faz esse público entrar. Quem
+   * quiser sites tem para onde subir.
+   */
+  if (plano === "prospector") return Number(process.env.PRECO_PROSPECTOR_CENTAVOS) || 9_700; // R$97
   return Number(process.env.PRECO_MENSAL_CENTAVOS) || 30_000; // R$300
 }
 
@@ -35,7 +42,11 @@ export function precoEmReais(plano: PlanoVendido): string {
 
 export function priceIdDaStripe(plano: PlanoVendido): string | null {
   const id =
-    plano === "pro" ? process.env.STRIPE_PRICE_PRO : process.env.STRIPE_PRICE_AGENCIA;
+    plano === "pro"
+      ? process.env.STRIPE_PRICE_PRO
+      : plano === "prospector"
+        ? process.env.STRIPE_PRICE_PROSPECTOR
+        : process.env.STRIPE_PRICE_AGENCIA;
   return id?.trim() || null;
 }
 
@@ -63,6 +74,7 @@ export function planoDoPriceId(priceId: string | null | undefined): PlanoVendido
   if (!priceId) return null;
   if (priceId === process.env.STRIPE_PRICE_PRO?.trim()) return "pro";
   if (priceId === process.env.STRIPE_PRICE_AGENCIA?.trim()) return "agencia";
+  if (priceId === process.env.STRIPE_PRICE_PROSPECTOR?.trim()) return "prospector";
   return null;
 }
 
@@ -74,5 +86,6 @@ export function planoDoPriceId(priceId: string | null | undefined): PlanoVendido
  * fazer com os 7 excedentes?), e é a conversa em que se retém o cliente.
  */
 export function podeSubirPara(atual: PlanoVendido, alvo: PlanoVendido): boolean {
-  return atual === "pro" && alvo === "agencia";
+  // Prospector → Pro não existe: perderia a prospecção, que é o que ele usa.
+  return (atual === "pro" || atual === "prospector") && alvo === "agencia";
 }

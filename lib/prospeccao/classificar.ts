@@ -3,6 +3,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { textoDaResposta } from "@/lib/estudio/llm";
 import { contaDaOrg, cobrar } from "@/lib/creditos/conta";
+import { ofertaDaOrg } from "./oferta";
 
 /*
  * Classifica a resposta de um lead no WhatsApp.
@@ -72,11 +73,18 @@ export async function classificarResposta(
     if (!conta.anthropic) return "outro";
     const client = new Anthropic({ apiKey: conta.anthropic });
 
+    // O classificador precisa saber o que foi oferecido: "pode mandar" depois
+    // de uma oferta de seguro é interesse em seguro, não em site.
+    const oferta = await ofertaDaOrg(orgId);
+    const oQue =
+      oferta.tipo === "propria"
+        ? `uma oferta de ${oferta.resumo || "um produto/serviço"}`
+        : "uma oferta de criação de site";
+
     const resposta = await client.messages.create({
       model: MODELO_CLASSIFICADOR,
       max_tokens: 8,
-      system:
-        "Você classifica a resposta de um comerciante brasileiro a uma oferta de criação de site enviada por WhatsApp. Responda APENAS UMA palavra dentre: interesse, preco, duvida, recusa, outro. interesse = quer ver/aceita receber; preco = pergunta valor; duvida = pede mais informação ou não entendeu; recusa = não quer / pede para parar; outro = nada disso.",
+      system: `Você classifica a resposta de um comerciante brasileiro a ${oQue} enviada por WhatsApp. Responda APENAS UMA palavra dentre: interesse, preco, duvida, recusa, outro. interesse = quer ver/aceita receber; preco = pergunta valor; duvida = pede mais informação ou não entendeu; recusa = não quer / pede para parar; outro = nada disso.`,
       messages: [{ role: "user", content: limpo }],
     });
 
