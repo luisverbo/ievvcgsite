@@ -78,8 +78,27 @@ export default async function AssinaturaPage({
   const pagamentos = (hist as PagamentoRow[] | null) ?? [];
 
   const podePix = s.status === "atrasada" || s.status === "suspensa";
-  const planoAtual = planoVendidoValido(assinatura?.plano ?? "") ?? "agencia";
-  const podeSubir = s.liberado && podeSubirPara(planoAtual, "agencia");
+  /*
+   * O plano que a tela mostra é o DA CONTA, não o da linha de assinatura.
+   *
+   * Os dois divergem sempre que o plano é trocado fora da Stripe — cortesia
+   * dada no Admin, migração, suporte. Lendo só a assinatura, uma conta
+   * passada para o Prospector continuava anunciando "Plano Agência, R$300,
+   * 10 sites, US$15 de crédito": tudo que ela não tem mais. A verdade sobre
+   * o que o cliente PODE usar mora em organizacoes.plano, que é a mesma
+   * fonte das permissões — então é ela que manda aqui.
+   */
+  const planoAtual =
+    planoVendidoValido(org.plano) ?? planoVendidoValido(assinatura?.plano ?? "") ?? "agencia";
+  // Prospector é produto de prospecção: não tem crédito de IA nem hospedagem.
+  const ehProspector = planoAtual === "prospector";
+  /*
+   * Sem oferta de upgrade no Prospector. Quem vende seguro não quer virar
+   * criador de sites — empurrar isso aqui só faz ele duvidar do que comprou.
+   * A regra de negócio (podeSubirPara) continua permitindo, para o dia em que
+   * a oferta fizer sentido; o que não existe é o convite na tela.
+   */
+  const podeSubir = s.liberado && !ehProspector && podeSubirPara(planoAtual, "agencia");
   const semAssinatura = s.status === "nova" || s.status === "cancelada";
 
   /*
@@ -263,21 +282,31 @@ export default async function AssinaturaPage({
 
           {/* o que este plano entrega, em números */}
           <div className="grid gap-3 p-5 sm:grid-cols-3">
-            <Item
-              icone="⚡"
-              valor={emDolar(PLANOS[planoAtual]?.cota ?? 0)}
-              rotulo="crédito de IA por mês"
-            />
-            <Item
-              icone="🌐"
-              valor={String(sitesDoPlano(planoAtual))}
-              rotulo="sites em domínio próprio"
-            />
-            <Item
-              icone="🎯"
-              valor={planoAtual === "agencia" ? "Incluída" : "—"}
-              rotulo="prospecção e WhatsApp"
-            />
+            {ehProspector ? (
+              <>
+                <Item icone="🔎" valor="Ilimitadas" rotulo="buscas no Google Maps" />
+                <Item icone="💬" valor="Incluído" rotulo="envio e remarketing no WhatsApp" />
+                <Item icone="🏷️" valor="R$ 0" rotulo="por lead — sem cobrança extra" />
+              </>
+            ) : (
+              <>
+                <Item
+                  icone="⚡"
+                  valor={emDolar(PLANOS[planoAtual]?.cota ?? 0)}
+                  rotulo="crédito de IA por mês"
+                />
+                <Item
+                  icone="🌐"
+                  valor={String(sitesDoPlano(planoAtual))}
+                  rotulo="sites em domínio próprio"
+                />
+                <Item
+                  icone="🎯"
+                  valor={planoAtual === "agencia" ? "Incluída" : "—"}
+                  rotulo="prospecção e WhatsApp"
+                />
+              </>
+            )}
           </div>
 
           {(podePix || s.status === "suspensa") && (
@@ -395,20 +424,39 @@ export default async function AssinaturaPage({
         {[
           {
             q: "Como faço para cancelar?",
-            r: "Clique em “Cartão e faturas” e escolha cancelar. São dois cliques, sem falar com ninguém. O que você já pagou vale até o fim do mês, e suas páginas e domínios continuam salvos.",
+            r: ehProspector
+              ? "Clique em “Cartão e faturas” e escolha cancelar. São dois cliques, sem falar com ninguém. O que você já pagou vale até o fim do mês, e sua lista de empresas continua salva."
+              : "Clique em “Cartão e faturas” e escolha cancelar. São dois cliques, sem falar com ninguém. O que você já pagou vale até o fim do mês, e suas páginas e domínios continuam salvos.",
           },
           {
             q: "E se o cartão falhar?",
-            r: "Nada sai do ar na hora: você tem 7 dias para regularizar, com aviso na tela, e nesse período aparece aqui a opção de pagar aquele mês no Pix. Seus sites e os dos seus clientes continuam funcionando.",
+            r: ehProspector
+              ? "Você tem 7 dias para regularizar, com aviso na tela, e nesse período aparece aqui a opção de pagar aquele mês no Pix. Sua lista e seu histórico de conversas ficam intactos."
+              : "Nada sai do ar na hora: você tem 7 dias para regularizar, com aviso na tela, e nesse período aparece aqui a opção de pagar aquele mês no Pix. Seus sites e os dos seus clientes continuam funcionando.",
           },
-          {
-            q: "O crédito de IA acabou antes do fim do mês.",
-            r: `A cota se repõe sozinha todo mês. Se precisar de mais antes disso, compre crédito avulso na tela de Créditos — a partir de R$ ${PACOTES[0].preco} — ou cole a sua própria chave da Anthropic e pague o preço de custo direto a eles.`,
-          },
-          {
-            q: "Preciso de mais sites hospedados.",
-            r: "Cada site além da cota do plano custa R$ 29,90 por mês, cobrado nesta mesma assinatura. Você autoriza antes de conectar o domínio, e a cobrança sai sozinha se você desconectar.",
-          },
+          // As duas últimas só valem para quem tem construtor e hospedagem —
+          // no Prospector não existe crédito de IA nem site hospedado.
+          ...(ehProspector
+            ? [
+                {
+                  q: "Quantas empresas posso buscar e abordar?",
+                  r: "Não há limite de buscas nem cobrança por lead. O único limite que recomendamos é o do próprio WhatsApp: comece com 15 a 20 mensagens por dia e aumente devagar — é isso que mantém o seu número seguro.",
+                },
+                {
+                  q: "Preciso comprar créditos para usar?",
+                  r: "Não. A mensalidade cobre tudo: a busca no Google Maps, o envio no WhatsApp e o remarketing. Não existe crédito para comprar nem consumo escondido.",
+                },
+              ]
+            : [
+                {
+                  q: "O crédito de IA acabou antes do fim do mês.",
+                  r: `A cota se repõe sozinha todo mês. Se precisar de mais antes disso, compre crédito avulso na tela de Créditos — a partir de R$ ${PACOTES[0].preco} — ou cole a sua própria chave da Anthropic e pague o preço de custo direto a eles.`,
+                },
+                {
+                  q: "Preciso de mais sites hospedados.",
+                  r: "Cada site além da cota do plano custa R$ 29,90 por mês, cobrado nesta mesma assinatura. Você autoriza antes de conectar o domínio, e a cobrança sai sozinha se você desconectar.",
+                },
+              ]),
         ].map((d) => (
           <details
             key={d.q}
