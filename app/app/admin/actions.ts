@@ -30,10 +30,23 @@ export async function alterarPlano(orgId: string, novoPlano: "free" | "pro" | "a
 
   // A cota de IA acompanha o plano: trocar um sem o outro deixaria o cliente
   // pagando o plano cheio e recebendo o crédito do plano velho.
-  await admin
+  const { error } = await admin
     .from("organizacoes")
     .update({ plano: novoPlano, cota_mensal: cotaDoPlano(novoPlano) })
     .eq("id", orgId);
+  /*
+   * Erro engolido aqui já custou uma tarde: o CHECK antigo da coluna não
+   * conhecia 'prospector', o banco recusava e o botão parecia simplesmente
+   * não funcionar. Falhou, PARA — seguir adiante creditaria a diferença de
+   * cota de um plano que não foi aplicado.
+   */
+  if (error) {
+    throw new Error(
+      error.message.includes("plano_check")
+        ? "O banco ainda não aceita este plano — rode a migração 2026-08-22_prospector_plano.sql no Supabase."
+        : `Não deu para trocar o plano: ${error.message}`,
+    );
+  }
 
   /*
    * Subiu de plano no meio do mês: entrega a diferença de crédito agora.
