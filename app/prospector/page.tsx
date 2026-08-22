@@ -193,7 +193,9 @@ export default async function ProspectorPage() {
     <div className="pv min-h-screen overflow-x-hidden bg-[#f7f9fe] text-[#1a1c22]">
       {/* Os efeitos da página, todos em CSS. Prefixo pv- para não vazar. */}
       <style>{`
-        .pv { --g-azul:#4285F4; --g-verm:#EA4335; --g-amar:#FBBC05; --g-verde:#34A853; --wa:#25D366; }
+        .pv { scroll-behavior: smooth; --g-azul:#4285F4; --g-verm:#EA4335; --g-amar:#FBBC05; --g-verde:#34A853; --wa:#25D366; }
+
+        .pv [id] { scroll-margin-top: 5.5rem; }
 
         @keyframes pv-cair { 0% { transform: translateY(-46px) scale(.6); opacity: 0; } 60% { transform: translateY(4px) scale(1.05); opacity: 1; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
         .pv-pin { animation: pv-cair .7s cubic-bezier(.2,.9,.3,1.2) both; }
@@ -246,14 +248,22 @@ export default async function ProspectorPage() {
             <span className="text-[#EA4335]">e</span>ctor
           </span>
           <div className="flex items-center gap-3">
-            <Link href="/login" className="text-sm font-semibold text-[#5f6672] transition hover:text-[#1a1c22]">
+            <Link
+              href="/login?p=prospector"
+              className="text-sm font-semibold text-[#5f6672] transition hover:text-[#1a1c22]"
+            >
               Entrar
             </Link>
+            {/*
+              Leva ao PREÇO, não ao cadastro. Quem clica em "começar" ainda não
+              viu quanto custa — cair numa tela de login antes disso é perder a
+              venda de quem só queria saber o valor.
+            */}
             <Link
-              href="/assinar/prospector"
+              href="#preco"
               className="rounded-full bg-[#25D366] px-5 py-2.5 text-sm font-bold text-white shadow-[0_8px_24px_-8px_rgba(37,211,102,.7)] transition hover:-translate-y-0.5 hover:brightness-105"
             >
-              Começar agora
+              Ver preço e começar
             </Link>
           </div>
         </div>
@@ -278,7 +288,7 @@ export default async function ProspectorPage() {
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-4">
                 <Link
-                  href="/assinar/prospector"
+                  href="#preco"
                   className="rounded-full bg-[#25D366] px-8 py-4 text-base font-bold text-white shadow-[0_14px_36px_-10px_rgba(37,211,102,.8)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-lg"
                 >
                   Quero minha lista de clientes →
@@ -369,7 +379,7 @@ export default async function ProspectorPage() {
               </div>
               <p className="mt-4 text-center">
                 <Link
-                  href="/assinar/prospector"
+                  href="#preco"
                   className="inline-block rounded-full bg-[#25D366] px-7 py-3 text-base font-bold text-white shadow-[0_12px_32px_-10px_rgba(37,211,102,.8)] transition hover:-translate-y-0.5 hover:brightness-105"
                 >
                   Quero usar isso hoje →
