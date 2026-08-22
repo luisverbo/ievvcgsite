@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { precoEmReais } from "@/lib/pagamentos/planos";
 import { videoDaLanding } from "@/lib/landing";
+import Robo from "@/components/painel/Robo";
 
 /*
  * A landing do PROSPECTOR — página de ANÚNCIO, não de site institucional.
@@ -147,6 +148,14 @@ const PERGUNTAS = [
     r: "Não. Você baixa o assistente no seu computador (o painel te guia passo a passo), escaneia o QR do WhatsApp uma vez e pronto. O resto é apertar botão.",
   },
   {
+    p: "O assistente precisa ficar ligado o tempo todo?",
+    r: "Não. Ele trabalha enquanto o computador está ligado e para quando você fecha — a fila fica guardada esperando. Muita gente deixa rodando de manhã enquanto atende, e à tarde só olha quem respondeu.",
+  },
+  {
+    p: "Ele mexe no meu WhatsApp? Preciso de outro número?",
+    r: "Ele usa o seu WhatsApp normal, conectado uma vez pelo QR — as conversas ficam no seu celular como sempre. Para prospecção em volume, o mais seguro é usar um chip só para isso; funciona nos dois casos.",
+  },
+  {
     p: "Tem cobrança por lead ou por mensagem?",
     r: "Nenhuma. A mensalidade é tudo que você paga. Busque e aborde quantas empresas quiser, dentro do ritmo seguro do WhatsApp.",
   },
@@ -260,7 +269,8 @@ export default async function ProspectorPage() {
                 </span>
               </h1>
               <p className="mt-5 max-w-xl text-lg leading-relaxed text-[#5f6672]">
-                O Prospector encontra as empresas da sua região no Google Maps e manda a{" "}
+                Um <b className="text-[#1a1c22]">assistente instalado no seu computador</b>{" "}
+                encontra as empresas da sua região no Google Maps e manda a{" "}
                 <b className="text-[#1a1c22]">sua mensagem</b> no WhatsApp de cada uma — no ritmo
                 de uma pessoa, enquanto você atende quem já respondeu.
               </p>
@@ -446,6 +456,124 @@ export default async function ProspectorPage() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* ========================== O ASSISTENTE ========================= */}
+        {/*
+          A pergunta que o leitor acabou de formar nos 4 passos é "mas QUEM
+          faz isso?" — e a resposta é o produto. Sem esta seção a página
+          vendia um processo; com ela, vende um assistente que trabalha.
+
+          O robô é o MESMO componente do painel, na cor do Google: quem
+          assina reconhece na primeira tela o personagem da landing.
+        */}
+        <section className="relative overflow-hidden bg-[#1a1c22] px-5 py-20 text-white">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.07]"
+            style={{
+              backgroundImage:
+                "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)",
+              backgroundSize: "42px 42px",
+            }}
+          />
+          <div className="pv-rev relative mx-auto max-w-3xl text-center">
+            <span className="text-xs font-extrabold uppercase tracking-[0.22em] text-[#8ab4f8]">
+              Quem faz o trabalho
+            </span>
+            <h2 className="mt-3 font-display text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
+              Você não compra uma lista.{" "}
+              <span className="text-[#25D366]">Você ganha um assistente.</span>
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-lg text-white/70">
+              O Prospector instala um <b className="text-white">assistente no seu computador</b>.
+              É ele que abre o Google Maps, anota empresa por empresa, cuida do seu WhatsApp e
+              volta a falar com quem não respondeu — sozinho, enquanto você atende cliente.
+            </p>
+          </div>
+
+          {/* os três estados: é assim que ele aparece no seu painel */}
+          <div className="pv-rev relative mx-auto mt-12 grid max-w-4xl gap-5 sm:grid-cols-3">
+            {[
+              {
+                estado: "trabalhando" as const,
+                selo: "● trabalhando agora",
+                corSelo: "bg-[#25D366]/15 text-[#25D366]",
+                titulo: "Ligado, ele trabalha",
+                texto:
+                  "Varre o Maps, envia no ritmo combinado e fica de olho nas respostas. Você acompanha tudo pelo painel, de onde estiver.",
+              },
+              {
+                estado: "dormindo" as const,
+                selo: "◐ dormindo",
+                corSelo: "bg-[#FBBC05]/15 text-[#FBBC05]",
+                titulo: "Desligado, ele dorme",
+                texto:
+                  "Fechou o computador? Ele para na hora e a fila espera por ele. Nada é enviado pelas suas costas — o controle é seu.",
+              },
+              {
+                estado: "novo" as const,
+                selo: "○ 2 minutos para instalar",
+                corSelo: "bg-white/10 text-white/60",
+                titulo: "Instalar é baixar e abrir",
+                texto:
+                  "Um arquivo, dois cliques, e um QR para conectar o seu WhatsApp — o mesmo de sempre, no seu número. O painel te guia em cada passo.",
+              },
+            ].map((c) => (
+              <div
+                key={c.titulo}
+                className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 text-center"
+              >
+                <div className="flex justify-center">
+                  <Robo estado={c.estado} tamanho={72} cor="#4285F4" corClara="#8ab4f8" />
+                </div>
+                <span
+                  className={`mt-3 inline-block rounded-full px-2.5 py-1 text-[11px] font-bold ${c.corSelo}`}
+                >
+                  {c.selo}
+                </span>
+                <h3 className="mt-2 text-lg font-extrabold tracking-tight">{c.titulo}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-white/60">{c.texto}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* por que ele mora na SUA máquina — a resposta de confiança */}
+          <div className="pv-rev relative mx-auto mt-10 max-w-4xl rounded-3xl border border-white/10 bg-white/[0.04] p-7">
+            <h3 className="text-center text-lg font-extrabold tracking-tight">
+              Por que ele fica no <span className="text-[#8ab4f8]">seu computador</span>, e não num
+              servidor nosso
+            </h3>
+            <div className="mt-5 grid gap-5 sm:grid-cols-3">
+              {[
+                {
+                  emoji: "📱",
+                  t: "É o seu WhatsApp",
+                  d: "Seu número, sua conta, suas conversas. Nada de chip alugado ou número emprestado que some amanhã.",
+                },
+                {
+                  emoji: "🏠",
+                  t: "É o seu IP, da sua cidade",
+                  d: "O Google trata robô de servidor de um jeito e uma pessoa navegando de casa de outro. Por isso a busca funciona.",
+                },
+                {
+                  emoji: "🔌",
+                  t: "Ninguém entra nele",
+                  d: "O assistente só fala para fora: pergunta ao painel o que fazer e obedece. Não aceita conexão de fora, nem nossa.",
+                },
+              ].map((c) => (
+                <div key={c.t}>
+                  <span className="text-2xl">{c.emoji}</span>
+                  <p className="mt-1.5 font-bold">{c.t}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-white/60">{c.d}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p className="pv-rev relative mt-10 text-center text-sm font-semibold text-white/60">
+            ↓ E é assim que o trabalho dele chega até você
+          </p>
         </section>
 
         {/* ===================== DEMO: PAINEL + WHATSAPP =================== */}

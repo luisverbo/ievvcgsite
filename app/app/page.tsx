@@ -583,7 +583,8 @@ async function HomeProspector({
           className="anim-entrada d3 rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-1 hover:border-brand-2/50"
         >
           <div className="flex items-start justify-between gap-3">
-            <Robo estado={estadoAgente} tamanho={56} />
+            {/* Azul do Google: no Prospector o robô veste a cor do produto. */}
+          <Robo estado={estadoAgente} tamanho={56} cor="#4285F4" corClara="#8ab4f8" />
             <span
               className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
                 estadoAgente === "trabalhando"

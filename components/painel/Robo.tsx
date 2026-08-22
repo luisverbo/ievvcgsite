@@ -20,13 +20,23 @@ export type EstadoRobo = "trabalhando" | "dormindo" | "novo";
 export default function Robo({
   estado,
   tamanho = 72,
+  cor = "#6c5ce7",
+  corClara = "#8e7bff",
 }: {
   estado: EstadoRobo;
   tamanho?: number;
+  /*
+   * A cor do robô acompanha o produto. O Prospector tem identidade Google e
+   * um robô roxo ali seria um corpo estranho na página — mas é o MESMO robô,
+   * de propósito: o cliente vê na landing exatamente quem vai encontrar
+   * dentro do painel.
+   */
+  cor?: string;
+  corClara?: string;
 }) {
   const acordado = estado === "trabalhando";
-  const corCorpo = estado === "novo" ? "#3a4152" : "#6c5ce7";
-  const corPainel = estado === "novo" ? "#2a303e" : "#8e7bff";
+  const corCorpo = estado === "novo" ? "#3a4152" : cor;
+  const corPainel = estado === "novo" ? "#2a303e" : corClara;
 
   return (
     <span
@@ -52,8 +62,8 @@ export default function Robo({
 
         <defs>
           <linearGradient id="feixe" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#8e7bff" stopOpacity="0" />
-            <stop offset="100%" stopColor="#8e7bff" stopOpacity="0.9" />
+            <stop offset="0%" stopColor={corClara} stopOpacity="0" />
+            <stop offset="100%" stopColor={corClara} stopOpacity="0.9" />
           </linearGradient>
           <linearGradient id="corpo" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor={corPainel} />
@@ -78,13 +88,13 @@ export default function Robo({
         {/* olhos */}
         {acordado ? (
           <g style={{ animation: "pp-piscar 3.4s infinite" }}>
-            <circle cx="40" cy="49" r="4.5" fill="#8e7bff" />
-            <circle cx="56" cy="49" r="4.5" fill="#8e7bff" />
+            <circle cx="40" cy="49" r="4.5" fill={corClara} />
+            <circle cx="56" cy="49" r="4.5" fill={corClara} />
             <circle cx="41.5" cy="47.5" r="1.6" fill="#f4f6fb" />
             <circle cx="57.5" cy="47.5" r="1.6" fill="#f4f6fb" />
           </g>
         ) : estado === "dormindo" ? (
-          <g stroke="#8e7bff" strokeWidth="2.6" strokeLinecap="round" fill="none">
+          <g stroke={corClara} strokeWidth="2.6" strokeLinecap="round" fill="none">
             <path d="M36 50 q4 3.5 8 0" />
             <path d="M52 50 q4 3.5 8 0" />
           </g>
