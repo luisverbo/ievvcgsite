@@ -21,6 +21,16 @@ export default async function LoginPage({
         <Marca prospector={prospector} />
         <p className="mb-6 mt-2 text-sm text-paper-dim">Entre na sua conta.</p>
         <AuthForm action={login} submitLabel="Entrar" de={de} />
+        {/* Discreto, mas SEMPRE visível: quem precisa dele já está irritado
+            e não vai procurar dentro de um menu. */}
+        <p className="mt-4 text-sm">
+          <Link
+            href={prospector ? "/recuperar?p=prospector" : "/recuperar"}
+            className="text-paper-dim underline underline-offset-2 hover:text-paper"
+          >
+            Esqueci minha senha
+          </Link>
+        </p>
         <p className="mt-6 text-sm text-paper-dim">
           Não tem conta?{" "}
           <Link

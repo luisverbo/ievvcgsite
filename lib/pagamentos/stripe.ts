@@ -101,7 +101,14 @@ export async function checkoutAssinatura(opcoes: {
       subscription_data: { metadata: { org_id: opcoes.orgId, plano: opcoes.plano } },
       metadata: { org_id: opcoes.orgId, tipo: "assinatura", plano: opcoes.plano },
       locale: "pt-BR",
-      success_url: `${urlBase()}/app/assinatura?ok=1`,
+      /*
+       * Não volta para a tela de faturas: o webhook que libera o plano leva
+       * alguns segundos e o navegador volta na hora, então quem pagou podia
+       * ler "escolha seu plano" logo depois de pagar. /app/pagamento segura
+       * essa espera dizendo a verdade e leva ao primeiro passo de cada
+       * produto.
+       */
+      success_url: `${urlBase()}/app/pagamento`,
       cancel_url: `${urlBase()}/app/assinatura?cancelado=1`,
     });
     if (!sessao.url) throw new Error("A Stripe não devolveu o endereço do checkout.");
