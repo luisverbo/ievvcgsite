@@ -23,13 +23,59 @@ const HOST_PAINEL = (() => {
   }
 })();
 
+/*
+ * O domínio que abre DIRETO no Prospector (ex.: prospector.luismarketing.com.br).
+ *
+ * É o mesmo aplicativo — painel, login, checkout, tudo. A única diferença é a
+ * porta de entrada: em vez da landing do criador de sites, quem digita o
+ * domínio pelado cai na página de venda do Prospector.
+ *
+ * Um host só para o produto inteiro (e não "landing num domínio, painel em
+ * outro") porque o cookie de sessão e o retorno da Stripe são por domínio:
+ * separar quebra o login e joga fora a atribuição do anúncio no meio do
+ * caminho para o caixa.
+ */
+const HOST_PROSPECTOR = (process.env.NEXT_PUBLIC_HOST_PROSPECTOR ?? "")
+  .toLowerCase()
+  .trim()
+  .replace(/^https?:\/\//, "") // aceita colado com https:// por engano
+  .replace(/\/.*$/, "")
+  .split(":")[0];
+
 export default async function proxy(request: NextRequest) {
   const host = request.headers.get("host")?.toLowerCase().split(":")[0] ?? "";
   const { pathname } = request.nextUrl;
 
+  const ehProspector =
+    Boolean(HOST_PROSPECTOR) && (host === HOST_PROSPECTOR || host === `www.${HOST_PROSPECTOR}`);
+
+  /*
+   * A porta de entrada do domínio do Prospector.
+   *
+   * `rewrite` e não `redirect`: o endereço continua sendo o domínio pelado na
+   * barra — é ele que vai no anúncio, no cartão de visita e no WhatsApp.
+   * O caminho /prospector segue existindo em todos os outros hosts, então
+   * nenhum link antigo quebra.
+   */
+  if (ehProspector && pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/prospector";
+    return NextResponse.rewrite(url);
+  }
+  /*
+   * Neste host a mesma página teria dois endereços (/ e /prospector), o que
+   * racha a medição do pixel em dois. Manda para o canônico.
+   */
+  if (ehProspector && (pathname === "/prospector" || pathname === "/prospector/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
+
   // Subdomínio de cliente → reescreve para a rota interna /s/[site]
   if (
     ROOT &&
+    !ehProspector && // o nosso domínio não é site de cliente
     host !== ROOT &&
     host !== `www.${ROOT}` &&
     host !== `app.${ROOT}` &&
@@ -51,9 +97,18 @@ export default async function proxy(request: NextRequest) {
    * desconhecido termina em 404 na rota — sem custo aqui.
    */
   const nossosHosts = new Set(
-    [ROOT, ROOT && `www.${ROOT}`, ROOT && `app.${ROOT}`, HOST_PAINEL, "localhost", "127.0.0.1"].filter(
-      Boolean,
-    ) as string[],
+    [
+      ROOT,
+      ROOT && `www.${ROOT}`,
+      ROOT && `app.${ROOT}`,
+      HOST_PAINEL,
+      // Sem esta linha o nosso próprio domínio do Prospector seria tratado
+      // como domínio de cliente e cairia em /dominio/… → 404.
+      HOST_PROSPECTOR,
+      HOST_PROSPECTOR && `www.${HOST_PROSPECTOR}`,
+      "localhost",
+      "127.0.0.1",
+    ].filter(Boolean) as string[],
   );
   const ehNosso =
     nossosHosts.has(host) || (ROOT ? host.endsWith(`.${ROOT}`) : false) || host.endsWith(".vercel.app");

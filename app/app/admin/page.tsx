@@ -8,6 +8,8 @@ import Diagnostico from "./Diagnostico";
 import VideoLanding from "./VideoLanding";
 import { CHAVES_VIDEO } from "@/lib/landing";
 import FuncoesNovas from "./FuncoesNovas";
+import PixelVendas from "./PixelVendas";
+import { CHAVES_PIXEL } from "@/lib/vendas-pixel";
 import AjusteCredito from "./AjusteCredito";
 import ChaveForm from "./ebooks/ChaveForm";
 import { getAnthropicKey } from "@/lib/ia/anthropic";
@@ -45,7 +47,7 @@ export default async function AdminPage() {
     { count: totalEbooks },
     { count: totalProspectos },
     freeAtivo,
-    { data: linhasVideoRaw },
+    { data: linhasConfigRaw },
   ] = await Promise.all([
     admin
       .from("organizacoes")
@@ -63,13 +65,20 @@ export default async function AdminPage() {
     admin
       .from("config_sistema")
       .select("chave, valor")
-      .in("chave", [CHAVES_VIDEO.principal, CHAVES_VIDEO.prospector]),
+      .in("chave", [
+        CHAVES_VIDEO.principal,
+        CHAVES_VIDEO.prospector,
+        CHAVES_PIXEL.meta,
+        CHAVES_PIXEL.google,
+        CHAVES_PIXEL.extra,
+      ]),
   ]);
-  // Uma consulta para os dois vídeos — cada landing tem a sua chave.
-  const linhasVideo = (linhasVideoRaw as { chave: string; valor: string }[] | null) ?? [];
-  const videoDe = (c: string) => linhasVideo.find((l) => l.chave === c)?.valor ?? "";
-  const videoAtual = videoDe(CHAVES_VIDEO.principal);
-  const videoProspector = videoDe(CHAVES_VIDEO.prospector);
+  // Uma consulta só para tudo que a landing lê de config_sistema: os dois
+  // vídeos e os três campos de pixel.
+  const linhasConfig = (linhasConfigRaw as { chave: string; valor: string }[] | null) ?? [];
+  const valorDe = (c: string) => linhasConfig.find((l) => l.chave === c)?.valor ?? "";
+  const videoAtual = valorDe(CHAVES_VIDEO.principal);
+  const videoProspector = valorDe(CHAVES_VIDEO.prospector);
 
   const orgs = (orgsRaw as OrgRow[] | null) ?? [];
   const sites = (sitesRaw as { org_id: string; publicado: boolean }[] | null) ?? [];
@@ -161,6 +170,12 @@ export default async function AdminPage() {
         qual="prospector"
         titulo="🎬 Vídeo da página do Prospector"
         descricao="O vídeo da landing /prospector — a página que você anuncia para vendedores. Cole o link do YouTube; vazio e salvar remove."
+      />
+
+      <PixelVendas
+        meta={valorDe(CHAVES_PIXEL.meta)}
+        google={valorDe(CHAVES_PIXEL.google)}
+        extra={valorDe(CHAVES_PIXEL.extra)}
       />
 
       <FuncoesNovas />

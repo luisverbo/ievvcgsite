@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { precoEmReais } from "@/lib/pagamentos/planos";
 import { videoDaLanding } from "@/lib/landing";
+import { pixelDasVendas } from "@/lib/vendas-pixel";
+import Pixel, { PixelCheckout } from "@/components/vendas/Pixel";
 import Robo from "@/components/painel/Robo";
 
 /*
@@ -193,8 +195,11 @@ export default async function ProspectorPage() {
   const preco = precoEmReais("prospector");
   // O vídeo é opcional e mora no Admin: cola o link e ele aparece; apaga e some.
   const video = await videoDaLanding("prospector");
+  const pixel = await pixelDasVendas();
   return (
     <div className="pv min-h-screen overflow-x-hidden bg-[#f7f9fe] text-[#1a1c22]">
+      <Pixel pixel={pixel} />
+      <PixelCheckout />
       {/* Os efeitos da página, todos em CSS. Prefixo pv- para não vazar. */}
       <style>{`
         .pv { scroll-behavior: smooth; --g-azul:#4285F4; --g-verm:#EA4335; --g-amar:#FBBC05; --g-verde:#34A853; --wa:#25D366; }

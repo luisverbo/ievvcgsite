@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import AuthForm from "../login/AuthForm";
-import Marca, { ehFunilProspector } from "../login/Marca";
+import Marca, { ehFunilProspector, ehHostProspector } from "../login/Marca";
 import { cadastrar } from "../login/actions";
 
 import { planoVendidoValido, precoEmReais } from "@/lib/pagamentos/planos";
@@ -16,8 +17,14 @@ export default async function CadastroPage({
   searchParams: Promise<{ plano?: string }>;
 }) {
   const { plano: bruto } = await searchParams;
-  const plano = planoVendidoValido(bruto ?? "");
-  const prospector = ehFunilProspector({ plano: bruto });
+  /*
+   * No domínio do Prospector não existe "conta grátis para criar sites": só
+   * se vende uma coisa ali. Sem ?plano na URL o plano é o Prospector — senão
+   * a pessoa criaria a conta e cairia num painel que não é o que comprou.
+   */
+  const noHostProspector = ehHostProspector((await headers()).get("host"));
+  const plano = planoVendidoValido(bruto ?? (noHostProspector ? "prospector" : ""));
+  const prospector = ehFunilProspector({ plano: bruto }) || noHostProspector;
 
   return (
     <div className={`${prospector ? "tema-prospector " : ""}flex min-h-screen items-center justify-center px-5`}>

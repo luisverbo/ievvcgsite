@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import AuthForm from "./AuthForm";
-import Marca, { ehFunilProspector } from "./Marca";
+import Marca, { ehFunilProspector, ehHostProspector } from "./Marca";
 import { login } from "./actions";
 
 export default async function LoginPage({
@@ -11,7 +12,8 @@ export default async function LoginPage({
   searchParams: Promise<{ de?: string; p?: string }>;
 }) {
   const { de, p } = await searchParams;
-  const prospector = ehFunilProspector({ de, p });
+  const prospector =
+    ehFunilProspector({ de, p }) || ehHostProspector((await headers()).get("host"));
 
   return (
     <div className={`${prospector ? "tema-prospector " : ""}flex min-h-screen items-center justify-center px-5`}>

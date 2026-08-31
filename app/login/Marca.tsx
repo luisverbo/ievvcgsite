@@ -41,3 +41,22 @@ export function ehFunilProspector(params: { plano?: string; de?: string; p?: str
     (params.de ?? "").includes("prospector")
   );
 }
+
+/*
+ * A terceira pista, e a mais forte: o endereço na barra.
+ *
+ * Quem entrou por prospector.luismarketing.com.br está no funil do Prospector
+ * mesmo que nenhum parâmetro tenha sobrevivido ao caminho — e é o caso do
+ * visitante que digita o domínio na mão ou salva o login nos favoritos.
+ */
+export function ehHostProspector(host: string | null | undefined): boolean {
+  const alvo = (process.env.NEXT_PUBLIC_HOST_PROSPECTOR ?? "")
+    .toLowerCase()
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "")
+    .split(":")[0];
+  if (!alvo) return false;
+  const h = (host ?? "").toLowerCase().split(":")[0];
+  return h === alvo || h === `www.${alvo}`;
+}

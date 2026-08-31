@@ -272,3 +272,55 @@ export async function criarLandingPaginaPro(): Promise<LandingState> {
   revalidatePath("/app");
   redirect(`/app/sites/${siteId}`);
 }
+
+/* ------------------- pixel das páginas de venda ---------------------------- */
+
+export type PixelVendasState = { ok?: string; error?: string } | undefined;
+
+/*
+ * Os pixels das SUAS landings (/ e /prospector) — não confundir com o pixel
+ * que o cliente põe na página dele. Guardado em config_sistema para trocar
+ * sem redeploy: campanha se ajusta no meio da tarde.
+ */
+export async function salvarPixelVendas(
+  _prev: PixelVendasState,
+  formData: FormData,
+): Promise<PixelVendasState> {
+  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  const { CHAVES_PIXEL, metaValido, googleValido } = await import("@/lib/vendas-pixel");
+
+  const meta = String(formData.get("pixel_meta") ?? "").trim();
+  const google = String(formData.get("pixel_google") ?? "").trim();
+  const extra = String(formData.get("pixel_extra") ?? "").trim().slice(0, 4000);
+
+  if (meta && !metaValido(meta)) {
+    return { error: "O ID do Meta é só números (ex.: 1234567890123). Cole apenas o ID, sem o código todo." };
+  }
+  if (google && !googleValido(google)) {
+    return { error: "A tag do Google começa com G-, AW- ou GT- (ex.: G-ABC1234567)." };
+  }
+
+  const admin = createAdminClient();
+  const agora = new Date().toISOString();
+  const { error } = await admin.from("config_sistema").upsert(
+    [
+      { chave: CHAVES_PIXEL.meta, valor: meta, updated_at: agora },
+      { chave: CHAVES_PIXEL.google, valor: google.toUpperCase(), updated_at: agora },
+      { chave: CHAVES_PIXEL.extra, valor: extra, updated_at: agora },
+    ],
+    { onConflict: "chave" },
+  );
+  if (error) return { error: error.message };
+
+  // As landings são pré-renderizadas: sem revalidar, o pixel novo só entraria
+  // na próxima reconstrução — e a campanha começa hoje.
+  revalidatePath("/");
+  revalidatePath("/prospector");
+  revalidatePath("/app/admin");
+  return {
+    ok:
+      meta || google || extra
+        ? "Pixel no ar nas duas páginas de venda. Confira no Gerenciador de Eventos (pode levar alguns minutos)."
+        : "Pixels removidos das páginas de venda.",
+  };
+}

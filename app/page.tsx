@@ -16,6 +16,8 @@ import {
 } from "@/lib/vendas";
 import { precoEmReais } from "@/lib/pagamentos/planos";
 import { videoDaLanding } from "@/lib/landing";
+import { pixelDasVendas } from "@/lib/vendas-pixel";
+import Pixel, { PixelCheckout } from "@/components/vendas/Pixel";
 import { TELAS } from "@/components/vendas/Telas";
 
 /*
@@ -77,10 +79,13 @@ function Secao({
 
 export default async function Home() {
   const video = await videoDaLanding();
+  const pixel = await pixelDasVendas();
   const precoPro = precoEmReais("pro");
   const precoAgencia = precoEmReais("agencia");
   return (
     <div className="overflow-x-hidden">
+      <Pixel pixel={pixel} />
+      <PixelCheckout />
       {/* ---------------------------------------------------------------- */}
       {/* aviso do topo                                                     */}
       {/* ---------------------------------------------------------------- */}

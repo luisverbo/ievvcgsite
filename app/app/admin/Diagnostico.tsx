@@ -218,12 +218,20 @@ function Roteamento() {
   }
   const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.trim();
   const producao = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  const hostProspector = (process.env.NEXT_PUBLIC_HOST_PROSPECTOR ?? "")
+    .toLowerCase()
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "")
+    .split(":")[0];
 
   const nossos = [
     root,
     root && `www.${root}`,
     root && `app.${root}`,
     hostPainel,
+    hostProspector,
+    hostProspector && `www.${hostProspector}`,
     "localhost",
     "127.0.0.1",
   ].filter(Boolean) as string[];
@@ -252,6 +260,17 @@ function Roteamento() {
       {!hostPainel && (
         <p className="mt-2 text-[11px] text-danger">
           NEXT_PUBLIC_APP_URL está vazia ou malformada — precisa do endereço completo, com https://
+        </p>
+      )}
+      {hostProspector ? (
+        <p className="mt-2 text-[11px] text-ok">
+          <code className="text-paper">{hostProspector}</code> abre direto na página de venda do
+          Prospector. O resto do sistema (painel, login, pagamento) funciona igual neste endereço.
+        </p>
+      ) : (
+        <p className="mt-2 text-[11px] text-paper-dim">
+          Sem <code className="text-paper">NEXT_PUBLIC_HOST_PROSPECTOR</code>: nenhum domínio abre
+          direto no Prospector — ele responde só em <code className="text-paper">/prospector</code>.
         </p>
       )}
       {producaoEhCliente && (
