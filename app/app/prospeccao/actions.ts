@@ -6,9 +6,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { slugify } from "@/lib/format";
 import { podeUsar } from "@/lib/painel/permissoes";
-import { buscarEmpresas, localizar } from "@/lib/prospeccao/overpass";
-import { analisarSite } from "@/lib/prospeccao/site";
-import { calcularPotencial, ehEnderecoSocial } from "@/lib/prospeccao/score";
 import { acharNicho, nichoLivreValido } from "@/lib/prospeccao/nichos";
 import { IG_FILA_MAX, IG_LIMITE_DIA } from "@/lib/prospeccao/instagram";
 import { montarBriefingDoProspecto } from "@/lib/prospeccao/briefing";
@@ -18,91 +15,6 @@ import { codigoSeguro } from "@/lib/codigo";
 import type { ProspectoRow, StatusProspecto } from "@/lib/prospeccao/tipos";
 
 export type BuscaState = { ok?: string; error?: string } | undefined;
-
-export async function buscarProspectos(
-  _prev: BuscaState,
-  formData: FormData,
-): Promise<BuscaState> {
-  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
-  const org = await getMinhaOrg();
-  if (!org) return { error: "Organização não encontrada." };
-
-  const nicho = String(formData.get("nicho") ?? "").trim();
-  const local = String(formData.get("local") ?? "").trim();
-  const limite = Math.min(60, Math.max(5, Number(formData.get("limite")) || 20));
-  // O mapa aberto só busca por etiqueta mapeada — ramo digitado à mão e
-  // categoria sem etiqueta ficam com o Google, que acha qualquer coisa.
-  const doCatalogo = acharNicho(nicho);
-  if (!doCatalogo || doCatalogo.filtros.length === 0) {
-    return {
-      error: doCatalogo
-        ? `"${doCatalogo.rotulo}" só existe na busca do Google — o mapa aberto não tem essa categoria.`
-        : "Ramo digitado à mão só funciona na busca do Google (o botão da esquerda).",
-    };
-  }
-  if (local.length < 3) return { error: "Diga a cidade ou o bairro." };
-
-  let empresas;
-  try {
-    const caixa = await localizar(local);
-    if (!caixa) return { error: `Não encontrei "${local}". Tente "Bairro, Cidade".` };
-    empresas = await buscarEmpresas(nicho, caixa, limite);
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "A busca falhou." };
-  }
-
-  if (empresas.length === 0) {
-    return {
-      error:
-        "Nenhuma empresa encontrada. Tente uma área maior (a cidade inteira) ou outro nicho — o OpenStreetMap tem menos cadastros que o Google.",
-    };
-  }
-
-  // Analisa em paralelo só os sites que existem e não são rede social.
-  const analises = await Promise.all(
-    empresas.map((e) =>
-      e.website && !ehEnderecoSocial(e.website) ? analisarSite(e.website).catch(() => null) : null,
-    ),
-  );
-
-  const linhas = empresas.map((e, i) => {
-    const p = calcularPotencial(e, nicho, analises[i]);
-    return {
-      org_id: org.id,
-      fonte: "osm",
-      fonte_id: e.fonte_id,
-      nome: e.nome,
-      categoria: e.categoria ?? null,
-      endereco: e.endereco ?? null,
-      telefone: e.telefone ?? null,
-      website: e.website ?? null,
-      instagram: e.instagram ?? null,
-      facebook: e.facebook ?? null,
-      lat: e.lat ?? null,
-      lon: e.lon ?? null,
-      nicho_busca: nicho,
-      local_busca: local,
-      situacao: p.situacao,
-      pontuacao: p.pontuacao,
-      eixos: p.eixos,
-      motivos: p.motivos,
-    };
-  });
-
-  // onConflict mantém o que já existe (inclusive o status do funil) e só
-  // atualiza os dados da empresa — refazer a busca não apaga seu trabalho.
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("prospeccao")
-    .upsert(linhas, { onConflict: "org_id,fonte,fonte_id", ignoreDuplicates: false });
-  if (error) return { error: error.message };
-
-  const semSite = linhas.filter((l) => l.situacao !== "site_moderno").length;
-  revalidatePath("/app/prospeccao");
-  return {
-    ok: `${linhas.length} empresas encontradas · ${semSite} com potencial real de venda.`,
-  };
-}
 
 /* ---------------------- fila do agente (Google Maps) ---------------------- */
 // O painel só enfileira: quem executa é o agente rodando na VPS ou no seu

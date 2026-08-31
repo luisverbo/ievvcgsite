@@ -1050,11 +1050,10 @@ export default async function ProspeccaoPage({
       )}
 
       <p className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-paper-dim">
-        ℹ️ <b className="text-paper">Duas buscas, dois alcances:</b> a do{" "}
-        <b className="text-paper">Google Maps</b> traz o resultado completo — avaliações, nota e
-        situação do site — e por isso roda no seu agente. A do{" "}
-        <b className="text-paper">OpenStreetMap</b> sai na hora, aqui mesmo, mas enxerga menos
-        cadastros. As empresas das duas caem nesta mesma lista.
+        ℹ️ <b className="text-paper">Por que a busca roda no seu agente:</b> o Google trata
+        pedido vindo de servidor de um jeito e uma pessoa navegando de casa de outro. Saindo do
+        seu computador, o resultado vem completo — telefone, endereço, nota e avaliações — e é
+        por isso que a busca leva alguns minutos em vez de aparecer na hora.
       </p>
       </div>
     </div>

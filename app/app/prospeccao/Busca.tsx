@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { buscarProspectos, enfileirarBuscaGoogle, type BuscaState } from "./actions";
+import { enfileirarBuscaGoogle, type BuscaState } from "./actions";
 import { NICHOS, GRUPOS_NICHOS } from "@/lib/prospeccao/nichos";
 import { inputClass, labelClass, fieldClass } from "@/components/painel/ui";
 
@@ -12,17 +12,18 @@ export default function Busca({
   agenteAtivo: boolean;
   temAgente: boolean;
 }) {
-  const [osm, acaoOsm, pendenteOsm] = useActionState<BuscaState, FormData>(
-    buscarProspectos,
-    undefined,
-  );
-  const [google, acaoGoogle, pendenteGoogle] = useActionState<BuscaState, FormData>(
+  /*
+   * Uma busca só: o Google Maps.
+   *
+   * O OpenStreetMap saiu da tela porque entregava pouco — cadastro
+   * incompleto, sem avaliações e sem telefone na maioria — e duas opções
+   * lado a lado faziam o cliente escolher a pior metade das vezes. Uma
+   * porta boa vale mais que duas, sendo uma ruim.
+   */
+  const [estado, acaoGoogle, pendente] = useActionState<BuscaState, FormData>(
     enfileirarBuscaGoogle,
     undefined,
   );
-
-  const pendente = pendenteOsm || pendenteGoogle;
-  const estado = osm ?? google;
 
   // "outro" abre o campo livre: o Google acha qualquer ramo por texto.
   const [nichoEscolhido, setNichoEscolhido] = useState("dentista");
@@ -94,66 +95,35 @@ export default function Busca({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <p className="mb-1 font-bold">🗺️ Google Maps</p>
-          <p className="mb-3 text-xs text-paper-dim">
-            Resultado completo, com avaliações e nota. Roda no agente e leva alguns minutos.
-          </p>
-          <button
-            type="submit"
-            formAction={acaoGoogle}
-            disabled={pendente}
-            className="w-full rounded-lg bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
-          >
-            {pendenteGoogle ? "Enfileirando…" : "Buscar no Google"}
-          </button>
-          {!agenteAtivo && (
-            <p className="mt-2 text-[11px] text-paper-dim">
-              {temAgente ? (
-                <>
-                  ⚠️ Seu agente está desligado. A busca entra na fila e sai sozinha assim que você
-                  clicar em <b className="font-mono text-paper">LIGAR-AGENTE</b> no seu computador.
-                </>
-              ) : (
-                <>
-                  ⚠️ Você ainda não instalou o agente — sem ele a busca no Google não roda.{" "}
-                  <a href="/app/prospeccao/agente" className="underline">
-                    Instalar agora
-                  </a>
-                  .
-                </>
-              )}
-            </p>
+      <button
+        type="submit"
+        formAction={acaoGoogle}
+        disabled={pendente}
+        className="w-full rounded-xl bg-brand px-5 py-3.5 text-base font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+      >
+        {pendente ? "Enfileirando…" : "🗺️ Buscar no Google Maps"}
+      </button>
+      <p className="-mt-1 text-xs text-paper-dim">
+        O agente varre o Google Maps e traz nome, telefone, endereço e avaliações de cada empresa.
+        Leva alguns minutos — pode fechar esta tela, a lista aparece aqui quando ficar pronta.
+      </p>
+      {!agenteAtivo && (
+        <p className="rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-xs text-warn">
+          {temAgente ? (
+            <>
+              ⚠️ Seu agente está desligado. A busca entra na fila e sai sozinha assim que você
+              ligar o computador — ou clicar em{" "}
+              <b className="font-mono">LIGAR-AGENTE</b> agora.
+            </>
+          ) : (
+            <>
+              ⚠️ Você ainda não instalou o agente — sem ele a busca não roda.{" "}
+              <a href="/app/prospeccao/agente" className="font-bold underline">
+                Instalar agora
+              </a>
+              .
+            </>
           )}
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <p className="mb-1 font-bold">🧭 OpenStreetMap</p>
-          <p className="mb-3 text-xs text-paper-dim">
-            Na hora, aqui mesmo. Gratuito e sem bloqueio, mas com menos cadastros e sem avaliações.
-            {livre && (
-              <>
-                {" "}
-                <b className="text-warn">Ramo digitado à mão só funciona no Google</b> — o mapa
-                aberto precisa de categoria da lista.
-              </>
-            )}
-          </p>
-          <button
-            type="submit"
-            formAction={acaoOsm}
-            disabled={pendente}
-            className="w-full rounded-lg border border-white/15 px-5 py-2.5 text-sm font-bold text-paper transition hover:border-white/40 disabled:opacity-60"
-          >
-            {pendenteOsm ? "Buscando…" : "Buscar agora"}
-          </button>
-        </div>
-      </div>
-
-      {pendenteOsm && (
-        <p className="text-sm text-brand-2">
-          Procurando empresas e conferindo os sites de cada uma… leva alguns segundos.
         </p>
       )}
       {estado?.error && (
