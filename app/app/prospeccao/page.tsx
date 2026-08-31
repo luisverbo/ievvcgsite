@@ -7,6 +7,7 @@ import Busca from "./Busca";
 import BuscaNome from "./BuscaNome";
 import RespostasProntas from "./RespostasProntas";
 import Importar from "./Importar";
+import Exportar from "./Exportar";
 import SeletorPesquisa from "./SeletorPesquisa";
 import Fila from "./Fila";
 import Vigia from "./Vigia";
@@ -541,15 +542,14 @@ export default async function ProspeccaoPage({
           >
             🗂️ Funil (CRM)
           </Link>
-          {/* A lista é do dono: sai inteira em CSV, direto para o Excel/Sheets. */}
-          <a
-            href="/app/prospeccao/exportar"
-            download
-            title="Baixa todas as empresas em planilha (CSV), com telefone, WhatsApp, avaliações e etiquetas"
-            className="rounded-lg border border-white/15 px-3 py-1.5 text-sm font-bold text-paper-dim transition hover:border-ok/50 hover:text-ok"
-          >
-            ⬇️ Exportar planilha
-          </a>
+          {/* A lista é do dono: sai em CSV, no recorte que ele escolher. */}
+          <Exportar
+            filtros={{ f: filtro, b: busca, q: procura || undefined, tag: tagAtiva || undefined }}
+            quantidade={lista.length}
+            comFiltro={
+              filtro !== "todos" || busca !== "todas" || Boolean(procura) || Boolean(tagAtiva)
+            }
+          />
           {/* Chips das etiquetas em uso — a marcação de quem vende vira filtro. */}
           {tagsEmUso.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
