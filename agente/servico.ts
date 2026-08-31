@@ -16,6 +16,7 @@ import { rodarAbordagem, fecharSessaoZap } from "./abordagem.ts";
 import { capturarInstagramDoProspecto } from "./capturaIg.ts";
 import { capturarEspelhoDoProspecto } from "./espelho.ts";
 import { rodarEstudio, estudioLigado } from "./estudio.ts";
+import { normalizarFiltros, resumoFiltros, temFiltro } from "../lib/prospeccao/filtros.ts";
 
 const AGENTE = process.env.AGENTE_NOME || os.hostname();
 const INTERVALO_MS = Math.max(3000, Number(process.env.AGENTE_INTERVALO_MS) || 8000);
@@ -135,9 +136,13 @@ async function executar(t: api.Tarefa) {
   log(`▶ tarefa ${t.id.slice(0, 8)} — ${t.nicho} em "${t.local}" (até ${t.limite})`);
 
   let ultimoProgresso = 0;
+  const filtros = normalizarFiltros(t.filtros);
+  if (temFiltro(filtros)) log(`   filtro: ${resumoFiltros(filtros).join(" · ")}`);
+
   const resultado = await coletarDoGoogle(t.nicho!, t.local!, t.limite, {
     headless: HEADLESS,
     pausaMs: PAUSA_MS,
+    filtros,
     log: (m) => log(`   ${m}`),
     aoProgredir: async (lidas, total) => {
       // Grava progresso a cada 2 empresas: dá para acompanhar no painel sem
@@ -168,7 +173,15 @@ async function executar(t: api.Tarefa) {
     progresso: resultado.empresas.length,
     erro: resultado.bloqueio
       ? `Parou no meio: o Google mostrou ${resultado.bloqueio}. O que já foi coletado está salvo.`
-      : null,
+      : /*
+         * Filtro apertado não é ERRO — é informação. Sem esta linha o cliente
+         * pede 20, recebe 6 e conclui que a busca falhou; com ela, ele
+         * entende que aquele bairro não tem 20 do que ele pediu e afrouxa o
+         * filtro em vez de abrir chamado.
+         */
+        resultado.descartadas > 0 && resultado.empresas.length < t.limite
+        ? `O filtro deixou de fora ${resultado.descartadas} empresas — foi o que essa região tinha. Afrouxe um filtro ou busque num bairro vizinho para completar.`
+        : null,
   });
 
   log(

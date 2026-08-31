@@ -80,6 +80,9 @@ export type Tarefa = {
   local: string | null;
   limite: number;
   prospecto_id: string | null;
+  /* O que o cliente pediu na tela. Nulo em busca sem filtro e em painel
+     que ainda não rodou a migração — nos dois casos, grava tudo. */
+  filtros?: unknown;
 };
 
 export const proximaTarefa = () =>

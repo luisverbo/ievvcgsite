@@ -40,6 +40,7 @@ const ARQUIVOS = [
   "agente/README.md",
   "lib/prospeccao/tipos.ts",
   "lib/prospeccao/nichos.ts",
+  "lib/prospeccao/filtros.ts",
   "lib/prospeccao/instagram.ts",
 ];
 

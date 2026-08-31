@@ -7,6 +7,7 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { slugify } from "@/lib/format";
 import { podeUsar } from "@/lib/painel/permissoes";
 import { acharNicho, nichoLivreValido } from "@/lib/prospeccao/nichos";
+import { normalizarFiltros, resumoFiltros, temFiltro } from "@/lib/prospeccao/filtros";
 import { IG_FILA_MAX, IG_LIMITE_DIA } from "@/lib/prospeccao/instagram";
 import { montarBriefingDoProspecto } from "@/lib/prospeccao/briefing";
 import { lerPlanilha, idDaLinha } from "@/lib/prospeccao/importar";
@@ -53,14 +54,42 @@ export async function enfileirarBuscaGoogle(
     return { error: "Já há 5 buscas na fila. Espere elas terminarem." };
   }
 
-  const { error } = await supabase
-    .from("prospeccao_tarefas")
-    .insert({ org_id: org.id, nicho, local, limite });
+  const filtros = normalizarFiltros({
+    site: String(formData.get("f_site") ?? ""),
+    soWhatsapp: formData.get("f_whatsapp") === "on",
+    minAvaliacoes: formData.get("f_min_av"),
+    maxAvaliacoes: formData.get("f_max_av"),
+    minNota: formData.get("f_min_nota"),
+  });
+  const comFiltro = temFiltro(filtros);
+
+  const base = { org_id: org.id, nicho, local, limite };
+  // O tipo gerado do banco ainda não conhece `filtros` (coluna nova), e a
+  // inserção é condicional — daí o objeto solto em vez do literal.
+  const comColuna: Record<string, unknown> = { ...base, filtros };
+  let { error } = await supabase.from("prospeccao_tarefas").insert(comFiltro ? comColuna : base);
+
+  /*
+   * A coluna `filtros` é da migração 2026-08-24. Se ela ainda não rodou, a
+   * busca entra SEM filtro em vez de falhar: melhor o cliente receber a lista
+   * inteira e reclamar do filtro do que não conseguir buscar nada.
+   */
+  if (error && comFiltro && /filtros/i.test(error.message)) {
+    ({ error } = await supabase.from("prospeccao_tarefas").insert(base));
+    if (!error) {
+      revalidatePath("/app/prospeccao");
+      return {
+        ok: "Busca na fila — mas sem os filtros: falta rodar a migração 2026-08-24_filtros_busca.sql no Supabase.",
+      };
+    }
+  }
   if (error) return { error: error.message };
 
   revalidatePath("/app/prospeccao");
   return {
-    ok: "Busca na fila. O agente vai executar em instantes — acompanhe aqui embaixo.",
+    ok: comFiltro
+      ? `Busca na fila, filtrando por ${resumoFiltros(filtros).join(" · ")}. O agente abre mais empresas do que o pedido até completar ${limite} que passem.`
+      : "Busca na fila. O agente vai executar em instantes — acompanhe aqui embaixo.",
   };
 }
 

@@ -82,7 +82,24 @@ export async function POST(req: Request) {
           .eq("id", candidata.id)
           .eq("status", "pendente")
           .select("id, tipo, nicho, local, limite, prospecto_id");
-        return j({ tarefa: (presa as unknown[] | null)?.[0] ?? null });
+        const tarefa = (presa as Record<string, unknown>[] | null)?.[0] ?? null;
+
+        /*
+         * Os filtros vêm numa consulta À PARTE, e não no select acima, por
+         * uma razão prática: `filtros` é coluna nova (migração 2026-08-24) e,
+         * enquanto ela não existe, pedi-la no RETURNING derrubaria o próprio
+         * UPDATE — a tarefa nunca sairia de "pendente" e a fila travava.
+         * Aqui, se a coluna faltar, a busca só roda sem filtro, como antes.
+         */
+        if (tarefa) {
+          const { data: extra } = await admin
+            .from("prospeccao_tarefas")
+            .select("filtros")
+            .eq("id", candidata.id)
+            .maybeSingle();
+          if (extra) tarefa.filtros = (extra as { filtros?: unknown }).filtros ?? null;
+        }
+        return j({ tarefa });
       }
 
       case "progresso": {

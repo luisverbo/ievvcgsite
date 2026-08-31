@@ -13,6 +13,12 @@ import { fileURLToPath } from "node:url";
 
 import { termoDeBusca } from "../lib/prospeccao/nichos.ts";
 import type { EmpresaEncontrada } from "../lib/prospeccao/tipos.ts";
+import {
+  FILTROS_VAZIOS,
+  passaNosFiltros,
+  temFiltro,
+  type FiltrosBusca,
+} from "../lib/prospeccao/filtros.ts";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const PERFIL = path.join(AQUI, ".perfil-navegador");
@@ -24,13 +30,28 @@ export type OpcoesColeta = {
   debug?: boolean;
   log?: (msg: string) => void;
   aoProgredir?: (lidas: number, total: number) => void | Promise<void>;
+  filtros?: FiltrosBusca;
 };
 
 export type ResultadoColeta = {
   empresas: EmpresaEncontrada[];
   falhas: number;
   bloqueio: string | null;
+  /* Quantas foram abertas e descartadas por não passarem no filtro. */
+  descartadas: number;
 };
+
+/*
+ * Quantas fichas abrir quando há filtro.
+ *
+ * Com filtro, boa parte do que a lista traz vai ser descartada — se
+ * abríssemos só as 20 pedidas, o cliente que pediu "20 sem site" receberia
+ * 6 e acharia que a ferramenta é fraca. Então a busca continua abrindo até
+ * COMPLETAR as 20, com um teto para não virar uma varredura infinita quando
+ * o filtro é apertado demais para aquele bairro.
+ */
+const FATOR_FILTRO = 4;
+const TETO_FICHAS = 150;
 
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -192,6 +213,10 @@ export async function coletarDoGoogle(
 ): Promise<ResultadoColeta> {
   const log = op.log ?? (() => {});
   const pausa = Math.max(800, op.pausaMs ?? 1800);
+  const filtros = op.filtros ?? FILTROS_VAZIOS;
+  const filtrando = temFiltro(filtros);
+  // Com filtro, junta mais links do que o alvo — muitos vão ser descartados.
+  const alvoLinks = filtrando ? Math.min(TETO_FICHAS, limite * FATOR_FILTRO) : limite;
   /*
    * Nicho fora do catálogo NÃO é erro: é o ramo que o dono digitou à mão
    * ("loja de aquário") — o Maps busca por texto e acha do mesmo jeito. O
@@ -220,25 +245,38 @@ export async function coletarDoGoogle(
     await aceitarConsentimento(page, log);
 
     const bloqueio = await estaBloqueado(page);
-    if (bloqueio) return { empresas: [], falhas: 0, bloqueio };
+    if (bloqueio) return { empresas: [], falhas: 0, bloqueio, descartadas: 0 };
 
-    const links = await coletarLinks(page, limite, log);
-    log(`${links.length} empresas na lista; abrindo uma a uma`);
-    await op.aoProgredir?.(0, links.length);
+    const links = await coletarLinks(page, alvoLinks, log);
+    log(
+      filtrando
+        ? `${links.length} empresas na lista; abrindo até completar ${limite} que passem no filtro`
+        : `${links.length} empresas na lista; abrindo uma a uma`,
+    );
+    // O progresso é contado sobre o ALVO quando há filtro: a barra tem que
+    // medir o que o cliente pediu, não quantas fichas foram descartadas.
+    const totalBarra = filtrando ? limite : links.length;
+    await op.aoProgredir?.(0, totalBarra);
 
     const empresas: EmpresaEncontrada[] = [];
     let falhas = 0;
+    let descartadas = 0;
 
     for (const [i, link] of links.entries()) {
+      // Alvo atingido: nem abre o resto — é tempo e é exposição ao Google.
+      if (empresas.length >= limite) break;
       try {
         const e = await extrair(page, link);
         if (!e) {
           falhas++;
           log(`${i + 1}/${links.length} não consegui ler os dados`);
+        } else if (!passaNosFiltros(e, filtros)) {
+          descartadas++;
+          log(`${i + 1}/${links.length} ${e.nome} — fora do filtro, pulei`);
         } else {
           empresas.push(e);
           log(
-            `${i + 1}/${links.length} ${e.nome} — ${e.website ? "tem site" : "SEM SITE"}` +
+            `${empresas.length}/${limite} ${e.nome} — ${e.website ? "tem site" : "SEM SITE"}` +
               (e.avaliacoes ? ` · ${e.avaliacoes} avaliações` : ""),
           );
         }
@@ -257,14 +295,20 @@ export async function coletarDoGoogle(
         }
       }
 
-      await op.aoProgredir?.(i + 1, links.length);
+      await op.aoProgredir?.(filtrando ? empresas.length : i + 1, totalBarra);
 
       const b = await estaBloqueado(page);
-      if (b) return { empresas, falhas, bloqueio: b };
+      if (b) return { empresas, falhas, bloqueio: b, descartadas };
       await espera(pausa);
     }
 
-    return { empresas, falhas, bloqueio: null };
+    if (filtrando && empresas.length < limite) {
+      log(
+        `o filtro é apertado para esta região: ${empresas.length} passaram de ${links.length} abertas`,
+      );
+    }
+
+    return { empresas, falhas, bloqueio: null, descartadas };
   } finally {
     await ctx?.close().catch(() => {});
   }

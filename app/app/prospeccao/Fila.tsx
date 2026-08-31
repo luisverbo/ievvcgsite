@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { cancelarTarefa, limparTarefas } from "./actions";
 import { ROTULO_TAREFA, type TarefaRow } from "@/lib/prospeccao/tipos";
 import { acharNicho } from "@/lib/prospeccao/nichos";
+import { normalizarFiltros, resumoFiltros } from "@/lib/prospeccao/filtros";
 import Robo from "@/components/painel/Robo";
 
 const COR: Record<string, string> = {
@@ -114,7 +115,43 @@ export default function Fila({ tarefas }: { tarefas: TarefaRow[] }) {
                   />
                 </div>
               )}
-              {t.erro && <p className="mt-1.5 text-xs text-danger">{t.erro}</p>}
+              {/*
+                Os filtros daquela busca, no card dela. Sem isto, o cliente
+                que pediu "só sem site" e recebeu 6 empresas não tem como
+                lembrar POR QUE foram 6 — e a explicação é justamente esta.
+              */}
+              {(() => {
+                const chips = t.filtros ? resumoFiltros(normalizarFiltros(t.filtros)) : [];
+                if (chips.length === 0) return null;
+                return (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {chips.map((c) => (
+                      <span
+                        key={c}
+                        className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] font-bold text-paper-dim"
+                      >
+                        {c}
+                      </span>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              {/*
+                Tarefa concluída também usa este campo para AVISAR (o filtro
+                deixou gente de fora, por exemplo). Pintar isso de vermelho
+                faria o cliente ler "falhou" numa busca que deu certo.
+              */}
+              {t.erro && (
+                <p
+                  className={`mt-1.5 text-xs ${
+                    t.status === "concluida" ? "text-paper-dim" : "text-danger"
+                  }`}
+                >
+                  {t.status === "concluida" ? "ℹ️ " : ""}
+                  {t.erro}
+                </p>
+              )}
             </div>
           );
         })}

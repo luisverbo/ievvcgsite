@@ -6,7 +6,6 @@ import { podeUsar } from "@/lib/painel/permissoes";
 import { apagarAgente } from "./actions";
 import NovoToken from "./NovoToken";
 import Tutorial from "@/components/painel/Tutorial";
-import { cardClass } from "@/components/painel/ui";
 import { IconTrash } from "@/components/painel/icons";
 
 export const dynamic = "force-dynamic";

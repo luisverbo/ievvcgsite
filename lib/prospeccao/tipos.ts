@@ -145,6 +145,8 @@ export type TarefaRow = {
   erro: string | null;
   agente: string | null;
   created_at: string;
+  /* Filtros pedidos na busca. Ausente antes da migração 2026-08-24. */
+  filtros?: unknown;
 };
 
 export const ROTULO_TAREFA: Record<StatusTarefa, string> = {
