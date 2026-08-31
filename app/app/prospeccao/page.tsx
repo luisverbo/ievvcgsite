@@ -503,6 +503,13 @@ export default async function ProspeccaoPage({
             ))}
           </div>
           <BuscaNome />
+          {/* O CRM: as mesmas empresas em colunas de arrastar. */}
+          <Link
+            href="/app/prospeccao/funil"
+            className="rounded-lg border border-brand-2/50 px-3 py-1.5 text-sm font-bold text-brand-2 transition hover:bg-brand/10"
+          >
+            🗂️ Funil (CRM)
+          </Link>
           {/* A lista é do dono: sai inteira em CSV, direto para o Excel/Sheets. */}
           <a
             href="/app/prospeccao/exportar"

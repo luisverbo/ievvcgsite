@@ -305,6 +305,9 @@ export async function mudarStatus(id: string, status: StatusProspecto) {
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id);
   revalidatePath("/app/prospeccao");
+  // O Funil (Kanban) mostra os mesmos leads — sem isto o card voltaria de
+  // coluna no próximo carregamento, desfazendo o arrasto na cara do dono.
+  revalidatePath("/app/prospeccao/funil");
 }
 
 export async function excluirProspecto(id: string) {

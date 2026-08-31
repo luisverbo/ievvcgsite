@@ -151,7 +151,7 @@ const PERGUNTAS = [
   },
   {
     p: "O Agente trabalha 24 horas?",
-    r: "Ele trabalha enquanto o seu computador está ligado e para assim que você desliga — a fila fica guardada esperando. Muita gente deixa rodando de manhã enquanto atende e, à tarde, só abre para ver quem respondeu. Isso é proposital: mensagem saindo de madrugada é o que denuncia robô.",
+    r: "Você configura uma vez e pronto: o Agente liga sozinho junto com o computador, sem você precisar abrir nada. Ele trabalha enquanto o computador está ligado e descansa quando você desliga — a fila fica guardada. Isso é proposital: mensagem saindo de madrugada é o que denuncia robô.",
   },
   {
     p: "Ele mexe no meu WhatsApp? Preciso de outro número?",
@@ -767,6 +767,7 @@ export default async function ProspectorPage() {
                     "Remarketing em quem não respondeu",
                     "Funil com etiquetas e respostas à vista",
                     "Exportar tudo em planilha quando quiser",
+                    "Configura uma vez — o Agente liga sozinho com o computador",
                     "Sem cobrança por lead. Sem crédito. Sem surpresa.",
                   ].map((t) => (
                     <li key={t} className="flex gap-2.5">

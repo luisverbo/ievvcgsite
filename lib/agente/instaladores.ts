@@ -95,14 +95,32 @@ export const INSTALAR_BAT = crlf([
   "call npx --yes playwright install chromium",
   "if errorlevel 1 goto FALHOU",
   "",
+  "rem --- inicio automatico com o Windows ---",
+  "rem Um .vbs na pasta Inicializar abre o LIGAR-AGENTE minimizado a cada",
+  "rem boot (7 = janela minimizada: fica na barra de tarefas, visivel e",
+  "rem fechavel — nada roda escondido do dono). Desligar = apagar o .vbs,",
+  "rem que e exatamente o que o DESLIGAR-INICIO-AUTOMATICO.bat faz.",
+  'set "INICIO=%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"',
+  "rem O parentese do CreateObject() mataria um bloco if( ) do batch — por",
+  "rem isso o desvio e com goto, nao com bloco.",
+  'if not exist "%INICIO%" goto DEPOIS_INICIO',
+  '> "%INICIO%\\PaginaPro-Agente.vbs" echo CreateObject("WScript.Shell").Run """%PASTA%\\LIGAR-AGENTE.bat""", 7, False',
+  ":DEPOIS_INICIO",
+  "",
   "echo.",
   "echo   ============================================",
   "echo     PRONTO! Instalacao concluida.",
   "echo.",
   'if "%MOVEU%"=="1" echo     Instalado em: %PASTA%',
   'if "%MOVEU%"=="1" echo.',
-  "echo     Agora feche esta janela e clique duas vezes",
-  "echo     em LIGAR-AGENTE para comecar a usar.",
+  "echo     O agente agora LIGA SOZINHO junto com o",
+  "echo     Windows - e só ligar o computador e pronto.",
+  "echo.",
+  "echo     Para usar agora, sem reiniciar: clique duas",
+  "echo     vezes em LIGAR-AGENTE.",
+  "echo.",
+  "echo     Nao quer o inicio automatico? Clique em",
+  "echo     DESLIGAR-INICIO-AUTOMATICO.",
   "echo   ============================================",
   "echo.",
   "pause",
@@ -248,6 +266,43 @@ export const LIGAR_BAT = crlf([
   "pause",
   "exit /b 1",
   "",
+]);
+
+/*
+ * O botão de arrependimento do início automático.
+ *
+ * Programa que se agarra ao boot sem oferecer a saída é o que faz o usuário
+ * se sentir invadido — e desinstalar tudo. Um clique aqui apaga o atalho da
+ * pasta Inicializar e pronto; rodar INSTALAR-AGENTE de novo religa.
+ */
+export const DESLIGAR_INICIO_BAT = crlf([
+  "@echo off",
+  "chcp 65001 >nul",
+  "title PaginaPro - Desligar inicio automatico",
+  'set "VBS=%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\PaginaPro-Agente.vbs"',
+  "echo.",
+  'if not exist "%VBS%" goto JA_ESTA',
+  'del "%VBS%" >nul 2>nul',
+  'if exist "%VBS%" goto FALHOU',
+  "echo   Pronto: o agente NAO vai mais ligar sozinho com o Windows.",
+  "echo   Para usar, clique em LIGAR-AGENTE quando quiser.",
+  "echo   Se mudar de ideia, rode INSTALAR-AGENTE de novo.",
+  "echo.",
+  "pause",
+  "exit /b 0",
+  "",
+  ":JA_ESTA",
+  "echo   O inicio automatico ja estava desligado. Nada a fazer.",
+  "echo.",
+  "pause",
+  "exit /b 0",
+  "",
+  ":FALHOU",
+  "echo   Nao consegui remover o atalho. Apague na mao: aperte",
+  "echo   Windows+R, digite shell:startup e delete PaginaPro-Agente.vbs.",
+  "echo.",
+  "pause",
+  "exit /b 1",
 ]);
 
 /*

@@ -9,6 +9,7 @@ import { gerarToken, hashDoToken } from "@/lib/agente/token";
 import {
   INSTALAR_BAT,
   LIGAR_BAT,
+  DESLIGAR_INICIO_BAT,
   INSTALAR_COMMAND,
   LIGAR_COMMAND,
 } from "@/lib/agente/instaladores";
@@ -51,7 +52,16 @@ COMO USAR - SAO DOIS CLIQUES
   NO WINDOWS
 
     1. Clique duas vezes em  INSTALAR-AGENTE.bat   (so na primeira vez)
-    2. Clique duas vezes em  LIGAR-AGENTE.bat      (toda vez que for usar)
+    2. Pronto! O agente passa a LIGAR SOZINHO junto com o Windows.
+
+    Para usar agora, sem reiniciar o computador, clique em LIGAR-AGENTE.bat.
+    Nao quer que ele ligue sozinho? Clique em DESLIGAR-INICIO-AUTOMATICO.bat
+    — e o INSTALAR-AGENTE religa, se mudar de ideia.
+
+    Se o Windows mostrar um aviso azul "O Windows protegeu o computador":
+    clique em "Mais informacoes" e depois em "Executar assim mesmo". O aviso
+    aparece porque o programa e novo, nao porque ha algo errado — o codigo
+    do agente vai aberto nesta pasta, para qualquer pessoa ler.
 
   NO MAC
 
@@ -73,8 +83,26 @@ acontecer sem querer, o instalador percebe e instala numa pasta local sozinho.
 ENQUANTO ESTIVER USANDO
 -----------------------
 
-Deixe a janela preta aberta. Se fechar, o agente para - e volta quando voce
-abrir de novo. Nada se perde: a fila espera por ele.
+O agente fica numa janela minimizada na barra de tarefas. Fechou a janela ou
+desligou o computador? Ele para - e volta sozinho no proximo boot. Nada se
+perde: a fila espera por ele.
+
+
+SEGURANCA - O QUE ELE FAZ E O QUE NAO FAZ
+-----------------------------------------
+
+  FAZ: pesquisa no Google Maps e envia/le mensagens no SEU WhatsApp,
+  seguindo apenas o que voce pediu no painel.
+
+  NAO FAZ: nao le seus arquivos, fotos ou senhas; nao aceita conexao de
+  fora (nem a nossa - ele so PERGUNTA ao painel o que fazer); nao instala
+  nada escondido. Desinstalar = apagar esta pasta.
+
+  A sua conexao do WhatsApp fica gravada SO neste computador, na pasta
+  agente/.perfil-whatsapp. Nos nunca vemos sua senha.
+
+  Duvida? O codigo-fonte esta aberto na pasta agente/ - qualquer pessoa
+  de confianca pode ler linha por linha.
 
 
 IMPORTANTE
@@ -146,6 +174,7 @@ export async function GET() {
    */
   raiz.file("INSTALAR-AGENTE.bat", INSTALAR_BAT);
   raiz.file("LIGAR-AGENTE.bat", LIGAR_BAT);
+  raiz.file("DESLIGAR-INICIO-AUTOMATICO.bat", DESLIGAR_INICIO_BAT);
   raiz.file("INSTALAR-AGENTE.command", INSTALAR_COMMAND, { unixPermissions: 0o755 });
   raiz.file("LIGAR-AGENTE.command", LIGAR_COMMAND, { unixPermissions: 0o755 });
   raiz.file("LEIA-ME.txt", LEIAME);

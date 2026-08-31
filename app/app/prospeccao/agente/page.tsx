@@ -51,13 +51,14 @@ const PASSOS: { titulo: string; texto: string; detalhe?: string }[] = [
     texto:
       "Uma janela preta abre e faz tudo sozinha: baixa o que falta e prepara o agente. Leva alguns minutos na primeira vez — pode deixar rodando.",
     detalhe:
-      "Se faltar o Node no seu computador, essa mesma janela avisa e se oferece para instalar. É só responder S.",
+      "Se o Windows mostrar o aviso azul “O Windows protegeu o computador”, clique em “Mais informações” e depois “Executar assim mesmo” — o aviso aparece porque o programa é novo, não porque há algo errado. Se faltar o Node, a própria janela avisa e se oferece para instalar: é só responder S.",
   },
   {
-    titulo: "Clique duas vezes em LIGAR-AGENTE",
+    titulo: "Pronto — ele liga sozinho com o Windows",
     texto:
-      "Pronto: o agente está no ar e o painel já mostra “agente ligado”. Daqui pra frente, é só este clique — o INSTALAR foi uma vez só.",
-    detalhe: "Deixe a janela preta aberta enquanto estiver usando.",
+      "A partir daí, ligou o computador, ligou o agente: ele aparece minimizado na barra de tarefas e o painel mostra “agente ligado”. Para usar agora, sem reiniciar, clique em LIGAR-AGENTE.",
+    detalhe:
+      "Prefere ligar na mão? Clique em DESLIGAR-INICIO-AUTOMATICO dentro da pasta, e o agente volta a esperar o seu clique. O INSTALAR-AGENTE religa o automático se mudar de ideia.",
   },
 ];
 
@@ -228,7 +229,19 @@ export default async function MeuAgentePage() {
           </div>
         </details>
 
-        {/* O aviso do Gatekeeper: o Mac assusta na primeira abertura. */}
+        {/* Os avisos de primeira execução: Windows e Mac assustam de propósito. */}
+        <details className="mt-2 rounded-xl border border-white/10 bg-ink-2 p-4">
+          <summary className="cursor-pointer text-sm font-bold text-paper-dim">
+            Apareceu um aviso azul “O Windows protegeu o computador”
+          </summary>
+          <p className="mt-3 text-sm text-paper-dim">
+            É o aviso padrão do Windows para qualquer programa novo, de qualquer empresa — não
+            significa que há algo errado. Clique em{" "}
+            <b className="text-paper">Mais informações</b> e depois em{" "}
+            <b className="text-paper">Executar assim mesmo</b>. Acontece só na primeira vez.
+          </p>
+        </details>
+
         <details className="mt-2 rounded-xl border border-white/10 bg-ink-2 p-4">
           <summary className="cursor-pointer text-sm font-bold text-paper-dim">
             Estou no Mac e apareceu “desenvolvedor não identificado”
@@ -238,6 +251,42 @@ export default async function MeuAgentePage() {
             <b className="text-paper">botão direito</b> no arquivo INSTALAR-AGENTE.command, escolha{" "}
             <b className="text-paper">Abrir</b> e confirme <b className="text-paper">Abrir</b> na
             janela que aparecer. Acontece só na primeira vez.
+          </p>
+        </details>
+
+        {/*
+          Segurança — de propósito AQUI, recolhida, e não na landing: na hora
+          da venda esse assunto planta medo; na hora de instalar, ele responde
+          a dúvida de quem já comprou. Cada afirmação abaixo é verificável no
+          código que vai dentro do próprio .zip.
+        */}
+        <details className="mt-2 rounded-xl border border-ok/25 bg-ok/5 p-4">
+          <summary className="cursor-pointer text-sm font-bold text-paper-dim">
+            🔒 O que este programa faz — e o que ele NÃO faz
+          </summary>
+          <div className="mt-3 grid gap-4 text-sm sm:grid-cols-2">
+            <div>
+              <p className="font-bold text-ok">✓ O que ele faz</p>
+              <ul className="mt-1.5 flex flex-col gap-1.5 text-paper-dim">
+                <li>• Pesquisa empresas no Google Maps, como uma pessoa pesquisaria</li>
+                <li>• Envia e lê mensagens no SEU WhatsApp, no ritmo que você configurou</li>
+                <li>• Pergunta ao painel o que fazer — e só faz o que você pediu lá</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-bold text-danger">✕ O que ele nunca faz</p>
+              <ul className="mt-1.5 flex flex-col gap-1.5 text-paper-dim">
+                <li>• Não lê seus arquivos, fotos, e-mails nem senhas</li>
+                <li>• Não aceita conexão de fora — nem a nossa. Ele só fala, não escuta</li>
+                <li>• Não instala nada escondido: desinstalar é apagar a pasta</li>
+              </ul>
+            </div>
+          </div>
+          <p className="mt-4 rounded-lg border border-white/10 bg-black/25 p-3 text-xs text-paper-dim">
+            A conexão do seu WhatsApp fica gravada <b className="text-paper">só no seu
+            computador</b> — nós nunca vemos sua senha. E o código-fonte do agente vai{" "}
+            <b className="text-paper">aberto e legível</b> dentro da pasta: qualquer pessoa de
+            confiança pode conferir linha por linha o que ele faz.
           </p>
         </details>
       </div>
