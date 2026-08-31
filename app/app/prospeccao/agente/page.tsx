@@ -5,6 +5,7 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
 import { apagarAgente } from "./actions";
 import NovoToken from "./NovoToken";
+import Tutorial from "@/components/painel/Tutorial";
 import { cardClass } from "@/components/painel/ui";
 import { IconTrash } from "@/components/painel/icons";
 
@@ -29,38 +30,6 @@ type AgenteRow = {
 function online(ultimo: string | null) {
   return !!ultimo && Date.now() - new Date(ultimo).getTime() < 15 * 60_000;
 }
-
-/*
- * Três passos, nenhum comando digitado.
- *
- * O passo "abra o terminal dentro da pasta" saiu daqui: era onde a instalação
- * morria para quem não é técnico. O .zip agora traz INSTALAR-AGENTE e
- * LIGAR-AGENTE, que descobrem sozinhos a pasta certa — descompactou onde
- * quiser, funciona igual.
- */
-const PASSOS: { titulo: string; texto: string; detalhe?: string }[] = [
-  {
-    titulo: "Baixe o arquivo e descompacte",
-    texto:
-      "Use o botão azul aí em cima. Depois clique com o botão direito no arquivo baixado e escolha “Extrair tudo” (no Mac, dois cliques já extraem).",
-    detalhe:
-      "Extraia na Área de Trabalho. Evite pasta do Google Drive, OneDrive ou Dropbox — a nuvem atrapalha a instalação. E se acontecer sem querer, o instalador percebe e se muda sozinho para uma pasta local.",
-  },
-  {
-    titulo: "Clique duas vezes em INSTALAR-AGENTE",
-    texto:
-      "Uma janela preta abre e faz tudo sozinha: baixa o que falta e prepara o agente. Leva alguns minutos na primeira vez — pode deixar rodando.",
-    detalhe:
-      "Se o Windows mostrar o aviso azul “O Windows protegeu o computador”, clique em “Mais informações” e depois “Executar assim mesmo” — o aviso aparece porque o programa é novo, não porque há algo errado. Se faltar o Node, a própria janela avisa e se oferece para instalar: é só responder S.",
-  },
-  {
-    titulo: "Pronto — ele liga sozinho com o Windows",
-    texto:
-      "A partir daí, ligou o computador, ligou o agente: ele aparece minimizado na barra de tarefas e o painel mostra “agente ligado”. Para usar agora, sem reiniciar, clique em LIGAR-AGENTE.",
-    detalhe:
-      "Prefere ligar na mão? Clique em DESLIGAR-INICIO-AUTOMATICO dentro da pasta, e o agente volta a esperar o seu clique. O INSTALAR-AGENTE religa o automático se mudar de ideia.",
-  },
-];
 
 export default async function MeuAgentePage() {
   if (!(await podeUsar("prospeccao"))) notFound();
@@ -91,6 +60,12 @@ export default async function MeuAgentePage() {
           WhatsApp ser o seu número e a busca sair do seu endereço de internet — sem dividir com
           mais ninguém.
         </p>
+        <Link
+          href="/app/comecar"
+          className="mt-3 inline-flex rounded-lg border border-white/15 px-4 py-2 text-xs font-bold text-paper transition hover:border-brand-2 hover:text-brand-2"
+        >
+          👋 É a sua primeira vez? Comece pelo passo a passo guiado →
+        </Link>
       </div>
 
       {/* estado — quem já instalou precisa LIGAR, não instalar de novo */}
@@ -171,25 +146,16 @@ export default async function MeuAgentePage() {
             Seu agente já está ligado — estes passos são só se você quiser rodar em outra máquina.
           </p>
         )}
-        <ol className="flex flex-col gap-3">
-          {PASSOS.map((p, i) => (
-            <li key={p.titulo} className="flex gap-3 rounded-xl border border-white/10 bg-ink-2 p-4">
-              <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-brand/20 text-sm font-bold text-brand-2">
-                {i + 1}
-              </span>
-              <div className="min-w-0">
-                <h3 className="text-sm font-bold text-paper">{p.titulo}</h3>
-                <p className="mt-1 text-sm text-paper-dim">{p.texto}</p>
-                {p.detalhe && (
-                  <p className="mt-1.5 text-xs text-paper-dim/70">💡 {p.detalhe}</p>
-                )}
-              </div>
-            </li>
-          ))}
-        </ol>
+        {/* O botão de baixar já está logo acima, no card azul. */}
+        <Tutorial comDownload={false} />
         <p className="mt-3 text-xs text-paper-dim">
-          Fechou a janela, o agente para — e volta quando você abrir de novo. Nada se perde: a fila
-          espera por ele.
+          Fechou a janela, o agente para — e volta quando você abrir de novo, ou no próximo reinício
+          do computador. Nada se perde: a fila espera por ele.
+        </p>
+        <p className="mt-1.5 text-xs text-paper-dim">
+          Prefere ligar na mão? Clique em <b className="font-mono">DESLIGAR-INICIO-AUTOMATICO</b>{" "}
+          dentro da pasta e o agente volta a esperar o seu clique — o INSTALAR-AGENTE religa o
+          automático se mudar de ideia.
         </p>
 
         {/* O Node só aparece se der problema — antes disso é detalhe técnico. */}

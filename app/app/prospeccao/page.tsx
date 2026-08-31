@@ -446,14 +446,15 @@ export default async function ProspeccaoPage({
                 funciona pela metade.
               </p>
               <p className="mt-1.5 text-sm text-paper-dim">
-                São dois cliques e uns 10 minutos, uma vez só.
+                São quatro passos e uns 10 minutos, uma vez só — e depois ele liga sozinho com o
+                computador.
               </p>
             </div>
             <Link
-              href="/app/prospeccao/agente"
+              href="/app/comecar"
               className="flex-none rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand/25 transition hover:-translate-y-0.5 hover:bg-brand-2"
             >
-              Instalar agora →
+              Ver o passo a passo →
             </Link>
           </div>
         </div>

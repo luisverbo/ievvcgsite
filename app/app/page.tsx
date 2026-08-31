@@ -551,6 +551,34 @@ async function HomeProspector({
         </div>
       )}
 
+      {/*
+        A primeira coisa que o assinante novo vê — antes dos números, que
+        estão todos zerados e não dizem nada a quem acabou de comprar.
+        Enquanto não existe agente, esta é a única tarefa que importa; some
+        sozinho no instante em que ele instala.
+      */}
+      {estadoAgente === "novo" && (
+        <Link
+          href="/app/comecar"
+          className="anim-entrada d1 card-aurora group flex flex-wrap items-center gap-5 rounded-2xl p-6 transition hover:-translate-y-0.5"
+        >
+          <Robo estado="novo" tamanho={76} cor="#4285F4" corClara="#8ab4f8" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold uppercase tracking-wide text-brand-2">Primeiro acesso</p>
+            <h2 className="mt-1 font-display text-xl font-extrabold text-paper">
+              Comece por aqui: 4 passos, uma vez só
+            </h2>
+            <p className="mt-1.5 max-w-xl text-sm text-paper">
+              Baixe o agente, instale e reinicie o computador. Pronto — a partir daí ele liga
+              sozinho toda vez que você ligar a máquina, e você só escolhe o ramo e a cidade.
+            </p>
+          </div>
+          <span className="flex-none rounded-xl bg-brand px-5 py-2.5 text-sm font-bold text-white shadow-lg transition group-hover:bg-brand-2">
+            Ver o passo a passo →
+          </span>
+        </Link>
+      )}
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map((s, i) => (
           <div
@@ -579,7 +607,9 @@ async function HomeProspector({
         </Link>
 
         <Link
-          href="/app/prospeccao/abordagem"
+          // Sem agente, este card leva ao tutorial: mandar para a tela de
+          // abordagem quem ainda não instalou é mostrar uma tela vazia.
+          href={estadoAgente === "novo" ? "/app/comecar" : "/app/prospeccao/abordagem"}
           className="anim-entrada d3 rounded-2xl border border-white/10 bg-ink-2 p-5 transition hover:-translate-y-1 hover:border-brand-2/50"
         >
           <div className="flex items-start justify-between gap-3">
