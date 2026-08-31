@@ -30,6 +30,7 @@ import { faixa, type ProspectoRow } from "@/lib/prospeccao/tipos";
 import { acharNicho } from "@/lib/prospeccao/nichos";
 import { inputClass, labelClass, cardClass } from "@/components/painel/ui";
 import Robo from "@/components/painel/Robo";
+import ModelosProntos from "./ModelosProntos";
 
 // A primeira mensagem não precisa de etiqueta; as outras, sim — o usuário
 // tem que saber que está olhando a SEGUNDA conversa com aquele lead.
@@ -757,7 +758,9 @@ export default function Painel({
           />
         </div>
 
+        <ModelosProntos alvo="modelo_mensagem" />
         <textarea
+          id="modelo_mensagem"
           name="modelo_mensagem"
           defaultValue={
             config.modelo_mensagem || (ofertaPropria ? MODELO_PADRAO_PROPRIA : MODELO_PADRAO)
