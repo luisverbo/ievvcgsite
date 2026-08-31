@@ -78,6 +78,8 @@ export type ProspectoRow = {
   // Etiqueta livre de quem vende ("quente", "ligar sexta"). Opcional —
   // coluna de migração nova, pode não existir ainda.
   etiqueta?: string | null;
+  // "Me lembra dia X": no dia, o lead sobe para o topo com o selo ⏰.
+  lembrete_em?: string | null;
   site_ia_id: string | null;
   // Link único do lead (/p/codigo) — Termômetro e Espelho penduram nele.
   link_codigo?: string | null;

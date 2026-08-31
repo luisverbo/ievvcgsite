@@ -12,21 +12,23 @@ import { ofertaDaOrg } from "./oferta";
 import type { ProspectoRow } from "./tipos";
 
 /*
- * Follow-up automático: a segunda (e ÚNICA) mensagem para quem ficou em
- * silêncio.
+ * Remarketing automático: até TRÊS mensagens para quem ficou em silêncio,
+ * nos prazos que o dono escolher (a 2ª e a 3ª nascem desligadas).
  *
  * A maior parte das vendas não morre no "não" — morre no esquecimento. Uma
- * segunda mensagem alguns dias depois recupera uma parte real desses leads,
- * porque a primeira chegou num dia corrido e afundou na lista.
+ * mensagem alguns dias depois recupera uma parte real desses leads, porque a
+ * primeira chegou num dia corrido e afundou na lista. E o padrão de mercado
+ * é claro: a maioria dos fechamentos vem depois do segundo contato.
  *
- * O que este arquivo NUNCA faz, e é o que separa follow-up de perseguição:
- *   - segunda insistência: um follow-up por prospecto, garantido por índice;
+ * O que este arquivo NUNCA faz, e é o que separa remarketing de perseguição:
+ *   - repetir uma etapa: uma mensagem por etapa por prospecto, via índice;
  *   - falar com quem respondeu qualquer coisa (aí quem conduz é o humano);
  *   - falar com quem pediu para não receber (nao_perturbar);
- *   - mandar antes do prazo que o cliente escolheu.
+ *   - mandar antes do prazo que o cliente escolheu, nem ressuscitar conversa
+ *     com mais de 30 dias desde o último toque.
  *
  * A entrega é a mesma de sempre: uma linha em prospeccao_mensagens, no mesmo
- * modo (auto/semi) da abordagem que a originou, com o mesmo ritmo humano e o
+ * modo (auto/semi) da mensagem que a originou, com o mesmo ritmo humano e o
  * mesmo limite diário. Este módulo só decide QUEM e O QUE.
  */
 
@@ -36,6 +38,8 @@ const INTERVALO_VARREDURA_MS = 60 * 60_000;
 type ConfigFollowup = {
   followup_ligado: boolean;
   followup_dias: number;
+  followup_dias_2: number | null;
+  followup_dias_3: number | null;
   followup_msg_modelo: string | null;
   followup_rodou_em: string | null;
   remetente_nome: string | null;
@@ -53,9 +57,12 @@ export async function prepararFollowups(orgId: string): Promise<number> {
     if (!(await funcaoLigada("followup"))) return 0;
 
     const admin = createAdminClient();
+    // select * de propósito: pedir followup_dias_2 pelo nome quebraria a
+    // varredura INTEIRA de quem ainda não rodou a migração da cadência —
+    // e a etapa 1, que já funcionava, pararia junto.
     const { data: cfgRaw, error: cfgErr } = await admin
       .from("prospeccao_config")
-      .select("followup_ligado, followup_dias, followup_msg_modelo, followup_rodou_em, remetente_nome")
+      .select("*")
       .eq("org_id", orgId)
       .maybeSingle();
     // Erro aqui = migração pendente. A função simplesmente ainda não existe.
@@ -81,48 +88,6 @@ export async function prepararFollowups(orgId: string): Promise<number> {
       .select("org_id");
     if (!vez || vez.length === 0) return 0;
 
-    const dias = Math.min(30, Math.max(1, cfg.followup_dias ?? 4));
-    const corte = new Date(agora - dias * 86_400_000).toISOString();
-
-    /*
-     * Candidatos: abordagens entregues, sem resposta, vencidas. O teto de 30
-     * dias evita ressuscitar lead de dois meses atrás no dia em que o cliente
-     * ligar a função — mensagem assim chega como "quem é você?".
-     */
-    const { data: abordagensRaw } = await admin
-      .from("prospeccao_mensagens")
-      .select("prospecto_id, telefone, modo")
-      .eq("org_id", orgId)
-      .eq("tipo", "abordagem")
-      .eq("status", "enviada")
-      .is("resposta_em", null)
-      .lte("enviada_em", corte)
-      .gte("enviada_em", new Date(agora - 30 * 86_400_000).toISOString())
-      .limit(200);
-    const abordagens =
-      (abordagensRaw as { prospecto_id: string; telefone: string; modo: string }[] | null) ?? [];
-    if (abordagens.length === 0) return 0;
-
-    const ids = [...new Set(abordagens.map((a) => a.prospecto_id))];
-
-    // Quem já tem follow-up sai da lista (o índice é a rede; isto evita
-    // 200 inserts condenados a colidir).
-    const { data: jaRaw } = await admin
-      .from("prospeccao_mensagens")
-      .select("prospecto_id")
-      .eq("org_id", orgId)
-      .eq("tipo", "followup")
-      .in("prospecto_id", ids);
-    const jaTem = new Set(((jaRaw as { prospecto_id: string }[] | null) ?? []).map((l) => l.prospecto_id));
-
-    const { data: prospRaw } = await admin
-      .from("prospeccao")
-      .select("*")
-      .eq("org_id", orgId)
-      .in("id", ids.filter((id) => !jaTem.has(id)));
-    const prospectos = (prospRaw as ProspectoRow[] | null) ?? [];
-    const porId = new Map(prospectos.map((p) => [p.id, p]));
-
     // No modo Prospector o modelo padrão fala da oferta própria, não do site
     // que não existe. Modelo escrito pelo dono continua mandando nos dois.
     const oferta = await ofertaDaOrg(orgId);
@@ -131,37 +96,113 @@ export async function prepararFollowups(orgId: string): Promise<number> {
     const remetente = (cfg.remetente_nome ?? "").trim();
     const extras = { oferta: oferta.resumo || "o que eu tinha comentado" };
 
-    const linhas: Record<string, unknown>[] = [];
-    for (const a of abordagens) {
-      if (jaTem.has(a.prospecto_id)) continue;
-      const p = porId.get(a.prospecto_id);
-      // Opt-out e "já conversou" são travas de servidor, não de tela.
-      if (!p || p.nao_perturbar) continue;
-      if (p.status === "respondeu" || p.status === "fechou" || p.status === "descartado") continue;
+    /*
+     * A cadência: cada etapa conta os dias A PARTIR DO TOQUE ANTERIOR —
+     * a 1ª depois da abordagem, a 2ª depois da 1ª, a 3ª depois da 2ª. Etapa
+     * com 0 dia está desligada, e desligar uma desliga as seguintes (não
+     * existe "pular direto para a terceira insistência").
+     */
+    const etapas = [
+      { n: 1, dias: Math.min(30, Math.max(1, cfg.followup_dias ?? 4)) },
+      { n: 2, dias: Math.min(30, Math.max(0, cfg.followup_dias_2 ?? 0)) },
+      { n: 3, dias: Math.min(30, Math.max(0, cfg.followup_dias_3 ?? 0)) },
+    ];
 
-      linhas.push({
-        org_id: orgId,
-        prospecto_id: p.id,
-        telefone: a.telefone,
-        // A chave do sorteio muda ("fu::"), então o follow-up não repete as
-        // mesmas escolhas de [a|b] da primeira mensagem — pareceria cópia.
-        texto: montarMensagem(modelo, p as DadosEmpresa, `fu::${p.id}`, remetente, extras),
-        tipo: "followup",
-        modo: a.modo === "semi" ? "semi" : "auto",
-        status: "pendente",
-      });
-      // Um mesmo prospecto não pode entrar duas vezes no mesmo lote.
-      jaTem.add(a.prospecto_id);
-    }
-    if (linhas.length === 0) return 0;
+    let total = 0;
+    for (const etapa of etapas) {
+      if (etapa.n > 1 && etapa.dias === 0) break;
+      const corte = new Date(agora - etapa.dias * 86_400_000).toISOString();
 
-    const { error } = await admin.from("prospeccao_mensagens").insert(linhas);
-    // 23505 = o índice pegou uma corrida. Exatamente o que ele existe para fazer.
-    if (error && error.code !== "23505") {
-      console.error("[followup] falha ao enfileirar:", error.message);
-      return 0;
+      /*
+       * Candidatos: o TOQUE ANTERIOR entregue, sem resposta, vencido. O teto
+       * de 30 dias evita ressuscitar lead de dois meses atrás no dia em que o
+       * cliente ligar a função — mensagem assim chega como "quem é você?".
+       */
+      let q = admin
+        .from("prospeccao_mensagens")
+        .select("prospecto_id, telefone, modo")
+        .eq("org_id", orgId)
+        .eq("status", "enviada")
+        .is("resposta_em", null)
+        .lte("enviada_em", corte)
+        .gte("enviada_em", new Date(agora - 30 * 86_400_000).toISOString())
+        .limit(200);
+      q =
+        etapa.n === 1
+          ? q.eq("tipo", "abordagem")
+          : q.eq("tipo", "followup").eq("etapa", etapa.n - 1);
+      const { data: anterioresRaw } = await q;
+      const anteriores =
+        (anterioresRaw as { prospecto_id: string; telefone: string; modo: string }[] | null) ?? [];
+      if (anteriores.length === 0) continue;
+
+      const ids = [...new Set(anteriores.map((a) => a.prospecto_id))];
+
+      // Quem já tem ESTA etapa sai da lista (o índice é a rede; isto evita
+      // 200 inserts condenados a colidir).
+      const { data: jaRaw } = await admin
+        .from("prospeccao_mensagens")
+        .select("prospecto_id")
+        .eq("org_id", orgId)
+        .eq("tipo", "followup")
+        .eq("etapa", etapa.n)
+        .in("prospecto_id", ids);
+      const jaTem = new Set(
+        ((jaRaw as { prospecto_id: string }[] | null) ?? []).map((l) => l.prospecto_id),
+      );
+
+      const { data: prospRaw } = await admin
+        .from("prospeccao")
+        .select("*")
+        .eq("org_id", orgId)
+        .in("id", ids.filter((id) => !jaTem.has(id)));
+      const prospectos = (prospRaw as ProspectoRow[] | null) ?? [];
+      const porId = new Map(prospectos.map((p) => [p.id, p]));
+
+      const linhas: Record<string, unknown>[] = [];
+      for (const a of anteriores) {
+        if (jaTem.has(a.prospecto_id)) continue;
+        const p = porId.get(a.prospecto_id);
+        // Opt-out e "já conversou" são travas de servidor, não de tela.
+        if (!p || p.nao_perturbar) continue;
+        if (p.status === "respondeu" || p.status === "fechou" || p.status === "descartado") continue;
+
+        linhas.push({
+          org_id: orgId,
+          prospecto_id: p.id,
+          telefone: a.telefone,
+          // A chave do sorteio muda por etapa ("fu2::"), então cada toque não
+          // repete as mesmas escolhas de [a|b] do anterior — pareceria cópia.
+          texto: montarMensagem(modelo, p as DadosEmpresa, `fu${etapa.n}::${p.id}`, remetente, extras),
+          tipo: "followup",
+          etapa: etapa.n,
+          modo: a.modo === "semi" ? "semi" : "auto",
+          status: "pendente",
+        });
+        // Um mesmo prospecto não pode entrar duas vezes no mesmo lote.
+        jaTem.add(a.prospecto_id);
+      }
+      if (linhas.length === 0) continue;
+
+      let { error } = await admin.from("prospeccao_mensagens").insert(linhas);
+      /*
+       * Migração da cadência ainda não rodou? A coluna `etapa` não existe e o
+       * insert falha inteiro. A etapa 1 não pode parar por isso — ela já
+       * funcionava antes da cadência. Tira o campo e insere como antes; as
+       * etapas 2 e 3 ficam para depois do SQL, o que é o comportamento certo.
+       */
+      if (error && etapa.n === 1 && /etapa/.test(error.message)) {
+        for (const l of linhas) delete l.etapa;
+        ({ error } = await admin.from("prospeccao_mensagens").insert(linhas));
+      }
+      // 23505 = o índice pegou uma corrida. Exatamente o que ele existe para fazer.
+      if (error && error.code !== "23505") {
+        console.error(`[followup] etapa ${etapa.n} falhou ao enfileirar:`, error.message);
+        continue;
+      }
+      if (!error) total += linhas.length;
     }
-    return linhas.length;
+    return total;
   } catch (e) {
     console.error("[followup]", (e as Error).message);
     return 0;

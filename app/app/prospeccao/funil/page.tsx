@@ -29,13 +29,13 @@ export default async function FunilPage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("prospeccao")
-    .select("id, nome, telefone, categoria, avaliacoes, nota_media, etiqueta, status, local_busca")
+    .select("id, nome, telefone, categoria, avaliacoes, nota_media, etiqueta, status, local_busca, lembrete_em")
     .eq("org_id", org.id)
     .order("updated_at", { ascending: false })
     .limit(400);
   const lista = (data as Pick<
     ProspectoRow,
-    "id" | "nome" | "telefone" | "categoria" | "avaliacoes" | "nota_media" | "etiqueta" | "status" | "local_busca"
+    "id" | "nome" | "telefone" | "categoria" | "avaliacoes" | "nota_media" | "etiqueta" | "status" | "local_busca" | "lembrete_em"
   >[] | null) ?? [];
 
   // A última resposta de cada lead — é o que diz o próximo passo no card.
@@ -55,6 +55,19 @@ export default async function FunilPage() {
     }
   }
 
+  // Respostas rápidas — os botões de copiar nos cards de quem respondeu.
+  let respostasRapidas: { t: string; x: string }[] = [];
+  {
+    const { data: cfgRR } = await supabase
+      .from("prospeccao_config")
+      .select("respostas_rapidas")
+      .eq("org_id", org.id)
+      .maybeSingle();
+    const bruto = (cfgRR as { respostas_rapidas: { t: string; x: string }[] | null } | null)
+      ?.respostas_rapidas;
+    if (Array.isArray(bruto)) respostasRapidas = bruto.filter((r) => r?.t && r?.x);
+  }
+
   const leads: LeadFunil[] = lista.map((p) => ({
     id: p.id,
     nome: p.nome,
@@ -65,6 +78,7 @@ export default async function FunilPage() {
     etiqueta: p.etiqueta ?? null,
     status: p.status,
     local: p.local_busca,
+    lembrete: p.lembrete_em ?? null,
     resposta: respostas.get(p.id) ?? null,
   }));
 
@@ -89,7 +103,7 @@ export default async function FunilPage() {
         </Link>
       </div>
 
-      <Funil leads={leads} />
+      <Funil leads={leads} respostasRapidas={respostasRapidas} />
     </div>
   );
 }

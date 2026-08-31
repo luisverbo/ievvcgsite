@@ -5,6 +5,8 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
 import Busca from "./Busca";
 import BuscaNome from "./BuscaNome";
+import RespostasProntas from "./RespostasProntas";
+import Importar from "./Importar";
 import SeletorPesquisa from "./SeletorPesquisa";
 import Fila from "./Fila";
 import Vigia from "./Vigia";
@@ -13,6 +15,8 @@ import {
   capturarInstagram,
   etiquetarDoForm,
   excluirProspecto,
+  lembreteDoForm,
+  marcarLembrete,
   mudarEtiqueta,
   gerarSiteParaProspecto,
   mudarStatus,
@@ -105,7 +109,30 @@ export default async function ProspeccaoPage({
   const tagAtiva = (tag ?? "").trim().slice(0, 30);
   if (tagAtiva) q = q.eq("etiqueta", tagAtiva);
   const { data } = await q;
-  const lista = (data as ProspectoRow[] | null) ?? [];
+  let lista = (data as ProspectoRow[] | null) ?? [];
+
+  /*
+   * Lembrete vencido fura a fila: "me lembra dia 28" só funciona se, no dia
+   * 28, o lead estiver na PRIMEIRA dobra — no meio da lista é o mesmo que
+   * esquecido. O "hoje" é o de Brasília, não o do servidor.
+   */
+  const hojeBr = new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10);
+  const vencido = (p: ProspectoRow) => !!p.lembrete_em && p.lembrete_em <= hojeBr;
+  lista = [...lista.filter(vencido), ...lista.filter((p) => !vencido(p))];
+
+  // Respostas rápidas da conta — botões de copiar ao lado de quem respondeu.
+  // Consulta tolerante: antes da migração a coluna não existe e a lista fica vazia.
+  let respostasRapidas: { t: string; x: string }[] = [];
+  {
+    const { data: cfgRR } = await supabase
+      .from("prospeccao_config")
+      .select("respostas_rapidas")
+      .eq("org_id", org.id)
+      .maybeSingle();
+    const bruto = (cfgRR as { respostas_rapidas: { t: string; x: string }[] | null } | null)
+      ?.respostas_rapidas;
+    if (Array.isArray(bruto)) respostasRapidas = bruto.filter((r) => r?.t && r?.x);
+  }
 
   /*
    * As etiquetas EM USO viram chips de filtro. Consulta separada (e tolerante:
@@ -435,6 +462,9 @@ export default async function ProspeccaoPage({
       <div className={`anim-entrada d3 ${cardClass}`}>
         <h2 className="mb-4 text-lg font-bold">🔎 Buscar empresas</h2>
         <Busca agenteAtivo={agenteAtivo} temAgente={temAgente} />
+        <div className="mt-4">
+          <Importar />
+        </div>
       </div>
 
       <Fila tarefas={tarefas} />
@@ -674,6 +704,8 @@ export default async function ProspeccaoPage({
                         <p className="mt-1 line-clamp-2 whitespace-pre-line text-xs italic text-paper">
                           “{resp.texto}”
                         </p>
+                        {/* respondeu → os textos prontos ficam a um clique */}
+                        <RespostasProntas respostas={respostasRapidas} empresa={p.nome} />
                       </div>
                     );
                   })()}
@@ -742,6 +774,75 @@ export default async function ProspeccaoPage({
                         </button>
                       </form>
                     </details>
+
+                    {/*
+                      Lembrete: o follow-up MANUAL ("te chamo sexta") que todo
+                      vendedor combina e esquece. No dia, o lead fura a fila e
+                      o selo grita.
+                    */}
+                    {p.lembrete_em ? (
+                      <>
+                        <span
+                          className={`rounded-full border px-2.5 py-1 font-bold ${
+                            p.lembrete_em <= hojeBr
+                              ? "anim-pulso-ok border-danger/60 bg-danger/15 text-danger"
+                              : "border-brand-2/40 bg-brand/10 text-brand-2"
+                          }`}
+                        >
+                          ⏰{" "}
+                          {p.lembrete_em <= hojeBr
+                            ? "HOJE — você pediu para lembrar"
+                            : new Date(`${p.lembrete_em}T12:00:00`).toLocaleDateString("pt-BR", {
+                                day: "2-digit",
+                                month: "2-digit",
+                              })}
+                        </span>
+                        <form action={marcarLembrete.bind(null, p.id, null)}>
+                          <button
+                            type="submit"
+                            title="Tirar o lembrete"
+                            className="rounded-full border border-white/10 px-2 py-1 text-paper-dim transition hover:border-danger/50 hover:text-danger"
+                          >
+                            ✕
+                          </button>
+                        </form>
+                      </>
+                    ) : (
+                      <details className="relative">
+                        <summary className="cursor-pointer list-none rounded-full border border-white/10 px-2.5 py-1 text-paper-dim transition hover:border-brand-2/50 hover:text-brand-2 [&::-webkit-details-marker]:hidden">
+                          ⏰ lembrar
+                        </summary>
+                        <div className="absolute left-0 top-full z-20 mt-1 flex items-center gap-1 rounded-lg border border-white/15 bg-ink-2 p-1.5 shadow-xl">
+                          {[
+                            [1, "amanhã"],
+                            [3, "+3d"],
+                            [7, "+7d"],
+                          ].map(([d, rotulo]) => (
+                            <form key={d} action={marcarLembrete.bind(null, p.id, Number(d))}>
+                              <button
+                                type="submit"
+                                className="rounded-md border border-white/10 px-2 py-1 text-xs font-bold text-paper-dim transition hover:border-brand-2/50 hover:text-brand-2"
+                              >
+                                {rotulo}
+                              </button>
+                            </form>
+                          ))}
+                          <form action={lembreteDoForm.bind(null, p.id)} className="flex gap-1">
+                            <input
+                              type="date"
+                              name="data"
+                              className="rounded-md border border-white/10 bg-black/30 px-1.5 py-0.5 text-xs text-paper outline-none [color-scheme:dark]"
+                            />
+                            <button
+                              type="submit"
+                              className="rounded-md bg-brand px-2 py-1 text-xs font-bold text-white transition hover:bg-brand-2"
+                            >
+                              OK
+                            </button>
+                          </form>
+                        </div>
+                      </details>
+                    )}
                   </div>
 
                   {/* No modo Prospector as avaliações já são o número grande à esquerda. */}

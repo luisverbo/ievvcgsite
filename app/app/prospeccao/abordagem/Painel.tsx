@@ -14,6 +14,7 @@ import {
   salvarFechador,
   salvarFollowup,
   salvarOferta,
+  salvarRespostasRapidas,
   salvarResumo,
   type ConfigAbordagem,
   type EstadoAbordagem,
@@ -114,6 +115,10 @@ export default function Painel({
   const ofertaPropria = ofertaTipo === "propria";
   const [fupEstado, salvarFup, salvandoFup] = useActionState<EstadoAbordagem, FormData>(
     salvarFollowup,
+    undefined,
+  );
+  const [rrEstado, salvarRR, salvandoRR] = useActionState<EstadoAbordagem, FormData>(
+    salvarRespostasRapidas,
     undefined,
   );
   const [fupLigado, setFupLigado] = useState(config.followup_ligado);
@@ -675,6 +680,54 @@ export default function Painel({
         </div>
       </form>
 
+      {/* ------------------------ respostas rápidas ---------------------- */}
+      {/*
+        Os textos que o vendedor cola quando o lead responde. Viram botões de
+        copiar ao lado de cada resposta, na lista e no funil.
+      */}
+      <form action={salvarRR} className={`anim-entrada d2 ${cardClass}`}>
+        <h2 className="mb-1 text-lg font-bold">⚡ Respostas rápidas</h2>
+        <p className="mb-3 text-sm text-paper-dim">
+          O lead respondeu “quanto custa?” — em vez de digitar de novo, você clica e cola. Os
+          textos aparecem ao lado de quem respondeu, com{" "}
+          <code className="text-paper">{"{empresa}"}</code> trocado pelo nome real. Quem envia é
+          você: robô não conduz conversa.
+        </p>
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          {[0, 1, 2, 3].map((i) => {
+            const r = (config.respostas_rapidas ?? [])[i];
+            return (
+              <div key={i} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <input
+                  name={`rr_titulo_${i}`}
+                  defaultValue={r?.t ?? ""}
+                  placeholder={["💰 Preço", "📋 Como funciona", "📅 Agendar", "🙏 Obrigado"][i]}
+                  className={`${inputClass} w-full text-xs font-bold`}
+                />
+                <textarea
+                  name={`rr_texto_${i}`}
+                  defaultValue={r?.x ?? ""}
+                  rows={3}
+                  placeholder="O texto que será copiado…"
+                  className={`${inputClass} mt-1.5 w-full resize-y text-xs leading-relaxed`}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={salvandoRR}
+            className="rounded-lg bg-brand px-5 py-2 text-sm font-bold text-white transition hover:bg-brand-2 disabled:opacity-60"
+          >
+            {salvandoRR ? "Salvando…" : "Salvar respostas"}
+          </button>
+          {rrEstado?.error && <p className="text-sm text-danger">{rrEstado.error}</p>}
+          {rrEstado?.ok && <p className="text-sm text-ok">✅ {rrEstado.ok}</p>}
+        </div>
+      </form>
+
       {/* ------------------------- a mensagem --------------------------- */}
       <form action={salvarCfg} className={`anim-entrada d2 ${cardClass}`}>
         <h2 className="mb-1 text-lg font-bold">A mensagem</h2>
@@ -850,6 +903,47 @@ export default function Painel({
                   className={`${inputClass} w-20 text-center`}
                 />
                 <span className="text-sm text-paper-dim">dias sem resposta</span>
+              </div>
+
+              {/*
+                A cadência: 2ª e 3ª insistências, contadas a partir do toque
+                anterior. Nascem em 0 (desligadas) — três mensagens é escolha
+                consciente do dono, nunca padrão.
+              */}
+              <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                <p className="text-xs font-bold text-paper">
+                  Continuou em silêncio? Dá para insistir mais (com educação)
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-paper-dim">
+                  <span className="flex items-center gap-2">
+                    2ª mensagem:{" "}
+                    <input
+                      name="followup_dias_2"
+                      type="number"
+                      min={0}
+                      max={30}
+                      defaultValue={config.followup_dias_2 ?? 0}
+                      className={`${inputClass} w-16 text-center`}
+                    />{" "}
+                    dias depois da 1ª
+                  </span>
+                  <span className="flex items-center gap-2">
+                    3ª mensagem:{" "}
+                    <input
+                      name="followup_dias_3"
+                      type="number"
+                      min={0}
+                      max={30}
+                      defaultValue={config.followup_dias_3 ?? 0}
+                      className={`${inputClass} w-16 text-center`}
+                    />{" "}
+                    dias depois da 2ª
+                  </span>
+                </div>
+                <p className="mt-1.5 text-[11px] text-paper-dim">
+                  0 = desligada. Quem responder qualquer coisa, ou pedir para sair, sai da cadência
+                  na hora — sempre.
+                </p>
               </div>
 
               <div className="mt-4">

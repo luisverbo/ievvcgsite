@@ -3,6 +3,7 @@
 import { useMemo, useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { mudarStatus } from "../actions";
+import RespostasProntas from "../RespostasProntas";
 import type { StatusProspecto } from "@/lib/prospeccao/tipos";
 
 /*
@@ -29,6 +30,7 @@ export type LeadFunil = {
   etiqueta: string | null;
   status: StatusProspecto;
   local: string | null;
+  lembrete: string | null;
   resposta: string | null;
 };
 
@@ -46,7 +48,13 @@ function linkZap(telefone: string | null): string | null {
   return `https://wa.me/${d.startsWith("55") ? d : `55${d}`}`;
 }
 
-export default function Funil({ leads }: { leads: LeadFunil[] }) {
+export default function Funil({
+  leads,
+  respostasRapidas = [],
+}: {
+  leads: LeadFunil[];
+  respostasRapidas?: { t: string; x: string }[];
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [erro, setErro] = useState(false);
@@ -63,7 +71,14 @@ export default function Funil({ leads }: { leads: LeadFunil[] }) {
   const porColuna = useMemo(() => {
     const mapa = new Map<StatusProspecto, LeadFunil[]>();
     for (const c of COLUNAS) mapa.set(c.chave, []);
+    // Lembrete vencido sobe para o topo da coluna — é para isso que ele existe.
+    const hojeBr = new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10);
+    const venceu = (l: LeadFunil) => !!l.lembrete && l.lembrete <= hojeBr;
     for (const l of otimista) mapa.get(l.status)?.push(l);
+    for (const c of COLUNAS) {
+      const cards = mapa.get(c.chave)!;
+      mapa.set(c.chave, [...cards.filter(venceu), ...cards.filter((l) => !venceu(l))]);
+    }
     return mapa;
   }, [otimista]);
 
@@ -163,15 +178,37 @@ export default function Funil({ leads }: { leads: LeadFunil[] }) {
                         {l.avaliacoes ? ` · ${l.avaliacoes} aval.` : ""}
                       </p>
 
-                      {l.etiqueta && (
-                        <span className="mt-1.5 inline-block rounded-full border border-warn/40 bg-warn/10 px-2 py-0.5 text-[10px] font-bold text-warn">
-                          🏷️ {l.etiqueta}
-                        </span>
-                      )}
+                      <div className="flex flex-wrap gap-1">
+                        {l.lembrete && (
+                          <span
+                            className={`mt-1.5 inline-block rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                              l.lembrete <= new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10)
+                                ? "anim-pulso-ok border-danger/60 bg-danger/15 text-danger"
+                                : "border-brand-2/40 bg-brand/10 text-brand-2"
+                            }`}
+                          >
+                            ⏰{" "}
+                            {l.lembrete <= new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10)
+                              ? "hoje!"
+                              : new Date(`${l.lembrete}T12:00:00`).toLocaleDateString("pt-BR", {
+                                  day: "2-digit",
+                                  month: "2-digit",
+                                })}
+                          </span>
+                        )}
+                        {l.etiqueta && (
+                          <span className="mt-1.5 inline-block rounded-full border border-warn/40 bg-warn/10 px-2 py-0.5 text-[10px] font-bold text-warn">
+                            🏷️ {l.etiqueta}
+                          </span>
+                        )}
+                      </div>
                       {l.resposta && (
-                        <p className="mt-1.5 line-clamp-2 rounded-lg bg-ok/10 px-2 py-1.5 text-[11px] italic text-paper">
-                          “{l.resposta}”
-                        </p>
+                        <>
+                          <p className="mt-1.5 line-clamp-2 rounded-lg bg-ok/10 px-2 py-1.5 text-[11px] italic text-paper">
+                            “{l.resposta}”
+                          </p>
+                          <RespostasProntas respostas={respostasRapidas} empresa={l.nome} />
+                        </>
                       )}
 
                       <div className="mt-2 flex items-center gap-1.5">

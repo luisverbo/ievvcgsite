@@ -12,6 +12,7 @@ import { calcularPotencial, ehEnderecoSocial } from "@/lib/prospeccao/score";
 import { acharNicho, nichoLivreValido } from "@/lib/prospeccao/nichos";
 import { IG_FILA_MAX, IG_LIMITE_DIA } from "@/lib/prospeccao/instagram";
 import { montarBriefingDoProspecto } from "@/lib/prospeccao/briefing";
+import { lerPlanilha, idDaLinha } from "@/lib/prospeccao/importar";
 import { funcaoLigada } from "@/lib/painel/flags";
 import { codigoSeguro } from "@/lib/codigo";
 import type { ProspectoRow, StatusProspecto } from "@/lib/prospeccao/tipos";
@@ -148,6 +149,70 @@ export async function enfileirarBuscaGoogle(
   revalidatePath("/app/prospeccao");
   return {
     ok: "Busca na fila. O agente vai executar em instantes — acompanhe aqui embaixo.",
+  };
+}
+
+/*
+ * Importar a planilha que o vendedor JÁ tem.
+ *
+ * A lista dele (exportada de outro CRM, comprada, montada à mão) entra na
+ * mesma tabela e usa a mesma máquina de abordagem — sem redigitar nada.
+ * Mesmo upsert da busca: importar duas vezes atualiza, não duplica.
+ */
+export async function importarPlanilha(
+  _prev: BuscaState,
+  formData: FormData,
+): Promise<BuscaState> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const arquivo = formData.get("arquivo");
+  if (!(arquivo instanceof File) || arquivo.size === 0) {
+    return { error: "Escolha o arquivo .csv da sua planilha." };
+  }
+  if (arquivo.size > 2_000_000) {
+    return { error: "Arquivo grande demais (máx. 2 MB). Exporte só as colunas que importam." };
+  }
+
+  const lido = lerPlanilha(await arquivo.text());
+  if ("erro" in lido) return { error: lido.erro };
+
+  const linhas = lido.linhas.map((l) => ({
+    org_id: org.id,
+    fonte: "import",
+    fonte_id: idDaLinha(l),
+    nome: l.nome,
+    categoria: l.categoria,
+    endereco: l.endereco,
+    telefone: l.telefone,
+    local_busca: l.local,
+    /*
+     * Sem site para analisar, a linha entra neutra: situação desconhecida
+     * tratada como o padrão do banco e nota no meio da régua. No modo
+     * Prospector nada disso aparece; no Agência o dono pode gerar o site
+     * do lead e aí a análise real acontece.
+     */
+    situacao: "sem_nada",
+    pontuacao: 50,
+    eixos: {},
+    motivos: ["Importada da sua planilha"],
+  }));
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("prospeccao")
+    .upsert(linhas, { onConflict: "org_id,fonte,fonte_id", ignoreDuplicates: false });
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/prospeccao");
+  revalidatePath("/app/prospeccao/funil");
+  return {
+    ok:
+      `${linhas.length} empresas importadas.` +
+      (lido.semTelefone > 0
+        ? ` ${lido.semTelefone} vieram sem telefone — essas não entram na fila do WhatsApp.`
+        : ""),
   };
 }
 
@@ -290,11 +355,46 @@ export async function mudarEtiqueta(id: string, etiqueta: string | null) {
     .update({ etiqueta: limpa || null, updated_at: new Date().toISOString() })
     .eq("id", id);
   revalidatePath("/app/prospeccao");
+  revalidatePath("/app/prospeccao/funil");
 }
 
 // A versão para <form>: o texto vem do campo, o id vem no bind.
 export async function etiquetarDoForm(id: string, formData: FormData) {
   await mudarEtiqueta(id, String(formData.get("etiqueta") ?? ""));
+}
+
+/*
+ * "Me lembra dia X". O follow-up MANUAL que todo vendedor combina no
+ * WhatsApp ("te chamo sexta") e esquece — aqui vira selo ⏰ e o lead sobe
+ * para o topo no dia. dias=null limpa; data por extenso vem do formulário.
+ */
+export async function marcarLembrete(id: string, dias: number | null) {
+  if (!(await podeUsar("prospeccao"))) return;
+  // O "hoje" de quem usa é o de Brasília (UTC-3), não o do servidor em UTC.
+  const valor =
+    dias === null
+      ? null
+      : new Date(Date.now() - 3 * 3_600_000 + dias * 86_400_000).toISOString().slice(0, 10);
+  const supabase = await createClient();
+  await supabase
+    .from("prospeccao")
+    .update({ lembrete_em: valor, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  revalidatePath("/app/prospeccao");
+  revalidatePath("/app/prospeccao/funil");
+}
+
+export async function lembreteDoForm(id: string, formData: FormData) {
+  const data = String(formData.get("data") ?? "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return;
+  if (!(await podeUsar("prospeccao"))) return;
+  const supabase = await createClient();
+  await supabase
+    .from("prospeccao")
+    .update({ lembrete_em: data, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  revalidatePath("/app/prospeccao");
+  revalidatePath("/app/prospeccao/funil");
 }
 
 export async function mudarStatus(id: string, status: StatusProspecto) {

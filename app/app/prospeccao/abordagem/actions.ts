@@ -37,11 +37,15 @@ export type ConfigAbordagem = {
   briefing_msg: string | null;
   followup_ligado: boolean;
   followup_dias: number;
+  followup_dias_2?: number | null;
+  followup_dias_3?: number | null;
   followup_msg_modelo: string | null;
   // O que as mensagens vendem: 'site' (demonstração criada pela IA — o
   // padrão de sempre) ou 'propria' (modo Prospector: seguro, consórcio…).
   oferta_tipo?: "site" | "propria" | null;
   oferta_resumo?: string | null;
+  // Textos prontos para colar quando o lead responde ({t: título, x: texto}).
+  respostas_rapidas?: { t: string; x: string }[] | null;
 };
 
 export type MensagemRow = {
@@ -221,6 +225,9 @@ export async function salvarFollowup(
 
   const ligado = String(formData.get("followup_ligado") ?? "") === "1";
   const dias = Math.min(30, Math.max(1, Number(formData.get("followup_dias")) || 4));
+  // Etapas 2 e 3 da cadência: 0 = desligada. Contam a partir do toque anterior.
+  const dias2 = Math.min(30, Math.max(0, Number(formData.get("followup_dias_2")) || 0));
+  const dias3 = Math.min(30, Math.max(0, Number(formData.get("followup_dias_3")) || 0));
   const modelo = String(formData.get("followup_msg") ?? "").trim().slice(0, 900);
 
   if (ligado && modelo && !modelo.includes("{empresa}")) {
@@ -229,18 +236,42 @@ export async function salvarFollowup(
   if (ligado && dias < 2) {
     return { error: "Espere pelo menos 2 dias — insistir no dia seguinte irrita e derruba número." };
   }
+  if (ligado && ((dias2 > 0 && dias2 < 3) || (dias3 > 0 && dias3 < 3))) {
+    return { error: "As insistências seguintes pedem pelo menos 3 dias de espaço entre uma e outra." };
+  }
+  if (ligado && dias3 > 0 && dias2 === 0) {
+    return { error: "Ligue a 2ª mensagem antes da 3ª — não existe pular direto para a terceira insistência." };
+  }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("prospeccao_config").upsert(
+  let { error } = await supabase.from("prospeccao_config").upsert(
     {
       org_id: org.id,
       followup_ligado: ligado,
       followup_dias: dias,
+      followup_dias_2: dias2,
+      followup_dias_3: dias3,
       followup_msg_modelo: modelo || null,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "org_id" },
   );
+  // Migração da cadência pendente: salva o que já existia e avisa.
+  if (error && /followup_dias_2|followup_dias_3/.test(error.message)) {
+    if (dias2 > 0 || dias3 > 0) {
+      return { error: "Rode a migração do CRM no Supabase (2026-08-23_crm.sql) para ligar a 2ª e a 3ª mensagens." };
+    }
+    ({ error } = await supabase.from("prospeccao_config").upsert(
+      {
+        org_id: org.id,
+        followup_ligado: ligado,
+        followup_dias: dias,
+        followup_msg_modelo: modelo || null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "org_id" },
+    ));
+  }
   if (error) return { error: error.message };
 
   revalidatePath("/app/prospeccao/abordagem");
@@ -327,6 +358,49 @@ export async function salvarOferta(
         ? `Salvo! As mensagens agora oferecem: ${resumo}.`
         : "Salvo! As mensagens voltam a oferecer o site de demonstração.",
   };
+}
+
+/*
+ * Respostas rápidas: os textos que o vendedor cola quando o lead responde.
+ *
+ * "Quanto custa?" chega dez vezes por dia — a resposta boa já existe na
+ * cabeça do vendedor; aqui ela vira botão de copiar do lado do lead. Até 4
+ * pares título+texto, guardados na config da conta.
+ */
+export async function salvarRespostasRapidas(
+  _prev: EstadoAbordagem,
+  formData: FormData,
+): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const respostas: { t: string; x: string }[] = [];
+  for (let i = 0; i < 4; i++) {
+    const t = String(formData.get(`rr_titulo_${i}`) ?? "").trim().slice(0, 30);
+    const x = String(formData.get(`rr_texto_${i}`) ?? "").trim().slice(0, 600);
+    if (t && x) respostas.push({ t, x });
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("prospeccao_config").upsert(
+    {
+      org_id: org.id,
+      respostas_rapidas: respostas.length > 0 ? respostas : null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "org_id" },
+  );
+  if (error) {
+    return /respostas_rapidas/.test(error.message)
+      ? { error: "Rode a migração do CRM no Supabase (2026-08-23_crm.sql) primeiro." }
+      : { error: error.message };
+  }
+
+  revalidatePath("/app/prospeccao/abordagem");
+  revalidatePath("/app/prospeccao");
+  revalidatePath("/app/prospeccao/funil");
+  return { ok: respostas.length > 0 ? "Respostas salvas — aparecem ao lado de quem respondeu." : "Respostas removidas." };
 }
 
 /*
