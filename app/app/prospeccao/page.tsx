@@ -899,6 +899,28 @@ export default async function ProspeccaoPage({
 
                   <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
                     {p.telefone && <span className="text-paper">📞 {p.telefone}</span>}
+                    {/*
+                      O veredito do próprio WhatsApp, quando já existe. Só
+                      aparece depois que o agente tentou falar com o número —
+                      antes disso, mostrar qualquer coisa aqui seria palpite
+                      vestido de certeza.
+                    */}
+                    {p.whatsapp_ok === true && (
+                      <span
+                        title="O WhatsApp abriu a conversa com este número"
+                        className="rounded-full bg-ok/15 px-2 py-0.5 font-bold text-ok"
+                      >
+                        ✓ WhatsApp confirmado
+                      </span>
+                    )}
+                    {p.whatsapp_ok === false && (
+                      <span
+                        title="O WhatsApp disse que este número não está lá — não adianta insistir"
+                        className="rounded-full bg-danger/15 px-2 py-0.5 font-bold text-danger"
+                      >
+                        ✕ não tem WhatsApp
+                      </span>
+                    )}
                     {p.instagram && (
                       <a
                         href={p.instagram}

@@ -582,6 +582,42 @@ export async function POST(req: Request) {
 
       case "fim_mensagem": {
         const id = String(corpo.id);
+
+        /*
+         * O veredito do próprio WhatsApp sobre o número — a única validação
+         * que existe de verdade. Formato de celular é palpite; isto é resposta.
+         *
+         * O prospecto vem da linha da mensagem, e não do corpo do pedido, por
+         * dois motivos: no caminho do erro o agente nunca mandou esse campo, e
+         * agente velho continuaria sem mandar. Assim funciona nos dois.
+         *
+         * Falha em silêncio de propósito: enquanto a migração 2026-08-25 não
+         * roda, a coluna não existe — e não registrar isso não pode impedir a
+         * mensagem de ser marcada como enviada.
+         */
+        const anotarWhatsapp = async (existe: boolean) => {
+          const { data: linha } = await admin
+            .from("prospeccao_mensagens")
+            .select("prospecto_id")
+            .eq("id", id)
+            .eq("org_id", org)
+            .maybeSingle();
+          const alvo = (linha as { prospecto_id: string | null } | null)?.prospecto_id;
+          if (!alvo) return;
+          await admin
+            .from("prospeccao")
+            .update({ whatsapp_ok: existe })
+            .eq("id", alvo)
+            .eq("org_id", org);
+        };
+
+        if (corpo.ok) {
+          // A conversa abriu e a mensagem saiu: o número existe.
+          await anotarWhatsapp(true).catch(() => {});
+        } else if (corpo.semWhatsapp) {
+          await anotarWhatsapp(false).catch(() => {});
+        }
+
         if (corpo.ok) {
           await admin
             .from("prospeccao_mensagens")

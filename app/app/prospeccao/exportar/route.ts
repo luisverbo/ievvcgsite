@@ -89,16 +89,31 @@ export async function GET(request: Request) {
   /*
    * "Só quem tem WhatsApp" é o recorte mais pedido, e não é um capricho: uma
    * lista com fixos no meio faz o vendedor perder a manhã descobrindo, um a
-   * um, quais números não abrem conversa. telefoneWhatsapp() só aceita
-   * celular brasileiro (DDD + 9 + 8 dígitos), que é o teste certo.
+   * um, quais números não abrem conversa.
+   *
+   * Duas peneiras, nesta ordem:
+   *   1. o FORMATO do número — celular brasileiro (DDD + 9 + 8 dígitos). É um
+   *      palpite muito bom, mas é palpite: 9 em cada 10 celulares têm
+   *      WhatsApp, não 10 em 10.
+   *   2. o que o PRÓPRIO WhatsApp já respondeu (whatsapp_ok). Isso não é
+   *      palpite, é veredito — e é por isso que a lista fica mais limpa a
+   *      cada abordagem que o agente faz.
    */
-  if (soZap) lista = lista.filter((p) => telefoneWhatsapp(p.telefone));
+  if (soZap) {
+    lista = lista.filter((p) => telefoneWhatsapp(p.telefone) && p.whatsapp_ok !== false);
+  }
 
   const COLUNAS: Record<Formato, { cabecalho: string[]; linha: (p: ProspectoRow) => string[] }> = {
     /* Enxuta, para colar em ferramenta de importação: número na coluna A. */
     zap: {
-      cabecalho: ["whatsapp", "empresa"],
-      linha: (p) => [colunaNumero(telefoneWhatsapp(p.telefone) ?? ""), celula(p.nome)],
+      cabecalho: ["whatsapp", "empresa", "confirmado"],
+      linha: (p) => [
+        colunaNumero(telefoneWhatsapp(p.telefone) ?? ""),
+        celula(p.nome),
+        // "sim" = o WhatsApp já abriu conversa com este número um dia.
+        // Vazio = ainda não testamos; aqui o formato é que diz que é celular.
+        p.whatsapp_ok === true ? "sim" : "",
+      ],
     },
     /* Para quem vai falar com essa gente: quem é, como chamar, onde fica. */
     contatos: {

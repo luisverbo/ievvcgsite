@@ -21,7 +21,7 @@ const OPCOES: { valor: Formato; titulo: string; texto: string }[] = [
   {
     valor: "zap",
     titulo: "Só WhatsApp",
-    texto: "Duas colunas: o número (5511…) e o nome da empresa. É o formato que ferramenta de importação espera. Sai só quem tem WhatsApp.",
+    texto: "O número (5511…), o nome da empresa e se o WhatsApp já confirmou esse número. É o formato que ferramenta de importação espera.",
   },
   {
     valor: "contatos",
@@ -114,7 +114,7 @@ export default function Exportar({
               <span className="mt-0.5 block text-[11px] leading-snug text-paper-dim">
                 {zapForcado
                   ? "Já está incluído neste formato."
-                  : "Deixa de fora quem só tem telefone fixo — nesses o número não abre conversa."}
+                  : "Deixa de fora telefone fixo e os números que o WhatsApp já recusou quando o agente tentou falar com eles."}
               </span>
             </span>
           </label>

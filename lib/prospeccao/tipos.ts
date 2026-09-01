@@ -67,6 +67,12 @@ export type ProspectoRow = {
   avaliacoes: number | null;
   nota_media: number | null;
   fonte_url: string | null;
+  /*
+   * O que o WhatsApp respondeu quando tentamos falar com este número.
+   * null = nunca tentamos (só temos o palpite pelo formato do telefone).
+   * Ausente antes da migração 2026-08-25.
+   */
+  whatsapp_ok?: boolean | null;
   ig_nome: string | null;
   ig_bio: string | null;
   ig_seguidores: number | null;
