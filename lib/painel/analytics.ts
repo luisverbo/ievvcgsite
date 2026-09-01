@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // Agregações das métricas de um site (visitas, cliques, origens, horários,
 // mapa de calor de rolagem). Aceita filtro por página (path).
@@ -84,8 +85,17 @@ export async function getMetricasSite(
   siteId: string,
   intervalo: { desde: Date; ate: Date },
   filtroPath?: string,
+  /*
+   * Lê com o service role em vez da sessão do usuário.
+   *
+   * Existe por causa das NOSSAS landings (/ e /prospector): os eventos delas
+   * ficam sob uma organização reservada, da qual ninguém é membro — então a
+   * RLS, corretamente, não deixa nenhuma sessão ler. Quem chama com isto
+   * ligado é a tela de métricas, e só depois de confirmar ehAdmin().
+   */
+  usarAdmin = false,
 ): Promise<MetricasSite> {
-  const supabase = await createClient();
+  const supabase = usarAdmin ? createAdminClient() : await createClient();
   const desdeISO = intervalo.desde.toISOString();
   const ateISO = intervalo.ate.toISOString();
 

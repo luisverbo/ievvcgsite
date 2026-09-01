@@ -3,6 +3,8 @@ import { precoEmReais } from "@/lib/pagamentos/planos";
 import { videoDaLanding } from "@/lib/landing";
 import { pixelDasVendas } from "@/lib/vendas-pixel";
 import Pixel, { PixelCheckout } from "@/components/vendas/Pixel";
+import Analytics from "@/components/site/Analytics";
+import { ORG_VENDAS, PAGINA_VENDAS } from "@/lib/vendas-metricas";
 import Robo from "@/components/painel/Robo";
 
 /*
@@ -200,6 +202,13 @@ export default async function ProspectorPage() {
     <div className="pv min-h-screen overflow-x-hidden bg-[#f7f9fe] text-[#1a1c22]">
       <Pixel pixel={pixel} />
       <PixelCheckout />
+      {/*
+        As NOSSAS métricas: visita, de onde veio, qual botão foi clicado,
+        até onde a pessoa rolou e onde ela desistiu. É o que diz qual
+        bloco da oferta está segurando e qual está perdendo gente — e o
+        pixel do anúncio não conta isso, ele só conta o que o Meta quer.
+      */}
+      <Analytics orgId={ORG_VENDAS} siteId={PAGINA_VENDAS.prospector} />
       {/* Os efeitos da página, todos em CSS. Prefixo pv- para não vazar. */}
       <style>{`
         .pv { scroll-behavior: smooth; --g-azul:#4285F4; --g-verm:#EA4335; --g-amar:#FBBC05; --g-verde:#34A853; --wa:#25D366; }
@@ -269,6 +278,7 @@ export default async function ProspectorPage() {
               venda de quem só queria saber o valor.
             */}
             <Link
+              data-track="Topo · Ver preço"
               href="#preco"
               className="rounded-full bg-[#25D366] px-5 py-2.5 text-sm font-bold text-white shadow-[0_8px_24px_-8px_rgba(37,211,102,.7)] transition hover:-translate-y-0.5 hover:brightness-105"
             >
@@ -300,6 +310,7 @@ export default async function ProspectorPage() {
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-4">
                 <Link
+                  data-track="Hero · Quero minha lista"
                   href="#preco"
                   className="rounded-full bg-[#25D366] px-8 py-4 text-base font-bold text-white shadow-[0_14px_36px_-10px_rgba(37,211,102,.8)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-lg"
                 >
@@ -395,6 +406,7 @@ export default async function ProspectorPage() {
               </div>
               <p className="mt-4 text-center">
                 <Link
+                  data-track="Demo · Quero usar hoje"
                   href="#preco"
                   className="inline-block rounded-full bg-[#25D366] px-7 py-3 text-base font-bold text-white shadow-[0_12px_32px_-10px_rgba(37,211,102,.8)] transition hover:-translate-y-0.5 hover:brightness-105"
                 >
@@ -889,6 +901,7 @@ export default async function ProspectorPage() {
                   ))}
                 </ul>
                 <Link
+                  data-track="Preço · Assinar"
                   href="/assinar/prospector"
                   className="mt-8 block rounded-full bg-[#25D366] px-8 py-4 text-lg font-bold text-white shadow-[0_14px_36px_-10px_rgba(37,211,102,.8)] transition hover:-translate-y-0.5 hover:brightness-105"
                 >
@@ -1018,6 +1031,7 @@ export default async function ProspectorPage() {
               resto você acompanha pelo painel — com o café na mão.
             </p>
             <Link
+              data-track="Rodapé · Assinar"
               href="/assinar/prospector"
               className="mt-8 inline-block rounded-full bg-white px-9 py-4 text-lg font-extrabold text-[#1a1c22] shadow-2xl transition hover:-translate-y-0.5"
             >

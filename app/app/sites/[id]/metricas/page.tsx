@@ -9,6 +9,8 @@ import {
   type LinhaContagem,
 } from "@/lib/painel/analytics";
 import { cardClass } from "@/components/painel/ui";
+import { NOME_LANDING } from "@/lib/vendas-metricas";
+import { ehAdmin } from "@/lib/painel/admin";
 
 const PRESETS = [
   { chave: "hoje", rotulo: "Hoje" },
@@ -277,10 +279,22 @@ export default async function MetricasPage({
   const intervalo = resolverIntervalo(p, de, ate);
   const numDias = Math.max(1, Math.round((intervalo.ate.getTime() - intervalo.desde.getTime()) / 86_400_000));
 
-  // Sites normais e páginas do construtor com IA compartilham esta tela: os
-  // eventos vão para a mesma tabela, mudando só de qual registro vem o nome.
-  let site = await getSite(id);
-  let voltarPara = site ? `/app/sites/${site.id}` : "";
+  /*
+   * Três donos para a MESMA tela: site de blocos, página de IA e — desde
+   * agora — as nossas próprias páginas de venda. Os eventos dos três vão
+   * para a mesma tabela, então só muda de onde sai o nome.
+   *
+   * Reaproveitar esta tela em vez de escrever outra não é economia: é o que
+   * garante que o relatório da MINHA landing tenha exatamente o mesmo mapa
+   * de calor e os mesmos cruzamentos que o do cliente — sem duas versões
+   * para manter em dia.
+   */
+  const landing = NOME_LANDING[id];
+  const admin = landing ? await ehAdmin() : false;
+  if (landing && !admin) notFound();
+
+  let site = landing ? ({ id, nome: landing.nome } as { id: string; nome: string }) : await getSite(id);
+  let voltarPara = landing ? "/app/admin" : site ? `/app/sites/${site.id}` : "";
   if (!site) {
     const supabase = await createClient();
     const { data } = await supabase
@@ -294,7 +308,14 @@ export default async function MetricasPage({
     voltarPara = `/app/ia/${ia.id}`;
   }
 
-  const m = await getMetricasSite(site.id, { desde: intervalo.desde, ate: intervalo.ate }, filtroPagina);
+  // As landings vivem numa organização reservada, sem membros: a leitura só
+  // passa pelo service role — e só depois do ehAdmin() lá em cima.
+  const m = await getMetricasSite(
+    site.id,
+    { desde: intervalo.desde, ate: intervalo.ate },
+    filtroPagina,
+    Boolean(landing),
+  );
   const urlBase = `/app/sites/${site.id}/metricas`;
 
   // Link de um preset, preservando o filtro de página atual.
@@ -325,7 +346,9 @@ export default async function MetricasPage({
     { rotulo: "Visitas", valor: m.visitas },
     { rotulo: "Cliques em botões", valor: m.cliques },
     { rotulo: "Taxa de clique", valor: `${m.taxaClique}%` },
-    filtroPagina
+    // "Leads" é o formulário do site do cliente; a nossa landing não tem um —
+    // ali o número que importa é quanto tempo a pessoa aguentou a oferta.
+    filtroPagina || landing
       ? { rotulo: "Tempo médio na página", valor: m.tempoMedio != null ? formatarTempo(m.tempoMedio) : "—" }
       : { rotulo: "Leads", valor: m.leads },
   ];

@@ -18,6 +18,8 @@ import { precoEmReais } from "@/lib/pagamentos/planos";
 import { videoDaLanding } from "@/lib/landing";
 import { pixelDasVendas } from "@/lib/vendas-pixel";
 import Pixel, { PixelCheckout } from "@/components/vendas/Pixel";
+import Analytics from "@/components/site/Analytics";
+import { ORG_VENDAS, PAGINA_VENDAS } from "@/lib/vendas-metricas";
 import { TELAS } from "@/components/vendas/Telas";
 
 /*
@@ -86,6 +88,13 @@ export default async function Home() {
     <div className="overflow-x-hidden">
       <Pixel pixel={pixel} />
       <PixelCheckout />
+      {/*
+        As NOSSAS métricas: visita, de onde veio, qual botão foi clicado,
+        até onde a pessoa rolou e onde ela desistiu. É o que diz qual
+        bloco da oferta está segurando e qual está perdendo gente — e o
+        pixel do anúncio não conta isso, ele só conta o que o Meta quer.
+      */}
+      <Analytics orgId={ORG_VENDAS} siteId={PAGINA_VENDAS.principal} />
       {/* ---------------------------------------------------------------- */}
       {/* aviso do topo                                                     */}
       {/* ---------------------------------------------------------------- */}
@@ -602,6 +611,7 @@ export default async function Home() {
 
               <div className="mt-8">
                 <Link
+                  data-track="Preço · Assinar Pro"
                   href="/assinar/pro"
                   className="flex w-full items-center justify-center rounded-full border border-white/20 px-6 py-4 text-base font-bold text-paper transition hover:border-brand-2 hover:text-brand-2"
                 >
@@ -641,6 +651,7 @@ export default async function Home() {
 
               <div className="mt-8">
                 <Link
+                  data-track="Preço · Assinar Agência"
                   href="/assinar/agencia"
                   className="flex w-full items-center justify-center rounded-full bg-brand px-6 py-4 text-base font-bold text-white shadow-[0_10px_40px_-12px_rgba(108,92,231,0.9)] transition hover:-translate-y-0.5 hover:bg-brand-2"
                 >

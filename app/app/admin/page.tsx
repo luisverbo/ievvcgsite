@@ -10,6 +10,7 @@ import { CHAVES_VIDEO } from "@/lib/landing";
 import FuncoesNovas from "./FuncoesNovas";
 import PixelVendas from "./PixelVendas";
 import { CHAVES_PIXEL } from "@/lib/vendas-pixel";
+import { NOME_LANDING } from "@/lib/vendas-metricas";
 import AjusteCredito from "./AjusteCredito";
 import ChaveForm from "./ebooks/ChaveForm";
 import { getAnthropicKey } from "@/lib/ia/anthropic";
@@ -171,6 +172,31 @@ export default async function AdminPage() {
         titulo="🎬 Vídeo da página do Prospector"
         descricao="O vídeo da landing /prospector — a página que você anuncia para vendedores. Cole o link do YouTube; vazio e salvar remove."
       />
+
+      {/*
+        As métricas das NOSSAS landings.
+        O pixel conta o que o Meta quer contar (visita, checkout). Isto conta
+        o que decide a OFERTA: de onde a pessoa veio, em qual botão ela
+        clicou, até onde rolou e em que bloco desistiu.
+      */}
+      <div className={cardClass}>
+        <h2 className="text-lg font-bold">📊 Métricas das páginas de venda</h2>
+        <p className="mt-2 text-sm text-paper-dim">
+          Visitas, origem do tráfego, cliques por botão, tempo na página e o mapa de calor de
+          rolagem — onde a pessoa parou de ler. É daqui que sai o que ajustar na oferta.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {Object.entries(NOME_LANDING).map(([id, l]) => (
+            <Link
+              key={id}
+              href={`/app/sites/${id}/metricas?p=30`}
+              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-bold text-paper transition hover:border-brand-2 hover:text-brand-2"
+            >
+              {l.nome} <span className="font-mono text-xs text-paper-dim">{l.caminho}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
 
       <PixelVendas
         meta={valorDe(CHAVES_PIXEL.meta)}

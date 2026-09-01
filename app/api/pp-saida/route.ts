@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ehPaginaDeVendas } from "@/lib/vendas-metricas";
 
 // Recebe o beacon de saída das páginas publicadas (sendBeacon não permite
 // headers, então o insert anônimo é feito aqui no servidor — a RLS permite
@@ -46,12 +47,14 @@ export async function POST(req: Request) {
    * admin client porque essas tabelas não têm (nem devem ter) leitura
    * pública; o INSERT continua saindo pela anon key, dentro da RLS.
    */
-  const admin = createAdminClient();
-  const [ia, blocos] = await Promise.all([
-    admin.from("sites_ia").select("id").eq("id", siteId).eq("org_id", orgId).maybeSingle(),
-    admin.from("sites").select("id").eq("id", siteId).eq("org_id", orgId).maybeSingle(),
-  ]);
-  if (!ia.data && !blocos.data) return NextResponse.json({ ok: false }, { status: 404 });
+  if (!ehPaginaDeVendas(siteId, orgId)) {
+    const admin = createAdminClient();
+    const [ia, blocos] = await Promise.all([
+      admin.from("sites_ia").select("id").eq("id", siteId).eq("org_id", orgId).maybeSingle(),
+      admin.from("sites").select("id").eq("id", siteId).eq("org_id", orgId).maybeSingle(),
+    ]);
+    if (!ia.data && !blocos.data) return NextResponse.json({ ok: false }, { status: 404 });
+  }
 
   await supabase.from("analytics_eventos").insert({
     org_id: orgId,
