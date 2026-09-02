@@ -364,7 +364,8 @@ export async function gerarLinkAcesso(
   if (!email || !email.includes("@")) return { error: "Informe o e-mail do cliente." };
 
   const { linkDeAcesso } = await import("@/lib/painel/acesso");
-  const r = await linkDeAcesso(email);
+  // No Admin sim: é o caminho de quem pagou por fora e nunca se cadastrou.
+  const r = await linkDeAcesso(email, { criarSeNaoExistir: true });
   if ("erro" in r) return { error: r.erro };
   const { link, ehProspector } = r.acesso;
 

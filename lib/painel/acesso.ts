@@ -32,6 +32,17 @@ function hostProspector(): string {
 
 export async function linkDeAcesso(
   email: string,
+  opcoes: {
+    /*
+     * Criar a conta quando o e-mail não existe.
+     *
+     * LIGADO no Admin: cobre quem pagou por fora e nunca se cadastrou.
+     * DESLIGADO no "esqueci minha senha", e isso não é detalhe — com ele
+     * ligado, qualquer visitante criaria contas na nossa base digitando
+     * endereços inventados naquele formulário.
+     */
+    criarSeNaoExistir?: boolean;
+  } = {},
 ): Promise<{ acesso: Acesso } | { erro: string }> {
   const alvo = email.trim().toLowerCase();
   if (!alvo || !alvo.includes("@")) return { erro: "E-mail inválido." };
@@ -39,10 +50,10 @@ export async function linkDeAcesso(
   const admin = createAdminClient();
 
   /*
-   * "recovery" para quem já tem conta; "invite" cria a conta na hora para
-   * quem pagou sem nunca ter se cadastrado. A mensagem do Supabase para
-   * usuário inexistente mudou de texto entre versões, então o segundo caminho
-   * é tentado sempre que o primeiro falha — e é ele que dá o erro final.
+   * "recovery" para quem já tem conta; "invite" cria a conta na hora. A
+   * mensagem do Supabase para usuário inexistente mudou de texto entre
+   * versões, então o segundo caminho é tentado sempre que o primeiro falha —
+   * e é ele que dá o erro final.
    */
   let props: { hashed_token?: string; verification_type?: string } | null = null;
   let usuarioId: string | null = null;
@@ -51,6 +62,8 @@ export async function linkDeAcesso(
   if (!tentativa.error && tentativa.data?.properties) {
     props = tentativa.data.properties;
     usuarioId = tentativa.data.user?.id ?? null;
+  } else if (!opcoes.criarSeNaoExistir) {
+    return { erro: tentativa.error?.message ?? "Não há conta com esse e-mail." };
   } else {
     const convite = await admin.auth.admin.generateLink({ type: "invite", email: alvo });
     if (convite.error || !convite.data?.properties) {
