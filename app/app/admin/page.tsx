@@ -180,6 +180,13 @@ export default async function AdminPage() {
         descricao="O vídeo da landing /prospector — a página que você anuncia para vendedores. Cole o link do YouTube; vazio e salvar remove."
       />
 
+      <VideoLanding
+        atual={valorDe(CHAVES_VIDEO.tutorial)}
+        qual="tutorial"
+        titulo="🎓 Vídeo do tutorial (dentro do painel)"
+        descricao="Este não é de venda: é o vídeo que o CLIENTE já pagante vê na aba Tutorial, mostrando a instalação do agente passo a passo. Aparece no topo da tela, antes dos passos escritos. Vazio e salvar remove — o passo a passo em texto continua lá."
+      />
+
       {/*
         As métricas das NOSSAS landings.
         O pixel conta o que o Meta quer contar (visita, checkout). Isto conta

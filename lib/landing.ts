@@ -35,13 +35,18 @@ export function idDoYoutube(bruto: string): string | null {
 }
 
 /*
- * Uma chave por página de vendas: o vídeo do criador de sites e o do
- * Prospector são produtos diferentes, para públicos diferentes — cada um
- * com o seu link, trocados de forma independente no Admin.
+ * Uma chave por vídeo. O do criador de sites e o do Prospector são produtos
+ * diferentes, para públicos diferentes — cada um com o seu link, trocados de
+ * forma independente no Admin.
+ *
+ * O `tutorial` não é de venda: é o vídeo que o CLIENTE já pagante vê dentro
+ * do painel, na tela "Comece aqui", mostrando a instalação do agente. Mora
+ * aqui pelo mesmo motivo dos outros — trocar o link não pode exigir deploy.
  */
 export const CHAVES_VIDEO = {
   principal: "landing_video_url",
   prospector: "landing_prospector_video_url",
+  tutorial: "tutorial_video_url",
 } as const;
 
 export type LandingComVideo = keyof typeof CHAVES_VIDEO;

@@ -17,8 +17,11 @@ export default function VideoLanding({
   descricao = "Cole o link de um vídeo do YouTube e ele aparece no topo da landing page, logo abaixo do título. Deixe vazio e salve para tirar. Perfeito para testar: uma semana com vídeo, outra sem, e você compara as assinaturas.",
 }: {
   atual: string;
-  /* Qual página de vendas: a principal (criador de sites) ou a do Prospector. */
-  qual?: "principal" | "prospector";
+  /*
+   * Qual vídeo: a landing principal, a do Prospector, ou o tutorial que o
+   * cliente já pagante vê dentro do painel.
+   */
+  qual?: "principal" | "prospector" | "tutorial";
   titulo?: string;
   descricao?: string;
 }) {

@@ -81,6 +81,18 @@ export default async function PainelLayout({ children }: { children: React.React
                 Prospecção 🎯
               </Link>
             )}
+            {/*
+              O tutorial fica FIXO no menu, e não escondido dentro da
+              prospecção. Quem precisa dele é quem ainda não instalou o
+              agente — ou seja, alguém que ainda não sabe onde as coisas
+              ficam. Um link que só aparece "quando falta instalar" some
+              justamente quando a pessoa vai reinstalar noutra máquina.
+            */}
+            {temProspeccao && (
+              <Link href="/app/comecar" className={linkClass}>
+                Tutorial 🎓
+              </Link>
+            )}
             {/* Créditos de IA não existem no Prospector — nada ali gasta. */}
             {!prospector && (
               <Link href="/app/creditos" className={linkClass}>

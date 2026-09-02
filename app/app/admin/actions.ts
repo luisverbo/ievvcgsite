@@ -164,14 +164,18 @@ export async function salvarVideoLanding(
   const { idDoYoutube, CHAVES_VIDEO } = await import("@/lib/landing");
 
   /*
-   * Qual das duas páginas de vendas. O campo escondido do formulário diz —
-   * e a chave sai do catálogo, nunca do que veio do navegador, senão daria
-   * para escrever em qualquer linha de config_sistema por aqui.
+   * Qual vídeo. O campo escondido do formulário diz — e a chave sai deste
+   * catálogo, nunca do que veio do navegador, senão daria para escrever em
+   * qualquer linha de config_sistema por aqui.
    */
-  const qual = String(formData.get("qual") ?? "principal");
-  const chave = qual === "prospector" ? CHAVES_VIDEO.prospector : CHAVES_VIDEO.principal;
-  const caminho = qual === "prospector" ? "/prospector" : "/";
-  const onde = qual === "prospector" ? "do Prospector" : "de vendas";
+  const CATALOGO = {
+    principal: { chave: CHAVES_VIDEO.principal, caminho: "/", onde: "de vendas" },
+    prospector: { chave: CHAVES_VIDEO.prospector, caminho: "/prospector", onde: "do Prospector" },
+    tutorial: { chave: CHAVES_VIDEO.tutorial, caminho: "/app/comecar", onde: "do tutorial" },
+  } as const;
+  const pedido = String(formData.get("qual") ?? "principal");
+  const alvo = CATALOGO[pedido as keyof typeof CATALOGO] ?? CATALOGO.principal;
+  const { chave, caminho, onde } = alvo;
 
   const bruto = String(formData.get("video_url") ?? "").trim();
   const admin = createAdminClient();

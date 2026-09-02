@@ -8,6 +8,7 @@ import Tutorial from "@/components/painel/Tutorial";
 import Robo from "@/components/painel/Robo";
 import Vigia from "../prospeccao/Vigia";
 import { NAO_PRECISA, DEPOIS_DISSO } from "@/lib/painel/tutorial";
+import { videoDaLanding } from "@/lib/landing";
 
 export const dynamic = "force-dynamic";
 
@@ -34,9 +35,10 @@ export default async function ComecarPage() {
   if (!org) notFound();
 
   const supabase = await createClient();
-  const [{ data: agentesRaw }, prospector] = await Promise.all([
+  const [{ data: agentesRaw }, prospector, video] = await Promise.all([
     supabase.from("agentes").select("ultimo_contato").eq("org_id", org.id),
     modoProspector(),
+    videoDaLanding("tutorial"),
   ]);
   const agentes = (agentesRaw as { ultimo_contato: string | null }[] | null) ?? [];
   const ativo = agentes.some((a) => online(a.ultimo_contato));
@@ -109,6 +111,32 @@ export default async function ComecarPage() {
               um número de robô que ninguém responde.
             </p>
           </div>
+        </div>
+      )}
+
+      {/*
+        O vídeo, quando existe — ANTES dos passos escritos.
+        Muita gente prefere ver alguém fazendo a instalar do que ler; quem
+        prefere ler tem o passo a passo logo abaixo, completo. Um não
+        substitui o outro: o texto é o que a pessoa consulta no meio da
+        instalação, com a janela preta aberta do lado.
+      */}
+      {video && (
+        <div className="anim-entrada overflow-hidden rounded-2xl border border-white/10 bg-ink-2">
+          <div className="relative w-full" style={{ aspectRatio: "16 / 9" }}>
+            <iframe
+              src={video.embedUrl}
+              title="Como instalar o agente"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              loading="lazy"
+              className="absolute inset-0 h-full w-full"
+            />
+          </div>
+          <p className="px-4 py-3 text-xs text-paper-dim">
+            🎥 Assista uma vez e faça junto — abaixo estão os mesmos passos escritos, para consultar
+            durante a instalação.
+          </p>
         </div>
       )}
 
