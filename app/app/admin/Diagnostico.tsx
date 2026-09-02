@@ -27,6 +27,18 @@ const VARIAVEIS: Item[] = [
     obrigatoria: true,
   },
   {
+    chave: "RESEND_API_KEY",
+    rotulo: "Resend · chave da API",
+    para: "mandar o e-mail de boas-vindas depois da compra",
+    obrigatoria: false,
+  },
+  {
+    chave: "EMAIL_REMETENTE",
+    rotulo: "Resend · remetente",
+    para: "de quem sai o e-mail (precisa ser do domínio verificado)",
+    obrigatoria: false,
+  },
+  {
     chave: "STRIPE_SECRET_KEY",
     rotulo: "Stripe · chave secreta",
     para: "cobrar no cartão",
@@ -102,6 +114,8 @@ export default function Diagnostico() {
   const valores: Record<string, string | undefined> = {
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     APP_CRYPTO_KEY: process.env.APP_CRYPTO_KEY,
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    EMAIL_REMETENTE: process.env.EMAIL_REMETENTE,
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     STRIPE_PRICE_AGENCIA: process.env.STRIPE_PRICE_AGENCIA,
     STRIPE_PRICE_PRO: process.env.STRIPE_PRICE_PRO,

@@ -44,7 +44,8 @@ export default function LinkAcesso({ emails }: { emails: string[] }) {
         aqui mesmo.
       </p>
 
-      <form action={acao} className="mt-4 flex flex-col gap-2 sm:flex-row">
+      <form action={acao} className="mt-4 flex flex-col gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
         <input
           name="email"
           type="email"
@@ -68,6 +69,18 @@ export default function LinkAcesso({ emails }: { emails: string[] }) {
         >
           {pendente ? "Gerando…" : "Gerar link"}
         </button>
+        </div>
+
+        {/*
+          Desligado por padrão. Quando alguém usa esta tela, quase sempre é
+          porque o e-mail JÁ falhou uma vez (caiu no spam, o cliente digitou
+          errado) — insistir no mesmo canal seria repetir o erro. O WhatsApp é
+          onde ele responde; o e-mail fica para quando você quer registro.
+        */}
+        <label className="flex cursor-pointer items-center gap-2 text-xs text-paper-dim">
+          <input type="checkbox" name="mandar_email" className="accent-current" />
+          <span>Mandar também por e-mail</span>
+        </label>
       </form>
 
       {estado?.error && (

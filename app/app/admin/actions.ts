@@ -363,73 +363,10 @@ export async function gerarLinkAcesso(
     .toLowerCase();
   if (!email || !email.includes("@")) return { error: "Informe o e-mail do cliente." };
 
-  const admin = createAdminClient();
-
-  /*
-   * "recovery" para quem já tem conta; "invite" cria a conta na hora para
-   * quem pagou sem nunca ter se cadastrado. A mensagem do Supabase para
-   * usuário inexistente mudou de texto entre versões, então o segundo
-   * caminho é tentado sempre que o primeiro falha — e é ele que dá a
-   * mensagem final de erro, se também falhar.
-   */
-  let props: { hashed_token?: string; verification_type?: string } | null = null;
-  let usuarioId: string | null = null;
-
-  const tentativa = await admin.auth.admin.generateLink({ type: "recovery", email });
-  if (!tentativa.error && tentativa.data?.properties) {
-    props = tentativa.data.properties;
-    usuarioId = tentativa.data.user?.id ?? null;
-  } else {
-    const convite = await admin.auth.admin.generateLink({ type: "invite", email });
-    if (convite.error || !convite.data?.properties) {
-      return { error: convite.error?.message ?? "Não consegui gerar o link para esse e-mail." };
-    }
-    props = convite.data.properties;
-    usuarioId = convite.data.user?.id ?? null;
-  }
-
-  const token = props?.hashed_token;
-  if (!token) return { error: "O Supabase não devolveu o token do link." };
-  const tipo = props?.verification_type === "invite" ? "invite" : "recovery";
-
-  /*
-   * Em qual endereço mandar o cliente.
-   *
-   * Cliente do Prospector tem que cair no domínio do Prospector: ele comprou
-   * aquilo, e ver outra marca na tela de senha é exatamente o momento em que
-   * a pessoa desconfia de golpe.
-   */
-  let base = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
-  let ehProspector = false;
-  if (usuarioId) {
-    const { data: vinculo } = await admin
-      .from("membros")
-      .select("org_id")
-      .eq("user_id", usuarioId)
-      .limit(1)
-      .maybeSingle();
-    const orgId = (vinculo as { org_id: string } | null)?.org_id;
-    if (orgId) {
-      const { data: orgRow } = await admin
-        .from("organizacoes")
-        .select("plano")
-        .eq("id", orgId)
-        .maybeSingle();
-      ehProspector = (orgRow as { plano: string } | null)?.plano === "prospector";
-    }
-  }
-  const hostProspector = (process.env.NEXT_PUBLIC_HOST_PROSPECTOR ?? "")
-    .toLowerCase()
-    .trim()
-    .replace(/^https?:\/\//, "")
-    .replace(/\/.*$/, "")
-    .split(":")[0];
-  if (ehProspector && hostProspector) base = `https://${hostProspector}`;
-  if (!base) return { error: "Falta NEXT_PUBLIC_APP_URL na Vercel — sem ela não sei montar o link." };
-
-  const link = `${base}/auth/confirmar?token_hash=${encodeURIComponent(
-    token,
-  )}&type=${tipo}&proximo=nova-senha`;
+  const { linkDeAcesso } = await import("@/lib/painel/acesso");
+  const r = await linkDeAcesso(email);
+  if ("erro" in r) return { error: r.erro };
+  const { link, ehProspector } = r.acesso;
 
   const produto = ehProspector ? "Prospector" : "PáginaPro";
   const recado =
@@ -437,8 +374,36 @@ export async function gerarLinkAcesso(
     `Use este link para criar sua senha e entrar:\n\n${link}\n\n` +
     `O link é só seu e vale por 1 hora — se expirar, me chama que eu gero outro.`;
 
+  /*
+   * Mandar por e-mail é OPCIONAL, e desligado por padrão.
+   *
+   * Quando isto é usado, quase sempre é porque o e-mail já falhou uma vez
+   * (foi para o spam, o cliente digitou errado) — insistir no mesmo canal
+   * seria repetir o erro. O WhatsApp é onde ele responde; o e-mail fica para
+   * quando você QUER deixar registro.
+   */
+  let aviso = "";
+  if (formData.get("mandar_email") === "on") {
+    const { enviarEmail, emailConfigurado } = await import("@/lib/email/enviar");
+    if (!emailConfigurado()) {
+      aviso = " (não mandei por e-mail: falta RESEND_API_KEY/EMAIL_REMETENTE na Vercel)";
+    } else {
+      const env = await enviarEmail({
+        para: email,
+        assunto: `Seu acesso ao ${produto}`,
+        texto: recado,
+        html:
+          `<p>Oi! Aqui é do <b>${produto}</b>. Sua assinatura já está ativa.</p>` +
+          `<p><a href="${link}">Clique aqui para criar sua senha e entrar</a></p>` +
+          `<p style="word-break:break-all;font-size:12px;color:#666">${link}</p>` +
+          `<p style="font-size:12px;color:#666">O link é só seu e vale por 1 hora.</p>`,
+      });
+      aviso = env.ok ? " E-mail enviado também." : ` (o e-mail não saiu: ${env.erro})`;
+    }
+  }
+
   return {
-    ok: `Link pronto para ${email}. Ele cria a senha e já entra no painel.`,
+    ok: `Link pronto para ${email}. Ele cria a senha e já entra no painel.${aviso}`,
     link,
     recado,
     email,

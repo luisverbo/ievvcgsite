@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { periodoDe, fimDoPeriodo } from "@/lib/pagamentos/estado";
 import { cotaDoPlano } from "@/lib/painel/permissoes";
 import { planoDaMetadata, planoDoPriceId, type PlanoVendido } from "@/lib/pagamentos/planos";
+import { mandarBoasVindas } from "@/lib/email/boas-vindas";
 
 /*
  * Qual plano esta fatura realmente cobrou.
@@ -206,10 +207,44 @@ export async function POST(req: Request) {
          * está em dia. Faltando esta parte, o pagamento entrava, a assinatura
          * ficava ativa e o cliente continuava no plano grátis, sem crédito.
          */
+        /*
+         * O plano ANTES desta fatura decide se é a primeira liberação.
+         *
+         * invoice.paid chega todo mês; boas-vindas é uma vez só. Sair de
+         * "free" (ou de nada) para um plano pago é exatamente a compra —
+         * renovação chega aqui já com o plano certo e não dispara nada.
+         *
+         * Quem cancelou e voltou recebe de novo, e está certo: para ele é
+         * uma entrada nova, e a senha provavelmente já foi esquecida.
+         */
+        const { data: antes } = await admin
+          .from("organizacoes")
+          .select("plano")
+          .eq("id", orgId)
+          .maybeSingle();
+        const planoAntigo = (antes as { plano: string } | null)?.plano ?? "free";
+
         await admin
           .from("organizacoes")
           .update({ plano: planoPago, cota_mensal: cotaDoPlano(planoPago) })
           .eq("id", orgId);
+
+        /*
+         * O e-mail de boas-vindas, com o link de acesso dentro.
+         *
+         * Depois do update de propósito: o acesso liberado é o que importa, o
+         * e-mail é a cortesia. E o await é engolido — falha aqui NÃO pode
+         * virar erro para a Stripe, ou ela reenvia o evento e o cliente
+         * termina com o mês pago duas vezes. O motivo vai para o log.
+         */
+        // planoPago é sempre um plano vendido — só o lado de cá pode ser free.
+        if (planoAntigo === "free") {
+          const r = await mandarBoasVindas(orgId, planoPago).catch((e) => ({
+            ok: false,
+            motivo: (e as Error).message,
+          }));
+          if (!r.ok) console.error("[boas-vindas]", orgId, r.motivo);
+        }
         break;
       }
 
