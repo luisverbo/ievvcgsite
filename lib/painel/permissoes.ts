@@ -87,22 +87,22 @@ export const PLANOS: Record<
    * Sem construtor e sem hospedagem de propósito — é outro público e outro
    * preço; quem quiser sites sobe para o Agência.
    *
-   * A IA das MENSAGENS entra: é ela que escreve um texto diferente para cada
-   * empresa, citando o negócio dela, e lê as respostas para separar quem
-   * quer preço de quem pediu para não receber. É o que o produto anuncia e
-   * o que separa ele de um disparador de lista.
+   * ZERO IA, por decisão do dono: nada neste plano chama Anthropic nem
+   * OpenAI, e por isso a cota é 0 — a margem do Prospector não depende de
+   * quanto o cliente usa. Sem "Mensagens com cérebro" e sem a leitura
+   * automática das respostas; o que o cliente manda são os modelos prontos
+   * por ramo, ajustados por ele.
+   *
+   * O agente continua inteiro: ele é quem varre o Google Maps, monta a
+   * lista, envia no ritmo de gente, cuida da cadência de remarketing e avisa
+   * quem respondeu. Nada disso passa por modelo de linguagem.
    *
    * O resumo diário fica de fora (recurso do produto completo).
-   *
-   * Cota de US$3/mês é TETO, não gasto: cada mensagem custa ~US$0,002 e a
-   * leitura de resposta, fração disso — dá umas 1.500 mensagens por mês,
-   * muito além do que o WhatsApp aguarda em envio seguro. O que não for
-   * usado não é cobrado de ninguém.
    */
   prospector: {
     rotulo: "Prospector",
-    recursos: ["prospeccao", "prospeccao_ia"],
-    cota: 3_000_000,
+    recursos: ["prospeccao"],
+    cota: 0,
     sites: 0,
   },
   agencia: {
