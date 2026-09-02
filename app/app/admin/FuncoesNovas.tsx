@@ -13,10 +13,28 @@ import { cardClass } from "@/components/painel/ui";
 export default async function FuncoesNovas() {
   const estado = await estadoDasFuncoes();
 
+  const total = Object.keys(FUNCOES_NOVAS).length;
+  const ligadas = Object.keys(FUNCOES_NOVAS).filter((n) => estado[n]).length;
+
+  /*
+   * Recolhido: é um freio de mão, não um painel de bordo. Você mexe aqui
+   * quando quer desligar alguma coisa — e uma lista de dez itens aberta
+   * empurra para baixo tudo que você veio fazer no Admin.
+   */
   return (
-    <div className={cardClass}>
-      <h2 className="text-lg font-bold">🎚️ Funções novas</h2>
-      <p className="mt-1 text-sm text-paper-dim">
+    <details className={cardClass}>
+      <summary className="flex cursor-pointer flex-wrap items-center gap-3 [&::-webkit-details-marker]:hidden">
+        <h2 className="text-lg font-bold">🎚️ Funções novas</h2>
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+            ligadas === total ? "bg-ok/15 text-ok" : "bg-warn/15 text-warn"
+          }`}
+        >
+          {ligadas} de {total} ligadas
+        </span>
+        <span className="ml-auto text-xs font-bold text-paper-dim">abrir ▾</span>
+      </summary>
+      <p className="mt-3 text-sm text-paper-dim">
         Seu freio de mão: qualquer função aqui pode ser desligada para{" "}
         <b className="text-paper">todos os clientes, na hora</b>, sem depender de ninguém. Ligada é
         o padrão — desligue o que não te agradar em produção.
@@ -57,6 +75,6 @@ export default async function FuncoesNovas() {
           );
         })}
       </div>
-    </div>
+    </details>
   );
 }

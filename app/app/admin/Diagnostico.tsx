@@ -129,10 +129,34 @@ export default function Diagnostico() {
     .filter((k) => /MERCADO|STRIPE/i.test(k))
     .sort();
 
+  const ok = VARIAVEIS.length - VARIAVEIS.filter((v) => !valores[v.chave]?.trim()).length;
+
+  /*
+   * Nasce RECOLHIDO quando está tudo certo.
+   *
+   * Este painel é de conferência, não de trabalho: você abre quando cadastra
+   * uma variável nova ou quando algo parou de funcionar — e nos outros 360
+   * dias do ano ele só empurra para baixo o que você veio fazer no Admin.
+   * Faltando variável obrigatória, ele abre sozinho: aí a informação deixa
+   * de ser referência e passa a ser urgência.
+   */
   return (
-    <div className={cardClass}>
-      <h2 className="text-lg font-bold">🔌 O que o servidor está enxergando</h2>
-      <p className="mt-1 text-sm text-paper-dim">
+    <details open={faltando.length > 0} className={cardClass}>
+      <summary className="flex cursor-pointer flex-wrap items-center gap-3 [&::-webkit-details-marker]:hidden">
+        <h2 className="text-lg font-bold">🔌 O que o servidor está enxergando</h2>
+        {faltando.length > 0 ? (
+          <span className="rounded-full bg-danger/15 px-2.5 py-0.5 text-[11px] font-bold text-danger">
+            faltam {faltando.length} obrigatórias
+          </span>
+        ) : (
+          <span className="rounded-full bg-ok/15 px-2.5 py-0.5 text-[11px] font-bold text-ok">
+            ● {ok} de {VARIAVEIS.length} no ar
+          </span>
+        )}
+        <span className="ml-auto text-xs font-bold text-paper-dim">abrir ▾</span>
+      </summary>
+
+      <p className="mt-3 text-sm text-paper-dim">
         Variável cadastrada na Vercel só vale depois de um <b className="text-paper">Redeploy</b>. É
         aqui que você confere se ela chegou de verdade. Nenhum valor é mostrado.
       </p>
@@ -194,7 +218,7 @@ export default function Diagnostico() {
 
       <Roteamento />
       <TesteMp />
-    </div>
+    </details>
   );
 }
 
