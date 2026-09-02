@@ -9,6 +9,7 @@ import VideoLanding from "./VideoLanding";
 import { CHAVES_VIDEO } from "@/lib/landing";
 import FuncoesNovas from "./FuncoesNovas";
 import PixelVendas from "./PixelVendas";
+import LinkAcesso from "./LinkAcesso";
 import { CHAVES_PIXEL } from "@/lib/vendas-pixel";
 import { NOME_LANDING } from "@/lib/vendas-metricas";
 import AjusteCredito from "./AjusteCredito";
@@ -163,6 +164,12 @@ export default async function AdminPage() {
       </div>
 
       <Diagnostico />
+
+      {/* Fica no topo: quando isto é necessário, é urgente — tem cliente
+          pagando parado do lado de fora. */}
+      <LinkAcesso
+        emails={[...new Set(usersRes.data.users.map((u) => u.email ?? "").filter(Boolean))].sort()}
+      />
 
       <VideoLanding atual={videoAtual} />
 

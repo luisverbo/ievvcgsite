@@ -324,3 +324,119 @@ export async function salvarPixelVendas(
         : "Pixels removidos das páginas de venda.",
   };
 }
+
+/* --------------------- link de acesso para o cliente ----------------------- */
+
+export type LinkAcessoState =
+  | { ok?: string; error?: string; link?: string; recado?: string; email?: string }
+  | undefined;
+
+/*
+ * Gerar na mão o link de acesso de um cliente.
+ *
+ * Existe porque o caso real acontece: o cliente assina, fecha a aba e não
+ * consegue mais entrar — esqueceu a senha, digitou o e-mail com um ponto a
+ * mais, ou nem chegou a criar a conta porque pagou por outro caminho. Ele
+ * está pagando; o acesso não pode depender de um e-mail que talvez tenha ido
+ * para o spam.
+ *
+ * O ponto todo desta função é NÃO depender de e-mail: o Supabase gera o
+ * token e nos devolve; nós montamos o endereço e você manda pelo WhatsApp,
+ * que é onde o cliente responde. Funciona hoje, sem SMTP configurado.
+ *
+ * O link cai em /nova-senha: o cliente escolhe a senha dele e já entra. Um
+ * link de "entrar direto" resolveria hoje e deixaria o problema para a
+ * semana que vem, quando ele fosse entrar de novo e continuasse sem senha.
+ */
+export async function gerarLinkAcesso(
+  _prev: LinkAcessoState,
+  formData: FormData,
+): Promise<LinkAcessoState> {
+  if (!(await ehAdmin())) return { error: "Sem permissão." };
+
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase();
+  if (!email || !email.includes("@")) return { error: "Informe o e-mail do cliente." };
+
+  const admin = createAdminClient();
+
+  /*
+   * "recovery" para quem já tem conta; "invite" cria a conta na hora para
+   * quem pagou sem nunca ter se cadastrado. A mensagem do Supabase para
+   * usuário inexistente mudou de texto entre versões, então o segundo
+   * caminho é tentado sempre que o primeiro falha — e é ele que dá a
+   * mensagem final de erro, se também falhar.
+   */
+  let props: { hashed_token?: string; verification_type?: string } | null = null;
+  let usuarioId: string | null = null;
+
+  const tentativa = await admin.auth.admin.generateLink({ type: "recovery", email });
+  if (!tentativa.error && tentativa.data?.properties) {
+    props = tentativa.data.properties;
+    usuarioId = tentativa.data.user?.id ?? null;
+  } else {
+    const convite = await admin.auth.admin.generateLink({ type: "invite", email });
+    if (convite.error || !convite.data?.properties) {
+      return { error: convite.error?.message ?? "Não consegui gerar o link para esse e-mail." };
+    }
+    props = convite.data.properties;
+    usuarioId = convite.data.user?.id ?? null;
+  }
+
+  const token = props?.hashed_token;
+  if (!token) return { error: "O Supabase não devolveu o token do link." };
+  const tipo = props?.verification_type === "invite" ? "invite" : "recovery";
+
+  /*
+   * Em qual endereço mandar o cliente.
+   *
+   * Cliente do Prospector tem que cair no domínio do Prospector: ele comprou
+   * aquilo, e ver outra marca na tela de senha é exatamente o momento em que
+   * a pessoa desconfia de golpe.
+   */
+  let base = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
+  let ehProspector = false;
+  if (usuarioId) {
+    const { data: vinculo } = await admin
+      .from("membros")
+      .select("org_id")
+      .eq("user_id", usuarioId)
+      .limit(1)
+      .maybeSingle();
+    const orgId = (vinculo as { org_id: string } | null)?.org_id;
+    if (orgId) {
+      const { data: orgRow } = await admin
+        .from("organizacoes")
+        .select("plano")
+        .eq("id", orgId)
+        .maybeSingle();
+      ehProspector = (orgRow as { plano: string } | null)?.plano === "prospector";
+    }
+  }
+  const hostProspector = (process.env.NEXT_PUBLIC_HOST_PROSPECTOR ?? "")
+    .toLowerCase()
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "")
+    .split(":")[0];
+  if (ehProspector && hostProspector) base = `https://${hostProspector}`;
+  if (!base) return { error: "Falta NEXT_PUBLIC_APP_URL na Vercel — sem ela não sei montar o link." };
+
+  const link = `${base}/auth/confirmar?token_hash=${encodeURIComponent(
+    token,
+  )}&type=${tipo}&proximo=nova-senha`;
+
+  const produto = ehProspector ? "Prospector" : "PáginaPro";
+  const recado =
+    `Oi! Aqui é do ${produto}. Sua assinatura já está ativa. ` +
+    `Use este link para criar sua senha e entrar:\n\n${link}\n\n` +
+    `O link é só seu e vale por 1 hora — se expirar, me chama que eu gero outro.`;
+
+  return {
+    ok: `Link pronto para ${email}. Ele cria a senha e já entra no painel.`,
+    link,
+    recado,
+    email,
+  };
+}
