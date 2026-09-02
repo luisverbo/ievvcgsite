@@ -56,6 +56,29 @@ export async function GET(_req: Request, ctx: { params: Promise<{ plano: string 
     .eq("org_id", org.id)
     .maybeSingle();
 
+  /*
+   * O rastro do anúncio, colhido AQUI.
+   *
+   * Este é o último instante em que ainda estamos no nosso domínio: no clique
+   * seguinte a pessoa já está no checkout da Stripe, onde o nosso pixel não
+   * roda e estes cookies não existem. Se não pegarmos agora, a venda chega ao
+   * Meta sem ligação com anúncio nenhum.
+   *
+   * _fbp é o navegador dela; _fbc é o clique no anúncio que a trouxe.
+   */
+  const bolachas = _req.headers.get("cookie") ?? "";
+  const cookie = (nome: string) =>
+    bolachas.match(new RegExp(`(?:^|;\\s*)${nome}=([^;]+)`))?.[1] ?? "";
+  const rastro = {
+    fbp: cookie("_fbp").slice(0, 200),
+    fbc: cookie("_fbc").slice(0, 200),
+    // O primeiro IP da cadeia é o do visitante; os seguintes são de proxy.
+    ip: (_req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim().slice(0, 60),
+    // Metadata da Stripe aceita 500 caracteres por campo.
+    ua: (_req.headers.get("user-agent") ?? "").slice(0, 400),
+    url: _req.url.slice(0, 400),
+  };
+
   try {
     const destino = await checkoutAssinatura({
       orgId: org.id,
@@ -63,6 +86,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ plano: string 
       customerId: (data as { stripe_customer_id: string | null } | null)?.stripe_customer_id,
       plano,
       priceId,
+      rastro,
     });
     return NextResponse.redirect(destino);
   } catch {

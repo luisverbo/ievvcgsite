@@ -6,6 +6,8 @@ import { periodoDe, fimDoPeriodo } from "@/lib/pagamentos/estado";
 import { cotaDoPlano } from "@/lib/painel/permissoes";
 import { planoDaMetadata, planoDoPriceId, type PlanoVendido } from "@/lib/pagamentos/planos";
 import { mandarBoasVindas } from "@/lib/email/boas-vindas";
+import { enviarCompraAoMeta } from "@/lib/meta/capi";
+import { emailDoDono } from "@/lib/painel/acesso";
 
 /*
  * Qual plano esta fatura realmente cobrou.
@@ -244,6 +246,35 @@ export async function POST(req: Request) {
             motivo: (e as Error).message,
           }));
           if (!r.ok) console.error("[boas-vindas]", orgId, r.motivo);
+
+          /*
+           * A venda contada para o Meta, pelo servidor.
+           *
+           * Só na PRIMEIRA cobrança: renovação de mês não é conversão de
+           * anúncio, e mandar renovação como Purchase ensinaria o algoritmo a
+           * mirar em quem já é cliente.
+           *
+           * Os identificadores vêm da metadata da assinatura, gravados lá no
+           * clique de assinar — é o último ponto em que os cookies do pixel
+           * ainda existiam. Também engolido: rastreamento não pode derrubar
+           * um pagamento.
+           */
+          const meta =
+            (f as { subscription_details?: { metadata?: Record<string, string> } })
+              .subscription_details?.metadata ?? {};
+          const capi = await enviarCompraAoMeta({
+            email: await emailDoDono(orgId),
+            fbp: meta.fbp,
+            fbc: meta.fbc,
+            ip: meta.ip,
+            navegador: meta.ua,
+            origemUrl: meta.url,
+            valor: (f.amount_paid ?? 0) / 100,
+            plano: planoPago,
+            // O id do evento da Stripe: webhook repetido não vira venda dupla.
+            eventoId: evento.id,
+          }).catch((e) => ({ ok: false as const, erro: (e as Error).message }));
+          if (!capi.ok) console.error("[meta-capi]", orgId, capi.erro);
         }
         break;
       }

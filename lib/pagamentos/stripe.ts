@@ -82,8 +82,19 @@ export async function checkoutAssinatura(opcoes: {
   // plano viaja na metadata: é dela que o webhook descobre o que entregar.
   plano: string;
   priceId: string;
+  /*
+   * O rastro do anúncio (_fbp, _fbc, IP, navegador), colhido no clique de
+   * assinar. Viaja na metadata da assinatura porque é lá que o webhook o
+   * encontra quando o pagamento entra — sem ele o Meta recebe a venda mas
+   * não consegue ligá-la ao anúncio que a trouxe.
+   */
+  rastro?: { fbp?: string; fbc?: string; ip?: string; ua?: string; url?: string };
 }): Promise<string> {
   const s = stripe();
+  // Metadata da Stripe não aceita valor vazio em alguns campos; some com eles.
+  const rastro = Object.fromEntries(
+    Object.entries(opcoes.rastro ?? {}).filter(([, v]) => Boolean(v)),
+  ) as Record<string, string>;
   try {
     const sessao = await s.checkout.sessions.create({
       mode: "subscription",
@@ -98,8 +109,8 @@ export async function checkoutAssinatura(opcoes: {
         ? { customer: opcoes.customerId }
         : { customer_email: opcoes.email }),
       client_reference_id: opcoes.orgId,
-      subscription_data: { metadata: { org_id: opcoes.orgId, plano: opcoes.plano } },
-      metadata: { org_id: opcoes.orgId, tipo: "assinatura", plano: opcoes.plano },
+      subscription_data: { metadata: { org_id: opcoes.orgId, plano: opcoes.plano, ...rastro } },
+      metadata: { org_id: opcoes.orgId, tipo: "assinatura", plano: opcoes.plano, ...rastro },
       locale: "pt-BR",
       /*
        * Não volta para a tela de faturas: o webhook que libera o plano leva

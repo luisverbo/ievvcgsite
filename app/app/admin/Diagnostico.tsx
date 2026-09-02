@@ -39,6 +39,12 @@ const VARIAVEIS: Item[] = [
     obrigatoria: false,
   },
   {
+    chave: "META_CAPI_TOKEN",
+    rotulo: "Meta · Conversions API",
+    para: "contar a venda para o Facebook pelo servidor",
+    obrigatoria: false,
+  },
+  {
     chave: "STRIPE_SECRET_KEY",
     rotulo: "Stripe · chave secreta",
     para: "cobrar no cartão",
@@ -116,6 +122,7 @@ export default function Diagnostico() {
     APP_CRYPTO_KEY: process.env.APP_CRYPTO_KEY,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     EMAIL_REMETENTE: process.env.EMAIL_REMETENTE,
+    META_CAPI_TOKEN: process.env.META_CAPI_TOKEN,
     STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
     STRIPE_PRICE_AGENCIA: process.env.STRIPE_PRICE_AGENCIA,
     STRIPE_PRICE_PRO: process.env.STRIPE_PRICE_PRO,
