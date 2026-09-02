@@ -51,5 +51,10 @@ export async function cadastrar(_prev: AuthState, formData: FormData): Promise<A
    * caminho entre criar a conta e ter onde cobrar.
    */
   const de = destinoSeguro(formData.get("de"), "");
+
+  // Degrau do funil: a conta existe. O plano do destino diz de qual landing.
+  const { registrarFunil, landingDoPlano } = await import("@/lib/vendas-funil");
+  await registrarFunil(landingDoPlano(de.split("/assinar/")[1]), "Criou conta", "/cadastro");
+
   redirect(de ? `/app/onboarding?de=${encodeURIComponent(de)}` : "/app/onboarding");
 }

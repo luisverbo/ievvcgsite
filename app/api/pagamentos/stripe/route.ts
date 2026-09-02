@@ -8,6 +8,7 @@ import { planoDaMetadata, planoDoPriceId, type PlanoVendido } from "@/lib/pagame
 import { mandarBoasVindas } from "@/lib/email/boas-vindas";
 import { enviarCompraAoMeta } from "@/lib/meta/capi";
 import { emailDoDono } from "@/lib/painel/acesso";
+import { registrarFunil, landingDoPlano } from "@/lib/vendas-funil";
 
 /*
  * Qual plano esta fatura realmente cobrou.
@@ -275,6 +276,9 @@ export async function POST(req: Request) {
             eventoId: evento.id,
           }).catch((e) => ({ ok: false as const, erro: (e as Error).message }));
           if (!capi.ok) console.error("[meta-capi]", orgId, capi.erro);
+
+          // O último degrau do funil, no relatório de métricas da landing.
+          await registrarFunil(landingDoPlano(planoPago), "Comprou", "/app/pagamento");
         }
         break;
       }

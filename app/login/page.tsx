@@ -1,8 +1,20 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import AuthForm from "./AuthForm";
 import Marca, { ehFunilProspector, ehHostProspector } from "./Marca";
 import { login } from "./actions";
+
+/* O título da aba acompanha o funil — ver o comentário em /cadastro. */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ de?: string; p?: string }>;
+}): Promise<Metadata> {
+  const { de, p } = await searchParams;
+  const prospector = ehFunilProspector({ de, p }) || ehHostProspector((await headers()).get("host"));
+  return { title: prospector ? "Prospector — Entrar" : "PáginaPro — Entrar" };
+}
 
 export default async function LoginPage({
   searchParams,

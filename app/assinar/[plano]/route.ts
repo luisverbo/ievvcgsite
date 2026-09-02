@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { planoVendidoValido, priceIdDaStripe } from "@/lib/pagamentos/planos";
 import { checkoutAssinatura } from "@/lib/pagamentos/stripe";
+import { registrarFunil, landingDoPlano } from "@/lib/vendas-funil";
 
 /*
  * O atalho da landing: /assinar/pro e /assinar/agencia.
@@ -88,6 +89,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ plano: string 
       priceId,
       rastro,
     });
+    // Degrau do funil: a Stripe abriu. Daqui ou paga, ou some.
+    await registrarFunil(landingDoPlano(plano), "Chegou ao pagamento", `/assinar/${plano}`);
     return NextResponse.redirect(destino);
   } catch {
     // Qualquer tropeço na Stripe cai na tela que sabe explicar o que houve.

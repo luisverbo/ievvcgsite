@@ -19,7 +19,21 @@ export default function Analytics({
   funilId?: string | null;
 }) {
   useEffect(() => {
-    const supabase = createClient();
+    /*
+     * BLINDADO: nada aqui dentro pode derrubar a página.
+     *
+     * Este componente mede — e medição que lança dentro do useEffect vira
+     * erro não tratado, que o React entrega à tela de erro global. Foi
+     * exatamente o que aconteceu num build sem as variáveis do Supabase:
+     * a landing inteira virou "This page couldn't load". Medição falha em
+     * silêncio; a página de vendas nunca.
+     */
+    let supabase: ReturnType<typeof createClient>;
+    try {
+      supabase = createClient();
+    } catch {
+      return;
+    }
     const base = {
       org_id: orgId,
       site_id: siteId,
@@ -36,7 +50,7 @@ export default function Analytics({
         referrer: document.referrer || null,
         origem: detectarOrigem(),
       })
-      .then(() => {});
+      .then(() => {}, () => {});
 
     function onClick(e: MouseEvent) {
       const el = (e.target as HTMLElement)?.closest?.("[data-track]");
@@ -50,7 +64,7 @@ export default function Analytics({
           path: window.location.pathname,
           origem: detectarOrigem(),
         })
-        .then(() => {});
+        .then(() => {}, () => {});
     }
     document.addEventListener("click", onClick);
 

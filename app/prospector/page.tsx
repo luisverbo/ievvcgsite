@@ -19,45 +19,52 @@ import Robo from "@/components/painel/Robo";
  * o Google Maps, e a paleta conta a história sozinha. O verde do botão é o
  * do WhatsApp: a promessa termina lá.
  *
- * Efeitos 100% CSS (pins caindo, radar, marquee, digitação, barras): nada de
- * biblioteca, nada de JS — a página de anúncio precisa abrir instantânea no
- * 4G, e cada kb aqui é taxa de conversão. O reveal por rolagem usa
- * animation-timeline com @supports: navegador antigo vê tudo parado e
- * perfeito, navegador novo vê a página acender bloco a bloco.
+ * A ORDEM dos blocos segue a revisão de um copywriter de SaaS: produto na
+ * tela logo no hero, vídeo em seguida, dor → passos → fluxo → painel →
+ * oferta → garantia → para quem é → FAQ → CTA. Cada bloco empurra para o
+ * seguinte; nenhum repete o anterior.
+ *
+ * REGRA DE HONESTIDADE, que vale mais que qualquer copy: a página promete o
+ * que o produto FAZ. O Agente encontra, monta a mensagem com o nome de cada
+ * empresa (variáveis + variações de frase) e envia. Ele NÃO escreve texto
+ * livre por IA e NÃO conversa sozinho — então a página não diz que faz.
+ *
+ * Efeitos 100% CSS: nada de biblioteca, nada de JS — a página de anúncio
+ * precisa abrir instantânea no 4G, e cada kb aqui é taxa de conversão.
  */
 
 export const revalidate = 3600;
 
 export const metadata = {
-  title: "Prospector — 100 empresas para abordar amanhã de manhã",
+  title: "Prospector — Pare de perder horas procurando clientes",
   description:
-    "Para quem vende seguro, plano de saúde, consórcio ou representação: um Agente de IA varre o Google Maps, escreve uma mensagem diferente para cada empresa e conversa no seu WhatsApp. Sem cobrança por lead. Garantia de 7 dias.",
+    "Para quem vende para empresas pelo WhatsApp: um Agente de IA encontra empresas no Google Maps, monta a abordagem com o nome de cada uma e envia pelo seu WhatsApp, com remarketing automático. R$97/mês, sem cobrança por lead. Garantia de 7 dias.",
 };
 
 /* ------------------------------ dados da página --------------------------- */
 
-const DIA_SEM = [
-  "Caçar empresa por empresa no Google, copiando telefone no caderno",
-  "Mandar a mesma mensagem colada 40 vezes — e torcer para o WhatsApp não bloquear",
-  "Esquecer quem você já chamou e chamar de novo",
-  "Perder o lead que respondeu terça porque a conversa afundou",
-  "Terminar o dia sem saber quantos contatos viraram conversa",
+const HOJE = [
+  "Abrir o Google e pesquisar empresa por empresa",
+  "Copiar telefone no caderno — e descobrir depois que era fixo",
+  "Escrever a mesma mensagem 40 vezes e torcer para o WhatsApp não bloquear",
+  "Esquecer quem já respondeu e quem você já chamou",
+  "Terminar o dia sem uma conversa de venda aberta",
 ];
 
-const DIA_COM = [
-  "Você digita o ramo e o bairro — a lista nasce sozinha, com telefone e avaliações",
-  "A IA escreve uma mensagem original para cada empresa, citando o negócio dela",
-  "O envio sai no ritmo de uma pessoa: limite diário e pausa entre mensagens",
-  "Quem não responde recebe de novo no dia que você escolher — uma vez, com educação",
-  "O funil mostra quem respondeu, o que disse e quem você marcou de 🔥 quente",
+const COM_PROSPECTOR = [
+  "Você escolhe o ramo e a região",
+  "O Agente encontra e organiza as empresas, com telefone e avaliações",
+  "Cada empresa recebe a mensagem com o nome dela, o bairro e as avaliações",
+  "Quem não respondeu entra no remarketing automático",
+  "As respostas ficam organizadas no seu painel",
 ];
 
 const PASSOS: { cor: string; titulo: string; texto: string; visual: React.ReactNode }[] = [
   {
     cor: "#4285F4",
-    titulo: "Diga o que procura",
+    titulo: "Escolha o ramo e a região",
     texto:
-      "“Clínicas de estética em Campinas”. “Advocacia na Barra”. Mais de 90 categorias prontas — ou digite qualquer ramo. O Agente varre o Google Maps e traz nome, WhatsApp, avaliações e endereço.",
+      "Clínicas, contadores, academias, escritórios, lojas, oficinas — qualquer tipo de empresa presente no Google Maps. Mais de 90 categorias prontas, ou digite a sua. E filtre: só quem tem WhatsApp, só quem não tem site, faixa de avaliações.",
     visual: (
       <div className="rounded-full border border-black/10 bg-white px-4 py-2.5 shadow-sm">
         <span className="text-sm text-[#5f6672]">
@@ -70,52 +77,81 @@ const PASSOS: { cor: string; titulo: string; texto: string; visual: React.ReactN
   },
   {
     cor: "#EA4335",
-    titulo: "A IA escreve para cada empresa",
+    titulo: "O Agente encontra as empresas",
     texto:
-      "Você diz uma vez o que vende. A partir daí o Agente escreve uma mensagem ORIGINAL para cada lead, citando o nome, o bairro e as avaliações daquela empresa — nenhuma igual à outra. Prefere o seu próprio texto? Também dá.",
-    visual: (
-      <div className="rounded-xl border border-black/10 bg-white p-3 text-left text-xs leading-relaxed text-[#5f6672] shadow-sm">
-        <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-[#4285F4]">
-          ✨ escrito pela IA para esta empresa
-        </span>
-        Oi, Dra. Camila! Achei a <b className="text-[#1a1c22]">Clínica Bella Pele</b> aqui no
-        Cambuí e vi que vocês têm <b className="text-[#1a1c22]">132 avaliações</b> — sinal de que
-        o trabalho é bem falado…
-      </div>
-    ),
-  },
-  {
-    cor: "#FBBC05",
-    titulo: "O envio sai no ritmo de gente",
-    texto:
-      "Limite por dia, intervalo aleatório entre uma mensagem e outra, texto sempre variando. São as proteções que mantêm o seu número saudável — e já vêm ligadas.",
+      "Ele varre o Google Maps como uma pessoa pesquisaria e organiza nome, telefone, WhatsApp, endereço, site e avaliações em um único painel. Você acorda com a lista pronta.",
     visual: (
       <div className="flex items-center gap-2 rounded-xl border border-black/10 bg-white p-3 shadow-sm">
-        <span className="text-lg">⏱️</span>
+        <span className="text-lg">🗺️</span>
         <div className="flex-1">
           <div className="h-2 overflow-hidden rounded-full bg-black/10">
-            <div className="pv-barra h-full rounded-full bg-[#FBBC05]" style={{ width: "62%" }} />
+            <div className="pv-barra h-full rounded-full bg-[#EA4335]" style={{ width: "78%" }} />
           </div>
-          <p className="mt-1 text-[11px] text-[#5f6672]">13 de 20 enviadas hoje · próxima em 1min 40s</p>
+          <p className="mt-1 text-[11px] text-[#5f6672]">47 de 60 empresas lidas · 41 com WhatsApp</p>
         </div>
       </div>
     ),
   },
   {
-    cor: "#34A853",
-    titulo: "Quem não respondeu, recebe de novo",
+    cor: "#FBBC05",
+    titulo: "Cada empresa recebe a abordagem com o nome dela",
     texto:
-      "A maioria dos leads não diz “não” — só esquece. O remarketing manda a segunda mensagem depois dos dias que você escolher. Uma vez só, com saída fácil. E quem pede para sair, sai para sempre.",
+      "Você escolhe um modelo pronto para o seu tipo de venda — ou escreve o seu. O Agente preenche o nome da empresa, o bairro e as avaliações, varia as frases a cada envio e manda pelo SEU WhatsApp, no ritmo de uma pessoa.",
+    visual: (
+      <div className="rounded-xl border border-black/10 bg-white p-3 text-left text-xs leading-relaxed text-[#5f6672] shadow-sm">
+        <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-[#b8860b]">
+          ✉️ montada para esta empresa
+        </span>
+        Oi! Encontrei a <b className="text-[#1a1c22]">Clínica Bella Pele</b> pesquisando clínicas
+        no Cambuí e vi que vocês têm <b className="text-[#1a1c22]">132 avaliações</b>. Eu trabalho
+        com plano de saúde empresarial…
+      </div>
+    ),
+  },
+  {
+    cor: "#34A853",
+    titulo: "Quem não respondeu entra no remarketing",
+    texto:
+      "A maioria dos leads não diz “não” — só esquece. O Agente volta a falar com quem ficou em silêncio, em até 3 toques nos dias que você escolher. Quem pede para sair, sai para sempre.",
     visual: (
       <div className="flex items-center gap-2 rounded-xl border border-black/10 bg-white p-3 text-xs text-[#5f6672] shadow-sm">
         <span className="text-lg">🔁</span>
         <span>
-          4 dias sem resposta → <b className="text-[#34A853]">segunda mensagem enviada</b>
+          4 dias sem resposta → <b className="text-[#34A853]">2º toque enviado</b> · 3º em 7 dias
         </span>
       </div>
     ),
   },
 ];
+
+const FLUXO = [
+  {
+    emoji: "✉️",
+    titulo: "Mensagem com o nome da empresa",
+    texto:
+      "Nome, bairro e avaliações de cada negócio entram no texto, e as frases variam a cada envio. Não é o mesmo texto colado 40 vezes.",
+  },
+  {
+    emoji: "⏳",
+    titulo: "Cadência controlada",
+    texto:
+      "Teto por dia e intervalo aleatório entre uma mensagem e outra — você define. O envio parece o que é: uma pessoa trabalhando.",
+  },
+  {
+    emoji: "🚫",
+    titulo: "Opt-out automático",
+    texto:
+      "Escreveu “não quero” ou “me tira”? Sai de todas as filas na hora, para sempre. É o que separa prospecção de spam.",
+  },
+  {
+    emoji: "🔒",
+    titulo: "Seu painel e seus dados",
+    texto:
+      "Seu WhatsApp, conectado por QR — nada de número alugado. E a lista é sua: exporte em planilha quando quiser.",
+  },
+];
+
+const ETIQUETAS = ["🔥 Lead quente", "📞 Ligar na sexta", "📄 Proposta enviada", "❄️ Sem interesse", "⏰ Fazer follow-up"];
 
 const NICHOS_MARQUEE = [
   "🦷 Dentistas", "⚖️ Advocacia", "💇 Salões", "💪 Academias", "🏥 Clínicas",
@@ -125,69 +161,42 @@ const NICHOS_MARQUEE = [
   "🧱 Mat. construção", "🥩 Açougues", "📷 Fotógrafos", "🎉 Buffets",
 ];
 
-const PROTECOES = [
-  {
-    emoji: "🎭",
-    titulo: "Nenhuma mensagem igual à outra",
-    texto: "A IA escreve cada mensagem do zero. Texto repetido é o sinal nº 1 de disparo — aqui ele não existe.",
-  },
-  {
-    emoji: "⏳",
-    titulo: "Ritmo de pessoa, não de robô",
-    texto: "Pausa aleatória entre mensagens e teto diário que você controla. Começa com 15 por dia e cresce com segurança.",
-  },
-  {
-    emoji: "🚫",
-    titulo: "Opt-out sagrado",
-    texto: "Escreveu “não quero”? Sai de todas as filas na hora, para sempre. É o que separa prospecção de spam — e protege seu número de denúncia.",
-  },
-  {
-    emoji: "🔒",
-    titulo: "Seu número, sua máquina",
-    texto: "O Agente trabalha com o SEU WhatsApp, conectado por QR. Nada de número alugado, nada de conta emprestada.",
-  },
-];
-
 const PERGUNTAS = [
   {
     p: "Preciso entender de tecnologia?",
-    r: "Não. Você cria a conta, conecta o seu WhatsApp lendo um QR code (igual ao WhatsApp Web) e diz o que procura. O painel te guia em cada passo, e leva uns 5 minutos do zero até a primeira lista.",
+    r: "Não. Você cria sua conta, conecta o WhatsApp pelo QR Code (igual ao WhatsApp Web) e escolhe o ramo e a região. O painel orienta os próximos passos, um de cada vez.",
   },
   {
     p: "O Agente trabalha 24 horas?",
-    r: "Você configura uma vez e pronto: o Agente liga sozinho junto com o computador, sem você precisar abrir nada. Ele trabalha enquanto o computador está ligado e descansa quando você desliga — a fila fica guardada. Isso é proposital: mensagem saindo de madrugada é o que denuncia robô.",
+    r: "Ele trabalha enquanto o seu computador estiver ligado — liga junto com ele, sozinho, sem você abrir nada. Quando você desliga, a fila fica salva e continua depois. Isso é proposital: mensagem saindo às 3 da manhã é o que denuncia robô.",
   },
   {
-    p: "Ele mexe no meu WhatsApp? Preciso de outro número?",
-    r: "Ele usa o seu WhatsApp normal, conectado uma vez pelo QR — as conversas ficam no seu celular como sempre. Para prospecção em volume, o mais seguro é usar um chip só para isso; funciona nos dois casos.",
+    p: "Preciso de outro número?",
+    r: "Não. Ele usa o seu WhatsApp, conectado uma vez pelo QR — as conversas ficam no seu celular como sempre. Para separar atendimento de prospecção, muita gente prefere um chip dedicado; funciona nos dois casos.",
   },
   {
-    p: "Tem cobrança por lead ou por mensagem?",
-    r: "Nenhuma. A mensalidade é tudo que você paga. Busque e aborde quantas empresas quiser, dentro do ritmo seguro do WhatsApp.",
+    p: "Existe cobrança por empresa ou por mensagem?",
+    r: "Não. Você paga só a mensalidade. Busque e aborde quantas empresas quiser, dentro do ritmo e dos limites que você configurar.",
   },
   {
-    p: "Meu número corre risco?",
-    r: "O sistema inteiro foi desenhado para protegê-lo: mensagens sempre diferentes, intervalo aleatório, limite diário, opt-out automático. Ainda assim, recomendamos começar devagar — e de preferência com um chip dedicado à prospecção.",
+    p: "Meu número pode ser bloqueado?",
+    r: "Nenhuma ferramenta pode garantir risco zero — e desconfie de quem garantir. O Prospector dá os controles que reduzem esse risco: mensagem com o nome de cada empresa e frases variadas, teto diário, intervalo entre envios e opt-out automático. O uso deve respeitar as políticas do WhatsApp. Comece devagar: 15 a 20 por dia na primeira semana.",
   },
   {
-    p: "A mensagem oferece o quê?",
-    r: "O que VOCÊ vende. Você diz em uma linha (“plano de saúde empresarial”, “consórcio de imóveis”) e o texto pronto já sai falando disso — e dá para ajustar cada palavra.",
+    p: "E se eu não souber o que escrever?",
+    r: "Já vem pronto. Você escolhe o seu tipo de venda (seguros, plano de saúde, consórcio, representação, contabilidade, energia solar, marketing ou genérico) e o texto aparece na tela, seguindo as regras que protegem o seu número. Depois é só ajustar as palavras do seu jeito.",
   },
   {
     p: "De onde vêm os contatos?",
-    r: "Do Google Maps, que é público. O Agente pesquisa como uma pessoa pesquisaria e organiza tudo: nome, telefone, avaliações, endereço, site. Empresa sem celular não entra na fila do WhatsApp.",
+    r: "Do Google Maps, que é público. O Agente pesquisa como uma pessoa pesquisaria e organiza tudo: nome, telefone, avaliações, endereço, site. Você pode filtrar para trazer só quem tem WhatsApp.",
   },
   {
-    p: "Consigo levar a lista para fora do sistema?",
-    r: "Sim, num clique. O botão “Exportar planilha” baixa tudo em CSV — abre no Excel e no Google Sheets, com um link de WhatsApp pronto em cada linha. A lista é sua, não fica presa aqui.",
+    p: "Consigo levar a lista para fora?",
+    r: "Sim, num clique. “Exportar planilha” baixa em CSV — abre no Excel e no Google Sheets. Dá para exportar só os números de WhatsApp, só os contatos, ou tudo. A lista é sua, não fica presa aqui.",
   },
   {
-    p: "E se não funcionar para mim?",
-    r: "Você tem 7 dias de garantia total. Se o Agente não trouxer pelo menos 100 empresas do seu ramo e da sua região com telefone, é só pedir no WhatsApp do suporte e devolvemos 100% — sem formulário e sem perguntar por quê. Depois disso, cancelar são dois cliques no painel: sem fidelidade, sem multa, sem retenção forçada.",
-  },
-  {
-    p: "E se eu não souber o que escrever na mensagem?",
-    r: "Já vem pronto. Você escolhe o seu tipo de venda (seguros, plano de saúde, consórcio, representação, contabilidade, energia solar ou marketing) e o texto aparece na tela, seguindo as regras que protegem o seu número. Depois é só ajustar as palavras do seu jeito — ou deixar a IA escrever uma versão original para cada empresa.",
+    p: "Posso cancelar quando quiser?",
+    r: "Sim. Não existe fidelidade nem multa. O cancelamento é feito direto no painel, em dois cliques — sem ligar para ninguém.",
   },
 ];
 
@@ -195,31 +204,19 @@ const PERGUNTAS = [
 
 export default async function ProspectorPage() {
   const preco = precoEmReais("prospector");
-  // O vídeo é opcional e mora no Admin: cola o link e ele aparece; apaga e some.
   const video = await videoDaLanding("prospector");
   const pixel = await pixelDasVendas();
+  const suporte = (process.env.NEXT_PUBLIC_WHATSAPP_VENDAS ?? "").replace(/\D/g, "");
+
   return (
-    <div className="pv min-h-screen overflow-x-hidden bg-[#f7f9fe] text-[#1a1c22]">
+    <div className="pv min-h-screen overflow-x-hidden bg-[#f7f9fe] pb-20 text-[#1a1c22] md:pb-0">
       <Pixel pixel={pixel} />
       <PixelCheckout />
-      {/*
-        As NOSSAS métricas: visita, de onde veio, qual botão foi clicado,
-        até onde a pessoa rolou e onde ela desistiu. É o que diz qual
-        bloco da oferta está segurando e qual está perdendo gente — e o
-        pixel do anúncio não conta isso, ele só conta o que o Meta quer.
-      */}
       <Analytics orgId={ORG_VENDAS} siteId={PAGINA_VENDAS.prospector} />
-      {/* Os efeitos da página, todos em CSS. Prefixo pv- para não vazar. */}
+
       <style>{`
-        .pv { scroll-behavior: smooth; --g-azul:#4285F4; --g-verm:#EA4335; --g-amar:#FBBC05; --g-verde:#34A853; --wa:#25D366; }
-
+        .pv { scroll-behavior: smooth; }
         .pv [id] { scroll-margin-top: 5.5rem; }
-
-        @keyframes pv-cair { 0% { transform: translateY(-46px) scale(.6); opacity: 0; } 60% { transform: translateY(4px) scale(1.05); opacity: 1; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
-        .pv-pin { animation: pv-cair .7s cubic-bezier(.2,.9,.3,1.2) both; }
-
-        @keyframes pv-radar { 0% { transform: scale(.4); opacity: .55; } 100% { transform: scale(2.6); opacity: 0; } }
-        .pv-radar { animation: pv-radar 2.6s ease-out infinite; }
 
         @keyframes pv-flutuar { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
         .pv-flutua { animation: pv-flutuar 5s ease-in-out infinite; }
@@ -238,6 +235,13 @@ export default async function ProspectorPage() {
         @keyframes pv-piscar { 50% { opacity: 0; } }
         .pv-caret { display:inline-block; width:2px; height:1em; margin-left:2px; vertical-align:-2px; background:#4285F4; animation: pv-piscar 1s step-end infinite; }
 
+        @keyframes pv-pulso { 0%,100% { box-shadow: 0 0 0 0 rgba(52,168,83,.55); } 70% { box-shadow: 0 0 0 8px rgba(52,168,83,0); } }
+        .pv-pulso { animation: pv-pulso 1.8s infinite; }
+
+        /* Linha a linha, o painel "recebe" as empresas — a busca acontecendo. */
+        @keyframes pv-chegar { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+        .pv-chega { animation: pv-chegar .6s ease-out both; }
+
         /* Reveal por rolagem: sem suporte, tudo aparece normal. */
         .pv-rev { opacity: 1; }
         @supports (animation-timeline: view()) {
@@ -251,10 +255,9 @@ export default async function ProspectorPage() {
 
       {/* faixa do topo */}
       <div className="bg-[#1a1c22] px-4 py-2 text-center text-xs font-semibold text-white sm:text-sm">
-        Feito para corretores, representantes e vendedores B2B · sem fidelidade
+        Para quem vende para empresas pelo WhatsApp · sem fidelidade
       </div>
 
-      {/* cabeçalho enxuto: uma página, uma promessa, um botão */}
       <header className="sticky top-0 z-50 border-b border-black/5 bg-white/85 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
           <span className="font-display text-xl font-extrabold tracking-tight">
@@ -272,11 +275,7 @@ export default async function ProspectorPage() {
             >
               Entrar
             </Link>
-            {/*
-              Leva ao PREÇO, não ao cadastro. Quem clica em "começar" ainda não
-              viu quanto custa — cair numa tela de login antes disso é perder a
-              venda de quem só queria saber o valor.
-            */}
+            {/* Leva ao PREÇO, não ao cadastro: ninguém cria conta antes de ver o valor. */}
             <Link
               data-track="Topo · Ver preço"
               href="#preco"
@@ -290,153 +289,188 @@ export default async function ProspectorPage() {
 
       <main>
         {/* ============================== HERO ============================== */}
-        <section className="relative px-5 pb-20 pt-16 sm:pt-24">
-          <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.05fr_1fr]">
+        <section className="relative px-5 pb-16 pt-14 sm:pt-20">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1fr_1fr]">
             <div>
-              <span className="mb-4 inline-block rounded-full border border-[#4285F4]/30 bg-[#4285F4]/10 px-3.5 py-1.5 text-xs font-extrabold text-[#1967d2]">
-                Para quem vende seguro, plano de saúde, consórcio ou representação
+              <span className="mb-4 inline-block rounded-full border border-[#4285F4]/30 bg-[#4285F4]/10 px-3.5 py-1.5 text-xs font-extrabold uppercase tracking-wide text-[#1967d2]">
+                Prospecção ativa com Agente de IA + WhatsApp
               </span>
               <h1 className="font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
-                Amanhã de manhã você acorda com{" "}
+                Pare de perder horas{" "}
                 <span className="bg-gradient-to-r from-[#4285F4] via-[#EA4335] to-[#34A853] bg-clip-text text-transparent">
-                  100 empresas para abordar.
+                  procurando clientes.
                 </span>
               </h1>
-              <p className="mt-5 max-w-xl text-lg leading-relaxed text-[#5f6672]">
-                Sem comprar lista. Sem caçar telefone no Google. Um{" "}
-                <b className="text-[#1a1c22]">Agente de IA</b> varre o Google Maps, escreve uma
-                mensagem diferente para cada empresa e conversa no seu WhatsApp — no ritmo de uma
-                pessoa, enquanto você atende quem já respondeu.
+              <p className="mt-4 font-display text-xl font-bold text-[#1a1c22] sm:text-2xl">
+                O Prospector encontra e aborda empresas por você.
               </p>
-              <div className="mt-8 flex flex-wrap items-center gap-4">
+              <p className="mt-4 max-w-xl text-lg leading-relaxed text-[#5f6672]">
+                Escolha o ramo e a região. O <b className="text-[#1a1c22]">Agente de IA</b> encontra
+                as empresas no Google Maps, monta a mensagem com o nome de cada uma e envia pelo seu
+                WhatsApp — com remarketing automático em até 3 toques para quem não respondeu.
+              </p>
+              <div className="mt-8">
                 <Link
-                  data-track="Hero · Quero minha lista"
+                  data-track="Hero · Prospectar no automático"
                   href="#preco"
-                  className="rounded-full bg-[#25D366] px-8 py-4 text-base font-bold text-white shadow-[0_14px_36px_-10px_rgba(37,211,102,.8)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-lg"
+                  className="inline-block rounded-full bg-[#25D366] px-8 py-4 text-base font-bold text-white shadow-[0_14px_36px_-10px_rgba(37,211,102,.8)] transition hover:-translate-y-0.5 hover:brightness-105 sm:text-lg"
                 >
-                  Quero minha lista de clientes →
+                  Quero prospectar no automático →
                 </Link>
               </div>
               <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#5f6672]">
-                <span className="font-bold text-[#188038]">🛡️ Garantia de 7 dias</span>
+                <span className="font-bold text-[#1a1c22]">R$ {preco}/mês</span>
                 <span>·</span>
-                <span>R$ {preco}/mês</span>
+                <span className="font-bold text-[#188038]">🛡️ 7 dias de garantia</span>
                 <span>·</span>
                 <span>cancele quando quiser</span>
               </p>
+              {/* a faixa de funcionalidades: o produto inteiro em uma linha */}
+              <p className="mt-6 flex flex-wrap gap-x-2 gap-y-1 text-xs font-bold uppercase tracking-wide text-[#5f6672]">
+                {["Google Maps", "Agente de IA", "WhatsApp automático", "Remarketing", "CRM"].map((f, i) => (
+                  <span key={f} className="flex items-center gap-2">
+                    {i > 0 && <span className="text-[#c4c9d4]">·</span>}
+                    {f}
+                  </span>
+                ))}
+              </p>
             </div>
 
-            {/* o mapa vivo: pins caindo + radar + card de lead flutuando */}
-            <div className="relative mx-auto w-full max-w-md">
-              <div
-                className="relative h-80 overflow-hidden rounded-3xl border border-black/10 bg-white shadow-[0_30px_80px_-30px_rgba(66,133,244,.35)]"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(#eef2fb 1px, transparent 1px), linear-gradient(90deg, #eef2fb 1px, transparent 1px)",
-                  backgroundSize: "34px 34px",
-                }}
-              >
-                {/* "ruas" */}
-                <div className="absolute left-0 top-1/3 h-3 w-full -rotate-6 bg-[#f7d879]/40" />
-                <div className="absolute left-1/4 top-0 h-full w-3 rotate-12 bg-[#a8c7fa]/40" />
-                {/* radar no centro */}
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                  <div className="pv-radar absolute -inset-6 rounded-full border-2 border-[#4285F4]/50" />
-                  <div className="pv-radar absolute -inset-6 rounded-full border-2 border-[#4285F4]/50" style={{ animationDelay: "1.3s" }} />
-                  <div className="relative h-4 w-4 rounded-full bg-[#4285F4] ring-4 ring-white" />
-                </div>
-                {/* pins caindo */}
-                {[
-                  { top: "18%", left: "22%", cor: "#EA4335", d: ".2s" },
-                  { top: "30%", left: "68%", cor: "#34A853", d: ".55s" },
-                  { top: "62%", left: "30%", cor: "#FBBC05", d: ".9s" },
-                  { top: "70%", left: "74%", cor: "#EA4335", d: "1.25s" },
-                  { top: "44%", left: "84%", cor: "#4285F4", d: "1.6s" },
-                  { top: "80%", left: "52%", cor: "#34A853", d: "1.95s" },
-                ].map((p, i) => (
-                  <div key={i} className="pv-pin absolute" style={{ top: p.top, left: p.left, animationDelay: p.d }}>
-                    <svg width="26" height="34" viewBox="0 0 24 32">
-                      <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 20 12 20s12-11 12-20C24 5.4 18.6 0 12 0z" fill={p.cor} />
-                      <circle cx="12" cy="12" r="4.5" fill="#fff" />
-                    </svg>
-                  </div>
-                ))}
-              </div>
-
-              {/* card de lead flutuando por cima */}
-              <div className="pv-flutua absolute -bottom-8 -left-4 w-64 rounded-2xl border border-black/10 bg-white p-3.5 shadow-xl sm:-left-10">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm font-bold">Clínica Bella Pele</p>
-                  <span className="rounded-full bg-[#FBBC05]/20 px-2 py-0.5 text-[11px] font-bold text-[#b8860b]">
-                    nota 87
+            {/*
+              O PRODUTO na tela, no lugar de uma ilustração abstrata. É o painel
+              real reproduzido: a busca, o Agente trabalhando e a lista chegando
+              linha a linha. Quem vê isso entende o produto antes de ler.
+            */}
+            <div className="relative mx-auto w-full max-w-lg">
+              <div className="overflow-hidden rounded-3xl border border-black/10 bg-white shadow-[0_30px_80px_-30px_rgba(66,133,244,.35)]">
+                {/* barra da janela */}
+                <div className="flex items-center gap-2 border-b border-black/5 bg-[#f7f9fe] px-4 py-2.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#EA4335]/70" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#FBBC05]/70" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#34A853]/70" />
+                  <span className="ml-3 text-[11px] font-semibold text-[#5f6672]">Prospecção 🎯</span>
+                  <span className="ml-auto flex items-center gap-1.5 rounded-full bg-[#34A853]/10 px-2 py-0.5 text-[10px] font-bold text-[#188038]">
+                    <span className="pv-pulso h-1.5 w-1.5 rounded-full bg-[#34A853]" />
+                    Agente trabalhando
                   </span>
                 </div>
-                <p className="mt-0.5 text-xs text-[#5f6672]">⭐ 4,8 · 132 avaliações · Cambuí</p>
-                <div className="mt-2 flex items-center gap-1.5 text-[11px] font-bold">
-                  <span className="rounded-full bg-[#25D366]/15 px-2 py-0.5 text-[#128C4A]">WhatsApp ✓</span>
-                  <span className="rounded-full bg-[#EA4335]/10 px-2 py-0.5 text-[#EA4335]">🔥 quente</span>
+                <div className="p-4">
+                  <div className="flex items-center gap-2 rounded-full border border-black/10 bg-[#f7f9fe] px-3.5 py-2 text-xs">
+                    <span>🔎</span>
+                    <span className="text-[#5f6672]">
+                      <b className="text-[#1a1c22]">clínicas de estética</b> em <b className="text-[#1a1c22]">Campinas</b>
+                    </span>
+                    <span className="ml-auto rounded-full bg-[#4285F4]/10 px-2 py-0.5 text-[10px] font-bold text-[#1967d2]">
+                      só com WhatsApp
+                    </span>
+                  </div>
+                  <div className="mt-3 flex flex-col gap-2">
+                    {[
+                      { nome: "Clínica Bella Pele", info: "⭐ 4,8 · 132 avaliações · Cambuí", tag: "🔥 quente", resp: "respondeu", d: ".2s" },
+                      { nome: "Estética Renova", info: "⭐ 4,9 · 88 avaliações · Taquaral", tag: "📞 ligar sexta", resp: null, d: ".7s" },
+                      { nome: "Espaço Lumina", info: "⭐ 4,6 · 210 avaliações · Centro", tag: null, resp: null, d: "1.2s" },
+                      { nome: "Studio Pele & Forma", info: "⭐ 4,7 · 54 avaliações · Barão Geraldo", tag: null, resp: null, d: "1.7s" },
+                    ].map((l) => (
+                      <div
+                        key={l.nome}
+                        className="pv-chega flex items-center gap-3 rounded-2xl border border-black/5 bg-[#f7f9fe] px-3 py-2.5"
+                        style={{ animationDelay: l.d }}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold">{l.nome}</p>
+                          <p className="text-[11px] text-[#5f6672]">{l.info}</p>
+                        </div>
+                        <span className="flex-none rounded-full bg-[#25D366]/15 px-2 py-0.5 text-[10px] font-bold text-[#128C4A]">
+                          WhatsApp ✓
+                        </span>
+                        {l.tag && (
+                          <span className="hidden flex-none rounded-full bg-[#FBBC05]/20 px-2 py-0.5 text-[10px] font-bold text-[#8a6d00] sm:inline">
+                            {l.tag}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-[11px] text-[#5f6672]">
+                    <span>47 de 60 empresas lidas</span>
+                    <span className="font-bold text-[#188038]">41 com WhatsApp</span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-black/10">
+                    <div className="pv-barra h-full rounded-full bg-[#4285F4]" style={{ width: "78%" }} />
+                  </div>
                 </div>
+              </div>
+
+              {/* a resposta chegando: o momento que vende */}
+              <div className="pv-flutua absolute -bottom-6 -right-3 w-60 rounded-2xl border border-black/10 bg-white p-3 shadow-xl sm:-right-8">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-[#188038]">💬 resposta agora</p>
+                <p className="mt-1 text-xs font-bold">Clínica Bella Pele</p>
+                <p className="mt-0.5 rounded-xl bg-[#d9fdd3] px-2.5 py-1.5 text-xs text-[#1a1c22]">
+                  Pode mandar sim! 👍
+                </p>
               </div>
             </div>
           </div>
+        </section>
 
-          {/*
-            O vídeo: quando existe, ele é a peça mais forte da página e fica
-            logo abaixo do hero — quem chegou de anúncio decide olhando, não
-            lendo. Sem vídeo cadastrado, a seção inteira não existe (nada de
-            moldura vazia dizendo "em breve").
-          */}
-          {video && (
-            <div className="pv-rev mx-auto mt-20 max-w-3xl">
-              <p className="mb-4 text-center text-sm font-extrabold uppercase tracking-[0.22em] text-[#4285F4]">
-                Veja funcionando em 2 minutos
-              </p>
-              <div className="overflow-hidden rounded-3xl border border-black/10 bg-black shadow-[0_30px_80px_-30px_rgba(26,28,34,.5)]">
-                <div className="relative w-full" style={{ aspectRatio: "16 / 9" }}>
-                  <iframe
-                    src={video.embedUrl}
-                    title="Como funciona o Prospector"
-                    loading="lazy"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allowFullScreen
-                    className="absolute inset-0 h-full w-full"
-                  />
-                </div>
-              </div>
-              <p className="mt-4 text-center">
-                <Link
-                  data-track="Demo · Quero usar hoje"
-                  href="#preco"
-                  className="inline-block rounded-full bg-[#25D366] px-7 py-3 text-base font-bold text-white shadow-[0_12px_32px_-10px_rgba(37,211,102,.8)] transition hover:-translate-y-0.5 hover:brightness-105"
-                >
-                  Quero usar isso hoje →
-                </Link>
+        {/* ============================== VÍDEO ============================= */}
+        {video && (
+          <section className="px-5 pb-20 pt-6">
+            <div className="pv-rev mx-auto max-w-3xl text-center">
+              <h2 className="font-display text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-4xl">
+                Veja o Prospector funcionando em dois minutos
+              </h2>
+              <p className="mx-auto mt-3 max-w-2xl text-[#5f6672]">
+                Uma prospecção real: da escolha do ramo até as empresas organizadas no painel e as
+                primeiras abordagens saindo.
               </p>
             </div>
-          )}
-
-          <p className="mt-20 text-center text-sm font-semibold text-[#5f6672]">
-            ↓ Veja o que muda no seu dia
-          </p>
-        </section>
+            <div className="pv-rev mx-auto mt-8 max-w-3xl overflow-hidden rounded-3xl border border-black/10 bg-black shadow-[0_30px_80px_-30px_rgba(26,28,34,.5)]">
+              <div className="relative w-full" style={{ aspectRatio: "16 / 9" }}>
+                <iframe
+                  src={video.embedUrl}
+                  title="Como funciona o Prospector"
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                  className="absolute inset-0 h-full w-full"
+                />
+              </div>
+            </div>
+            <p className="pv-rev mt-6 text-center">
+              <Link
+                data-track="Vídeo · Primeira prospecção"
+                href="#preco"
+                className="inline-block rounded-full bg-[#25D366] px-7 py-3 text-base font-bold text-white shadow-[0_12px_32px_-10px_rgba(37,211,102,.8)] transition hover:-translate-y-0.5 hover:brightness-105"
+              >
+                Quero fazer minha primeira prospecção →
+              </Link>
+            </p>
+          </section>
+        )}
 
         {/* ============================ A DOR ============================== */}
         <section className="px-5 py-16">
           <div className="pv-rev mx-auto max-w-3xl text-center">
             <span className="text-xs font-extrabold uppercase tracking-[0.22em] text-[#EA4335]">
-              A conta que ninguém faz
+              O problema
             </span>
             <h2 className="mt-3 font-display text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
-              Prospectar na mão custa as suas{" "}
-              <span className="text-[#EA4335]">melhores horas de venda</span>
+              Você deveria gastar seu tempo vendendo,{" "}
+              <span className="text-[#EA4335]">não procurando telefone</span>
             </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-[#5f6672]">
+              Hoje você abre o Google, pesquisa empresa por empresa, copia contatos, escreve
+              mensagens e tenta lembrar quem respondeu. No fim do dia, suas melhores horas foram
+              consumidas antes de começar uma conversa de venda.
+            </p>
           </div>
           <div className="pv-rev mx-auto mt-10 grid max-w-5xl gap-5 md:grid-cols-2">
             <div className="rounded-3xl border border-[#EA4335]/20 bg-white p-7">
               <p className="text-sm font-extrabold uppercase tracking-wide text-[#EA4335]">Seu dia, hoje</p>
               <ul className="mt-4 flex flex-col gap-3 text-[15px] leading-relaxed text-[#5f6672]">
-                {DIA_SEM.map((t) => (
+                {HOJE.map((t) => (
                   <li key={t} className="flex gap-2.5">
                     <span className="mt-0.5 flex-none font-bold text-[#EA4335]">✕</span>
                     {t}
@@ -446,21 +480,21 @@ export default async function ProspectorPage() {
             </div>
             <div className="rounded-3xl border border-[#34A853]/30 bg-white p-7 shadow-[0_20px_60px_-30px_rgba(52,168,83,.4)]">
               <p className="text-sm font-extrabold uppercase tracking-wide text-[#34A853]">
-                Seu dia, com o Prospector
+                Com o Prospector
               </p>
               <ul className="mt-4 flex flex-col gap-3 text-[15px] leading-relaxed text-[#5f6672]">
-                {DIA_COM.map((t) => (
+                {COM_PROSPECTOR.map((t) => (
                   <li key={t} className="flex gap-2.5">
                     <span className="mt-0.5 flex-none font-bold text-[#34A853]">✓</span>
                     {t}
                   </li>
                 ))}
               </ul>
+              <p className="mt-5 rounded-2xl bg-[#34A853]/10 px-4 py-3 text-center text-sm font-extrabold text-[#188038]">
+                Você entra quando já existe uma conversa para continuar.
+              </p>
             </div>
           </div>
-          <p className="pv-rev mt-12 text-center text-sm font-semibold text-[#5f6672]">
-            A diferença não é esforço — é sistema. Veja como ele trabalha ↓
-          </p>
         </section>
 
         {/* ========================= COMO FUNCIONA ========================= */}
@@ -470,13 +504,13 @@ export default async function ProspectorPage() {
               Como funciona
             </span>
             <h2 className="mt-3 font-display text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
-              Quatro passos. Você só faz o primeiro.
+              Você escolhe o público.{" "}
+              <span className="text-[#4285F4]">O Agente faz o trabalho pesado.</span>
             </h2>
           </div>
           <div className="mx-auto mt-12 flex max-w-3xl flex-col gap-0">
             {PASSOS.map((p, i) => (
               <div key={p.titulo} className="pv-rev relative flex gap-5 sm:gap-7">
-                {/* trilho que liga um passo ao outro */}
                 <div className="flex flex-col items-center">
                   <span
                     className="flex h-11 w-11 flex-none items-center justify-center rounded-full font-display text-lg font-extrabold text-white shadow-lg"
@@ -496,17 +530,18 @@ export default async function ProspectorPage() {
               </div>
             ))}
           </div>
+          <p className="pv-rev mt-10 text-center">
+            <Link
+              data-track="Passos · Configurar busca"
+              href="#preco"
+              className="inline-block rounded-full bg-[#25D366] px-7 py-3 text-base font-bold text-white shadow-[0_12px_32px_-10px_rgba(37,211,102,.8)] transition hover:-translate-y-0.5 hover:brightness-105"
+            >
+              Quero configurar minha primeira busca →
+            </Link>
+          </p>
         </section>
 
-        {/* ========================== O ASSISTENTE ========================= */}
-        {/*
-          A pergunta que o leitor acabou de formar nos 4 passos é "mas QUEM
-          faz isso?" — e a resposta é o produto. Sem esta seção a página
-          vendia um processo; com ela, vende um assistente que trabalha.
-
-          O robô é o MESMO componente do painel, na cor do Google: quem
-          assina reconhece na primeira tela o personagem da landing.
-        */}
+        {/* ===================== NÃO É LISTA, É FLUXO ====================== */}
         <section className="relative overflow-hidden bg-[#1a1c22] px-5 py-20 text-white">
           <div
             aria-hidden
@@ -519,16 +554,15 @@ export default async function ProspectorPage() {
           />
           <div className="pv-rev relative mx-auto max-w-3xl text-center">
             <span className="text-xs font-extrabold uppercase tracking-[0.22em] text-[#8ab4f8]">
-              Quem faz o trabalho
+              A diferença para um disparador
             </span>
             <h2 className="mt-3 font-display text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
-              Você não compra uma lista.{" "}
-              <span className="text-[#25D366]">Você ganha um Agente de IA.</span>
+              Não é apenas uma lista.{" "}
+              <span className="text-[#25D366]">É um fluxo de prospecção.</span>
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-lg text-white/70">
-              Ele procura as empresas, <b className="text-white">escreve uma mensagem diferente
-              para cada uma</b>, envia no ritmo de gente, lê as respostas e volta a falar com quem
-              ficou em silêncio. Você só entra quando o cliente já está interessado.
+              Uma lista entrega contatos e deixa o resto com você. O Prospector encontra, organiza,
+              monta a abordagem, envia pelo seu WhatsApp e mostra quem respondeu.
             </p>
             <div className="mt-8 flex justify-center">
               <Robo estado="trabalhando" tamanho={110} cor="#4285F4" corClara="#8ab4f8" />
@@ -536,32 +570,9 @@ export default async function ProspectorPage() {
             <p className="mt-2 text-sm font-bold text-[#25D366]">● trabalhando agora</p>
           </div>
 
-          {/* as três habilidades — o que a IA faz, não como ela é instalada */}
-          <div className="pv-rev relative mx-auto mt-12 grid max-w-4xl gap-5 sm:grid-cols-3">
-            {[
-              {
-                emoji: "🔎",
-                titulo: "Ele procura",
-                texto:
-                  "Você diz o ramo e a região. Ele varre o Google Maps empresa por empresa e traz telefone, WhatsApp, endereço e as avaliações de cada uma.",
-              },
-              {
-                emoji: "✍️",
-                titulo: "Ele escreve",
-                texto:
-                  "Uma mensagem ORIGINAL para cada empresa, citando o nome, o bairro e as avaliações dela — do jeito que você pediria a um assistente atento. Duas empresas nunca recebem o mesmo texto.",
-              },
-              {
-                emoji: "👂",
-                titulo: "Ele escuta e insiste",
-                texto:
-                  "Lê as respostas e separa quem perguntou preço, quem quer saber mais e quem pediu para não receber. Quem ficou em silêncio, ele chama de novo no dia que você marcar.",
-              },
-            ].map((c) => (
-              <div
-                key={c.titulo}
-                className="rounded-3xl border border-white/10 bg-white/[0.04] p-6"
-              >
+          <div className="pv-rev relative mx-auto mt-12 grid max-w-4xl gap-5 sm:grid-cols-2">
+            {FLUXO.map((c) => (
+              <div key={c.titulo} className="rounded-3xl border border-white/10 bg-white/[0.04] p-6">
                 <span className="text-2xl">{c.emoji}</span>
                 <h3 className="mt-2 text-lg font-extrabold tracking-tight">{c.titulo}</h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-white/60">{c.texto}</p>
@@ -569,87 +580,54 @@ export default async function ProspectorPage() {
             ))}
           </div>
 
-          {/* a diferença que o dono do WhatsApp precisa ouvir */}
-          <div className="pv-rev relative mx-auto mt-10 max-w-4xl rounded-3xl border border-white/10 bg-white/[0.04] p-7">
-            <h3 className="text-center text-lg font-extrabold tracking-tight">
-              A diferença entre um <span className="text-[#8ab4f8]">Agente de IA</span> e um
-              disparador de mensagem
-            </h3>
-            <div className="mt-5 grid gap-5 sm:grid-cols-3">
-              {[
-                {
-                  emoji: "🎭",
-                  t: "Escreve, não copia",
-                  d: "Disparador manda o mesmo texto mil vezes — e é assim que o WhatsApp identifica robô. O Agente escreve cada mensagem do zero.",
-                },
-                {
-                  emoji: "🧠",
-                  t: "Entende a resposta",
-                  d: "Ele lê o que o lead escreveu e te diz quem está quente, quem perguntou preço e quem pediu para sair — antes de você abrir a conversa.",
-                },
-                {
-                  emoji: "📱",
-                  t: "É o seu WhatsApp",
-                  d: "Seu número, sua conta, suas conversas. Nada de chip alugado ou número emprestado que some amanhã.",
-                },
-              ].map((c) => (
-                <div key={c.t}>
-                  <span className="text-2xl">{c.emoji}</span>
-                  <p className="mt-1.5 font-bold">{c.t}</p>
-                  <p className="mt-1 text-sm leading-relaxed text-white/60">{c.d}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <p className="pv-rev relative mt-10 text-center text-sm font-semibold text-white/60">
-            ↓ E é assim que o trabalho dele chega até você
+          {/*
+            Honestidade sobre o WhatsApp, em uma linha e sem drama. Prometer
+            "número seguro" é o que ninguém pode prometer — e o cliente que
+            descobre isso na prática vira reembolso e denúncia.
+          */}
+          <p className="pv-rev relative mx-auto mt-8 max-w-2xl text-center text-xs leading-relaxed text-white/45">
+            Use a ferramenta de forma responsável e de acordo com as regras do WhatsApp. Controles de
+            volume, pausas, personalização e opt-out ajudam a prospectar com responsabilidade —
+            nenhuma automação elimina completamente o risco de restrições.
           </p>
         </section>
 
-        {/* ===================== DEMO: PAINEL + WHATSAPP =================== */}
+        {/* ========================== O PAINEL ============================= */}
         <section className="px-5 py-20">
           <div className="pv-rev mx-auto max-w-3xl text-center">
             <span className="text-xs font-extrabold uppercase tracking-[0.22em] text-[#34A853]">
-              O resultado na tela
+              O resultado no painel
             </span>
             <h2 className="mt-3 font-display text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
-              De um lado, seu funil.{" "}
-              <span className="text-[#25D366]">Do outro, a conversa.</span>
+              Abra o painel e saiba{" "}
+              <span className="text-[#25D366]">exatamente com quem falar</span>
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-[#5f6672]">
-              Cada lead com a nota do Google, as avaliações e a{" "}
-              <b className="text-[#1a1c22]">etiqueta que você deu</b> — 🔥 quente, ❄️ frio, “ligar
-              sexta”. E a resposta de cada um à vista, para você entrar na conversa na hora certa.
+              Veja quem respondeu, quem perguntou preço, quem pediu proposta e quem precisa de
+              acompanhamento — e marque cada um com a etiqueta que fizer sentido para você.
             </p>
           </div>
 
           <div className="pv-rev mx-auto mt-12 grid max-w-4xl items-start gap-6 md:grid-cols-2">
-            {/* mock do painel */}
+            {/* o painel */}
             <div className="rounded-3xl border border-black/10 bg-white p-4 shadow-[0_24px_70px_-35px_rgba(26,28,34,.5)]">
               <p className="px-1 pb-2 text-xs font-bold uppercase tracking-wide text-[#5f6672]">
-                Seu painel
+                Seu funil
               </p>
               {[
-                { nome: "Clínica Bella Pele", info: "⭐ 4,8 · 132 avaliações", nota: 87, cor: "#34A853", tag: "🔥 quente", resp: "“Pode mandar sim!”" },
-                { nome: "Advocacia Prado & Silva", info: "⭐ 4,9 · 51 avaliações", nota: 82, cor: "#34A853", tag: "📞 ligar sexta", resp: null },
-                { nome: "Academia Corpo Livre", info: "⭐ 4,6 · 210 avaliações", nota: 74, cor: "#FBBC05", tag: null, resp: null },
+                { nome: "Clínica Bella Pele", info: "⭐ 4,8 · 132 avaliações", cor: "#34A853", tag: "🔥 Lead quente", resp: "“Pode mandar sim!”" },
+                { nome: "Advocacia Prado & Silva", info: "⭐ 4,9 · 51 avaliações", cor: "#4285F4", tag: "📄 Proposta enviada", resp: "“Manda o valor”" },
+                { nome: "Academia Corpo Livre", info: "⭐ 4,6 · 210 avaliações", cor: "#FBBC05", tag: "📞 Ligar na sexta", resp: null },
               ].map((l) => (
-                <div key={l.nome} className="mb-2 rounded-2xl border border-black/5 bg-[#f7f9fe] p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-bold">{l.nome}</p>
-                    <span className="font-display text-lg font-extrabold" style={{ color: l.cor }}>
-                      {l.nota}
-                    </span>
-                  </div>
-                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-black/10">
-                    <div className="pv-barra h-full rounded-full" style={{ width: `${l.nota}%`, background: l.cor }} />
-                  </div>
+                <div
+                  key={l.nome}
+                  className="mb-2 rounded-2xl border border-black/5 bg-[#f7f9fe] p-3"
+                  style={{ borderLeft: `4px solid ${l.cor}` }}
+                >
+                  <p className="text-sm font-bold">{l.nome}</p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
                     <span className="text-[#5f6672]">{l.info}</span>
-                    {l.tag && (
-                      <span className="rounded-full bg-[#FBBC05]/20 px-2 py-0.5 font-bold text-[#8a6d00]">{l.tag}</span>
-                    )}
+                    <span className="rounded-full bg-[#FBBC05]/20 px-2 py-0.5 font-bold text-[#8a6d00]">{l.tag}</span>
                     {l.resp && (
                       <span className="rounded-full bg-[#25D366]/15 px-2 py-0.5 font-bold text-[#128C4A]">
                         respondeu: {l.resp}
@@ -658,19 +636,26 @@ export default async function ProspectorPage() {
                   </div>
                 </div>
               ))}
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {ETIQUETAS.map((e) => (
+                  <span key={e} className="rounded-full border border-black/10 bg-white px-2.5 py-1 text-[11px] font-bold text-[#3c4048]">
+                    {e}
+                  </span>
+                ))}
+              </div>
             </div>
 
-            {/* mock da conversa */}
+            {/* a conversa */}
             <div className="rounded-3xl border border-black/10 bg-[#e5ddd5] p-4 shadow-[0_24px_70px_-35px_rgba(26,28,34,.5)]">
               <p className="pb-2 text-xs font-bold uppercase tracking-wide text-[#5f6672]">
                 O WhatsApp do lead
               </p>
               <div className="flex flex-col gap-2">
                 <div className="max-w-[88%] self-end rounded-2xl rounded-tr-sm bg-[#d9fdd3] p-3 text-[13px] leading-relaxed text-[#1a1c22] shadow-sm">
-                  Oi, Dra. Camila! Achei a <b>Clínica Bella Pele</b> aqui no Cambuí e vi que vocês
-                  têm <b>132 avaliações</b> — sinal de que o trabalho é muito bem falado. Eu
-                  trabalho com <b>plano de saúde empresarial</b> e atendo clínicas da região.
-                  Posso te mandar um resumo rápido de como funciona, sem compromisso?
+                  Oi! Encontrei a <b>Clínica Bella Pele</b> pesquisando clínicas no Cambuí e vi que
+                  vocês têm <b>132 avaliações</b>. Eu trabalho com <b>plano de saúde empresarial</b> e
+                  atendo clínicas da região. Posso te mandar um resumo rápido de como funciona, sem
+                  compromisso?
                   <span className="mt-1 block text-right text-[10px] text-[#5f6672]">09:42 ✓✓</span>
                 </div>
                 <div className="max-w-[70%] self-start rounded-2xl rounded-tl-sm bg-white p-3 text-[13px] text-[#1a1c22] shadow-sm">
@@ -687,38 +672,10 @@ export default async function ProspectorPage() {
             </div>
           </div>
 
-          {/*
-            Os detalhes que fecham a objeção "e depois, como eu organizo isso?"
-            — cada um é uma coisa que o vendedor já faz na mão hoje.
-          */}
-          <div className="pv-rev mx-auto mt-10 grid max-w-4xl gap-4 sm:grid-cols-3">
-            {[
-              {
-                emoji: "🏷️",
-                titulo: "Etiquete do seu jeito",
-                texto:
-                  "🔥 quente, ❄️ frio, ou o que você escrever — “ligar sexta”, “pediu proposta”. Depois filtra por elas com um clique.",
-              },
-              {
-                emoji: "📊",
-                titulo: "A lista é sua, de verdade",
-                texto:
-                  "Exporte tudo em planilha quando quiser: empresa, telefone, avaliações, etiqueta e um link de WhatsApp pronto para clicar.",
-              },
-              {
-                emoji: "🌙",
-                titulo: "Painel só seu",
-                texto:
-                  "Nada de menu cheio de coisa que você não usa. Só prospecção — e no claro ou no escuro, do jeito que sua vista prefere.",
-              },
-            ].map((c) => (
-              <div key={c.titulo} className="rounded-3xl border border-black/10 bg-white p-6">
-                <span className="text-2xl">{c.emoji}</span>
-                <h3 className="mt-2 text-lg font-extrabold tracking-tight">{c.titulo}</h3>
-                <p className="mt-1.5 text-[15px] leading-relaxed text-[#5f6672]">{c.texto}</p>
-              </div>
-            ))}
-          </div>
+          <p className="pv-rev mx-auto mt-8 max-w-2xl text-center text-sm text-[#5f6672]">
+            A lista não fica presa no sistema: exporte para Excel ou Google Sheets quando quiser —
+            tudo, só os contatos, ou só os números de WhatsApp.
+          </p>
         </section>
 
         {/* ========================= MARQUEE NICHOS ======================== */}
@@ -746,131 +703,19 @@ export default async function ProspectorPage() {
           </div>
         </section>
 
-        {/* ========================== PROTEÇÕES ============================ */}
-        <section className="px-5 py-20">
+        {/* ============================ OFERTA ============================= */}
+        <section id="preco" className="px-5 py-20">
           <div className="pv-rev mx-auto max-w-3xl text-center">
             <span className="text-xs font-extrabold uppercase tracking-[0.22em] text-[#4285F4]">
-              A pergunta certa
+              A oferta
             </span>
             <h2 className="mt-3 font-display text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
-              “E o meu número, corre risco?”
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-[#5f6672]">
-              Ferramenta de disparo queima o número porque se comporta como robô. O Prospector foi
-              desenhado para se comportar como <b className="text-[#1a1c22]">a sua melhor versão
-              organizada</b> — e essas quatro proteções já vêm ligadas:
-            </p>
-          </div>
-          <div className="pv-rev mx-auto mt-10 grid max-w-5xl gap-5 sm:grid-cols-2">
-            {PROTECOES.map((p) => (
-              <div key={p.titulo} className="rounded-3xl border border-black/10 bg-white p-6">
-                <span className="text-2xl">{p.emoji}</span>
-                <h3 className="mt-2 text-lg font-extrabold tracking-tight">{p.titulo}</h3>
-                <p className="mt-1.5 text-[15px] leading-relaxed text-[#5f6672]">{p.texto}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ============================ PREÇO ============================== */}
-        {/* ===================== A CONTA QUE FECHA A VENDA ================= */}
-        {/*
-          Antes do preço, a matemática. Quem vende comissionado faz essa conta
-          de cabeça o tempo todo — colocá-la escrita transforma "R$97 é caro?"
-          em "quanto tempo até eu recuperar?", que é outra pergunta.
-        */}
-        <section className="px-5 pt-20">
-          <div className="pv-rev mx-auto max-w-3xl text-center">
-            <span className="text-xs font-extrabold uppercase tracking-[0.22em] text-[#34A853]">
-              A conta
-            </span>
-            <h2 className="mt-3 font-display text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
-              Quantas vendas você precisa fazer{" "}
-              <span className="text-[#34A853]">para isso se pagar?</span>
-            </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-[#5f6672]">
-              Uma. Quase sempre <b className="text-[#1a1c22]">uma só</b>. E ela costuma pagar o ano
-              inteiro.
-            </p>
-          </div>
-
-          <div className="pv-rev mx-auto mt-10 grid max-w-4xl gap-4 sm:grid-cols-3">
-            {[
-              { t: "1 seguro auto fechado", d: "comissão média de R$ 300 a R$ 800", m: "3 a 8 meses pagos" },
-              { t: "1 plano de saúde PME", d: "comissão recorrente todo mês", m: "o ano inteiro pago" },
-              { t: "1 consórcio vendido", d: "comissão de R$ 900 para cima", m: "9 meses pagos" },
-            ].map((c) => (
-              <div key={c.t} className="rounded-3xl border border-[#34A853]/30 bg-white p-6 text-center">
-                <p className="text-lg font-extrabold tracking-tight">{c.t}</p>
-                <p className="mt-1 text-sm text-[#5f6672]">{c.d}</p>
-                <p className="mt-3 rounded-full bg-[#34A853]/10 py-2 text-sm font-extrabold text-[#188038]">
-                  = {c.m}
-                </p>
-              </div>
-            ))}
-          </div>
-          <p className="pv-rev mx-auto mt-4 max-w-2xl text-center text-xs text-[#5f6672]">
-            Comissões variam por corretora, produto e região — use os seus números. A conta que
-            importa é a mesma: <b className="text-[#1a1c22]">o custo é fixo, o teto de vendas não
-            é.</b>
-          </p>
-        </section>
-
-        {/* ========================= O QUE VOCÊ LEVA ======================= */}
-        <section className="px-5 pt-16">
-          <div className="pv-rev mx-auto max-w-3xl text-center">
-            <span className="text-xs font-extrabold uppercase tracking-[0.22em] text-[#4285F4]">
-              O que você leva
-            </span>
-            <h2 className="mt-3 font-display text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
-              Compare com o que isso custaria separado
+              Todo o seu processo de prospecção{" "}
+              <span className="text-[#34A853]">por R$ {preco} por mês</span>
             </h2>
           </div>
 
-          <div className="pv-rev mx-auto mt-10 max-w-3xl overflow-hidden rounded-3xl border border-black/10 bg-white">
-            {[
-              { i: "🔎", t: "Lista de empresas da sua região, sempre atualizada", d: "com telefone, WhatsApp, endereço e avaliações do Google", v: "lista comprada: R$ 200 e envelhece no mesmo dia" },
-              { i: "🤖", t: "Agente de IA que escreve e envia por você", d: "mensagem original para cada empresa, no ritmo de uma pessoa", v: "estagiário para isso: R$ 1.400/mês" },
-              { i: "🔁", t: "Remarketing automático em até 3 toques", d: "quem não respondeu recebe de novo, com educação e saída fácil", v: "ferramenta de cadência: R$ 150/mês" },
-              { i: "🗂️", t: "CRM visual com funil, etiquetas e lembretes", d: "arrasta o card, marca 🔥 quente, “me lembra sexta”", v: "CRM de mercado: R$ 90/mês por usuário" },
-              { i: "⚡", t: "Respostas prontas e exportação em planilha", d: "cola a resposta com um clique; a lista é sua e sai quando quiser", v: "incluído" },
-              { i: "✨", t: "BÔNUS: modelos de mensagem prontos por tipo de venda", d: "seguros, plano de saúde, consórcio, representação, contabilidade, solar e marketing — um clique e o texto está na tela", v: "seu primeiro envio sai hoje", bonus: true },
-            ].map((l) => (
-              <div
-                key={l.t}
-                className={`flex flex-wrap items-start gap-4 border-b border-black/5 p-5 last:border-0 ${
-                  l.bonus ? "bg-[#FBBC05]/10" : ""
-                }`}
-              >
-                <span className="text-2xl">{l.i}</span>
-                <div className="min-w-[14rem] flex-1">
-                  <p className="font-extrabold tracking-tight">{l.t}</p>
-                  <p className="mt-0.5 text-sm text-[#5f6672]">{l.d}</p>
-                </div>
-                <span
-                  className={`flex-none rounded-full px-3 py-1 text-xs font-bold ${
-                    l.bonus ? "bg-[#FBBC05]/25 text-[#8a6d00]" : "bg-black/5 text-[#5f6672]"
-                  }`}
-                >
-                  {l.bonus ? "grátis" : l.v}
-                </span>
-              </div>
-            ))}
-            <div className="bg-[#1a1c22] p-6 text-center text-white">
-              <p className="text-sm text-white/60">
-                Somando as ferramentas separadas:{" "}
-                <s className="text-white/50">mais de R$ 1.800 por mês</s>
-              </p>
-              <p className="mt-1 font-display text-2xl font-extrabold">
-                Aqui: <span className="text-[#34A853]">R$ {preco}/mês</span>, tudo junto
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* ============================ PREÇO ============================== */}
-        <section id="preco" className="px-5 py-16">
-          <div className="pv-rev mx-auto max-w-lg">
+          <div className="pv-rev mx-auto mt-10 max-w-lg">
             <div className="rounded-[2rem] bg-gradient-to-br from-[#4285F4] via-[#EA4335] to-[#34A853] p-[3px] shadow-[0_36px_90px_-35px_rgba(66,133,244,.55)]">
               <div className="rounded-[calc(2rem-3px)] bg-white p-8 text-center sm:p-10">
                 <span className="text-xs font-extrabold uppercase tracking-[0.22em] text-[#4285F4]">
@@ -885,14 +730,15 @@ export default async function ProspectorPage() {
                 </p>
                 <ul className="mx-auto mt-6 flex max-w-sm flex-col gap-2.5 text-left text-[15px] text-[#3c4048]">
                   {[
-                    "Buscas ilimitadas no Google Maps",
-                    "Mensagens escritas pela IA, uma diferente para cada empresa",
-                    "Envio automático no ritmo de uma pessoa",
-                    "Remarketing em até 3 toques em quem não respondeu",
+                    "Buscas ilimitadas no Google Maps, com filtros",
+                    "Empresas organizadas no painel, com telefone e avaliações",
+                    "Mensagem com o nome de cada empresa, variando a cada envio",
+                    "Envio automático pelo seu WhatsApp, no ritmo de uma pessoa",
+                    "Remarketing automático em até 3 toques",
                     "CRM com funil, etiquetas e lembretes",
-                    "Exportar tudo em planilha quando quiser",
-                    "Modelos prontos por tipo de venda (bônus)",
-                    "Sem cobrança por lead. Sem crédito. Sem surpresa.",
+                    "Exportação em planilha (só WhatsApp, contatos ou tudo)",
+                    "Modelos de abordagem prontos por tipo de venda",
+                    "Sem cobrança por lead ou por mensagem",
                   ].map((t) => (
                     <li key={t} className="flex gap-2.5">
                       <span className="mt-0.5 flex-none font-bold text-[#34A853]">✓</span>
@@ -908,59 +754,80 @@ export default async function ProspectorPage() {
                   Quero começar a prospectar →
                 </Link>
                 <p className="mt-3 text-xs text-[#5f6672]">
-                  Sem fidelidade · cancele em dois cliques, direto no painel
+                  Sem fidelidade · cancele direto pelo painel · pagamento seguro
                 </p>
               </div>
             </div>
 
-            {/* ---------------------- a garantia ---------------------- */}
-            {/*
-              A reversão de risco é a alavanca mais forte de uma oferta — e
-              esta é VERIFICÁVEL: a promessa é sobre o que o sistema entrega
-              (empresas com telefone), não sobre quanto o cliente vai vender,
-              que não depende de nós. Promessa de faturamento seria a única
-              coisa capaz de transformar um cliente feliz num processo.
-            */}
-            <div className="pv-rev mt-6 rounded-3xl border-2 border-dashed border-[#34A853]/50 bg-[#34A853]/[0.06] p-7 text-center">
-              <span className="text-4xl">🛡️</span>
-              <h3 className="mt-2 font-display text-2xl font-extrabold tracking-tight">
-                Garantia de 7 dias, sem letra miúda
-              </h3>
-              <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-[#3c4048]">
-                Se em 7 dias o Agente não trouxer{" "}
-                <b>pelo menos 100 empresas do seu ramo e da sua região, com telefone</b>, você
-                escreve “quero meu dinheiro de volta” no WhatsApp do suporte e a gente devolve{" "}
-                <b>100%</b>. Sem formulário, sem perguntar por quê, sem tentar te segurar.
-              </p>
-              <p className="mt-3 text-sm font-bold text-[#188038]">
-                O risco é todo nosso. Você só arrisca 7 dias de curiosidade.
-              </p>
+            {/* comparação: o que isso custaria separado */}
+            <div className="pv-rev mt-6 overflow-hidden rounded-3xl border border-black/10 bg-white">
+              {[
+                { i: "🔎", t: "Lista da sua região, sempre atualizada", v: "lista comprada: R$ 200 e envelhece no dia" },
+                { i: "🤖", t: "Agente que monta e envia por você", v: "estagiário para isso: R$ 1.400/mês" },
+                { i: "🔁", t: "Remarketing em até 3 toques", v: "ferramenta de cadência: R$ 150/mês" },
+                { i: "🗂️", t: "CRM com funil e etiquetas", v: "CRM de mercado: R$ 90/mês" },
+              ].map((l) => (
+                <div key={l.t} className="flex flex-wrap items-center gap-3 border-b border-black/5 px-5 py-3.5 text-sm last:border-0">
+                  <span className="text-xl">{l.i}</span>
+                  <span className="flex-1 font-bold">{l.t}</span>
+                  <span className="rounded-full bg-black/5 px-3 py-1 text-xs font-bold text-[#5f6672]">{l.v}</span>
+                </div>
+              ))}
+              <div className="bg-[#1a1c22] p-5 text-center text-white">
+                <p className="text-sm text-white/60">
+                  Separado: <s className="text-white/50">mais de R$ 1.800 por mês</s>
+                </p>
+                <p className="mt-1 font-display text-2xl font-extrabold">
+                  Aqui: <span className="text-[#34A853]">R$ {preco}/mês</span>, tudo junto
+                </p>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* ====================== PARA QUEM NÃO É ========================== */}
-        {/*
-          Desqualificar aumenta o desejo de quem se encaixa e evita o cliente
-          errado — que compra, não usa e pede reembolso. Cada linha aqui é uma
-          objeção respondida ANTES de virar ticket de suporte.
-        */}
-        <section className="px-5 pb-4">
+        {/* ========================== GARANTIA ============================= */}
+        <section className="px-5 pb-20">
+          <div className="pv-rev mx-auto max-w-lg rounded-3xl border-2 border-dashed border-[#34A853]/50 bg-[#34A853]/[0.06] p-8 text-center">
+            <span className="text-4xl">🛡️</span>
+            <h2 className="mt-2 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
+              Teste durante sete dias
+            </h2>
+            {/*
+              Verificável de propósito: a promessa é sobre o que o sistema
+              ENTREGA (empresas com telefone), não sobre quanto o cliente vai
+              vender, que não depende de nós.
+            */}
+            <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-[#3c4048]">
+              Se o Prospector não encontrar{" "}
+              <b>pelo menos 100 empresas do seu ramo e da sua região, com telefone</b>, nos
+              primeiros sete dias, peça o reembolso pelo WhatsApp do suporte. Você recebe{" "}
+              <b>100% do valor</b> de volta. Sem formulário complicado, sem fidelidade.
+            </p>
+            <Link
+              data-track="Garantia · Testar"
+              href="/assinar/prospector"
+              className="mt-6 inline-block rounded-full bg-[#34A853] px-7 py-3 text-base font-bold text-white shadow-[0_12px_32px_-10px_rgba(52,168,83,.8)] transition hover:-translate-y-0.5 hover:brightness-105"
+            >
+              Quero testar o Prospector →
+            </Link>
+          </div>
+        </section>
+
+        {/* ====================== PARA QUEM É / NÃO É ====================== */}
+        <section className="px-5 pb-20">
           <div className="pv-rev mx-auto max-w-3xl rounded-3xl border border-black/10 bg-white p-7">
-            <h3 className="text-center font-display text-xl font-extrabold tracking-tight">
-              Sinceramente: o Prospector <span className="text-[#EA4335]">não é para todo mundo</span>
-            </h3>
-            <div className="mt-5 grid gap-6 sm:grid-cols-2">
+            <div className="grid gap-6 sm:grid-cols-2">
               <div>
-                <p className="text-sm font-extrabold uppercase tracking-wide text-[#34A853]">
-                  É para você se…
+                <p className="font-display text-lg font-extrabold tracking-tight text-[#188038]">
+                  O Prospector é para você se…
                 </p>
-                <ul className="mt-2.5 flex flex-col gap-2 text-[15px] text-[#5f6672]">
+                <ul className="mt-3 flex flex-col gap-2 text-[15px] text-[#5f6672]">
                   {[
-                    "Você vende para EMPRESAS (B2B) e atende por WhatsApp",
-                    "Seu produto tem comissão que justifica uma conversa",
-                    "Você tem 20 minutos por dia para falar com quem respondeu",
-                    "Você quer parar de depender de indicação e de sorte",
+                    "Você vende produtos ou serviços para empresas",
+                    "Seu atendimento acontece pelo WhatsApp",
+                    "Uma venda nova vale mais que a mensalidade",
+                    "Você consegue responder quem demonstrar interesse",
+                    "Você quer depender menos de indicação",
                   ].map((t) => (
                     <li key={t} className="flex gap-2">
                       <span className="mt-0.5 flex-none font-bold text-[#34A853]">✓</span>
@@ -970,15 +837,15 @@ export default async function ProspectorPage() {
                 </ul>
               </div>
               <div>
-                <p className="text-sm font-extrabold uppercase tracking-wide text-[#EA4335]">
-                  NÃO é para você se…
+                <p className="font-display text-lg font-extrabold tracking-tight text-[#EA4335]">
+                  Não é para você se…
                 </p>
-                <ul className="mt-2.5 flex flex-col gap-2 text-[15px] text-[#5f6672]">
+                <ul className="mt-3 flex flex-col gap-2 text-[15px] text-[#5f6672]">
                   {[
-                    "Você quer vender para pessoa física porta a porta",
-                    "Você espera que o sistema feche a venda sozinho — ele abre a porta, quem vende é você",
-                    "Você quer disparar 500 mensagens por dia (aqui isso é bloqueado, para o seu número sobreviver)",
-                    "Você não pretende responder quem responder",
+                    "Você espera que a ferramenta feche a venda sozinha",
+                    "Você pretende enviar centenas de mensagens sem controle",
+                    "Você não vai responder quem demonstrar interesse",
+                    "Você procura uma lista de consumidores pessoa física",
                   ].map((t) => (
                     <li key={t} className="flex gap-2">
                       <span className="mt-0.5 flex-none font-bold text-[#EA4335]">✕</span>
@@ -995,7 +862,7 @@ export default async function ProspectorPage() {
         <section className="bg-white px-5 py-20">
           <div className="pv-rev mx-auto max-w-3xl">
             <h2 className="text-center font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
-              Dúvidas diretas
+              Dúvidas frequentes
             </h2>
             <div className="mt-8 flex flex-col gap-3">
               {PERGUNTAS.map((q) => (
@@ -1024,11 +891,11 @@ export default async function ProspectorPage() {
           />
           <div className="pv-rev relative mx-auto max-w-2xl">
             <h2 className="font-display text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
-              Amanhã de manhã, sua lista está pronta.
+              Sua próxima conversa de venda pode começar hoje
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-lg text-white/85">
-              Conecte o seu WhatsApp, diga o ramo e o bairro, e deixe o Agente trabalhar. O
-              resto você acompanha pelo painel — com o café na mão.
+              Conecte o WhatsApp, escolha o ramo e a região e deixe o Agente fazer o trabalho pesado.
+              Você acompanha pelo painel e entra quando surgir uma oportunidade.
             </p>
             <Link
               data-track="Rodapé · Assinar"
@@ -1038,19 +905,45 @@ export default async function ProspectorPage() {
               Começar por R$ {preco}/mês →
             </Link>
             <p className="mt-3 text-sm font-bold text-white">
-              🛡️ 7 dias de garantia — 100 empresas na sua tela ou seu dinheiro de volta
+              🛡️ 7 dias de garantia · sem fidelidade · cancele quando quiser
             </p>
-            <p className="mt-1 text-sm text-white/70">Sem fidelidade. Seu número, sua máquina.</p>
           </div>
         </section>
       </main>
 
       <footer className="bg-[#1a1c22] px-5 py-8 text-center text-xs text-white/50">
-        Prospector · prospecção de clientes no Google Maps e WhatsApp ·{" "}
-        <Link href="/" className="underline hover:text-white/80">
-          um produto PáginaPro
-        </Link>
+        <p>Prospector · prospecção de clientes no Google Maps e WhatsApp</p>
+        <p className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+          <Link href="/termos" className="underline hover:text-white/80">Termos de uso</Link>
+          <Link href="/privacidade" className="underline hover:text-white/80">Privacidade</Link>
+          {suporte && (
+            <a
+              href={`https://wa.me/${suporte}`}
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-white/80"
+            >
+              Suporte no WhatsApp
+            </a>
+          )}
+          <Link href="/" className="underline hover:text-white/80">um produto PáginaPro</Link>
+        </p>
       </footer>
+
+      {/*
+        Botão fixo no celular. Metade das visitas de anúncio vem do celular,
+        onde o botão do preço fica quatro telas abaixo — e a pessoa decide no
+        meio da leitura. Discreto, some no desktop.
+      */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-white/95 p-3 backdrop-blur md:hidden">
+        <Link
+          data-track="Fixo · Começar"
+          href="#preco"
+          className="block rounded-full bg-[#25D366] py-3 text-center text-sm font-bold text-white shadow-lg"
+        >
+          Começar por R$ {preco}/mês →
+        </Link>
+      </div>
     </div>
   );
 }
