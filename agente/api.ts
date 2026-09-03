@@ -96,6 +96,10 @@ export const fimTarefa = (
   dados: { status: string; erro?: string | null; gravadas?: number; progresso?: number },
 ) => chamar("fim_tarefa", { id, ...dados });
 
+/* Quais destes fonte_ids já estão na lista da organização. */
+export const jaExistem = (fonteIds: string[]) =>
+  chamar<{ existentes: string[] }>("ja_existem", { fonte_ids: fonteIds }).then((r) => r.existentes);
+
 export const gravarEmpresas = (nicho: string, local: string, empresas: unknown[]) =>
   chamar<{ gravadas: number; oportunidades: number; quentes: number }>("gravar_empresas", {
     nicho,

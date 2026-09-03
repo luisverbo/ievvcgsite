@@ -24,6 +24,13 @@ export type FiltrosBusca = {
   maxAvaliacoes: number;
   /* Nota mínima (1 a 5). 0 = tanto faz. */
   minNota: number;
+  /*
+   * Pular empresas que JÁ estão na lista do cliente — de qualquer busca
+   * anterior, não só desta. Quem repete "veterinária na Barra" quer as que
+   * faltaram, não as 20 que já tem. O agente descarta pelo fonte_id antes de
+   * abrir a ficha, então não custa tempo nem exposição ao Google.
+   */
+  evitarRepetidas: boolean;
 };
 
 export const FILTROS_VAZIOS: FiltrosBusca = {
@@ -32,6 +39,7 @@ export const FILTROS_VAZIOS: FiltrosBusca = {
   minAvaliacoes: 0,
   maxAvaliacoes: 0,
   minNota: 0,
+  evitarRepetidas: false,
 };
 
 /* Teto: acima disso o "máximo" não está filtrando nada de útil. */
@@ -57,7 +65,33 @@ export function normalizarFiltros(bruto: unknown): FiltrosBusca {
   const notaBruta = Number(o.minNota);
   const minNota = Number.isFinite(notaBruta) && notaBruta > 0 ? Math.min(5, notaBruta) : 0;
 
-  return { site, soWhatsapp: o.soWhatsapp === true, minAvaliacoes, maxAvaliacoes, minNota };
+  return {
+    site,
+    soWhatsapp: o.soWhatsapp === true,
+    minAvaliacoes,
+    maxAvaliacoes,
+    minNota,
+    evitarRepetidas: o.evitarRepetidas === true,
+  };
+}
+
+/*
+ * A chave que diz "é a mesma busca".
+ *
+ * Nicho e local viram minúsculas sem acento, sem pontuação e com espaços
+ * simples: "Barra da Tijuca, Rio de Janeiro" e "barra da tijuca rio de
+ * janeiro" são a mesma coisa para quem digita — e têm que ser para nós.
+ */
+export function chaveDaBusca(nicho: string, local: string): string {
+  const n = (t: string) =>
+    t
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+  return `${n(nicho)}|${n(local)}`;
 }
 
 export function temFiltro(f: FiltrosBusca): boolean {
@@ -120,5 +154,6 @@ export function resumoFiltros(f: FiltrosBusca): string[] {
     partes.push(`até ${f.maxAvaliacoes} avaliações`);
   }
   if (f.minNota) partes.push(`nota ${String(f.minNota).replace(".", ",")}+`);
+  if (f.evitarRepetidas) partes.push("só empresas novas");
   return partes;
 }

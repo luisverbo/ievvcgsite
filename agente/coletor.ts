@@ -31,6 +31,12 @@ export type OpcoesColeta = {
   log?: (msg: string) => void;
   aoProgredir?: (lidas: number, total: number) => void | Promise<void>;
   filtros?: FiltrosBusca;
+  /*
+   * "Destes fonte_ids, quais já estão na lista do cliente?" — respondido
+   * pelo painel. Com isto o agente pula as repetidas ANTES de abrir a ficha:
+   * é a diferença entre 5 segundos e 0 por empresa já conhecida.
+   */
+  jaExistem?: (fonteIds: string[]) => Promise<string[]>;
 };
 
 export type ResultadoColeta = {
@@ -39,7 +45,14 @@ export type ResultadoColeta = {
   bloqueio: string | null;
   /* Quantas foram abertas e descartadas por não passarem no filtro. */
   descartadas: number;
+  /* Quantas já estavam na lista do cliente e foram puladas sem abrir. */
+  repetidas: number;
 };
+
+/* O id estável de uma ficha do Maps — o mesmo que vai para o banco. */
+export function fonteIdDaUrl(url: string): string {
+  return decodeURIComponent(url.split("/maps/place/")[1] ?? url).slice(0, 200);
+}
 
 /*
  * Quantas fichas abrir quando há filtro.
@@ -190,7 +203,7 @@ async function extrair(page: Page, url: string): Promise<EmpresaEncontrada | nul
   if (avaliacoes === undefined && notaMedia === undefined) avaliacoes = 0;
 
   return {
-    fonte_id: decodeURIComponent(url.split("/maps/place/")[1] ?? url).slice(0, 200),
+    fonte_id: fonteIdDaUrl(url),
     nome,
     categoria: categoria?.trim(),
     endereco: semRotulo(enderecoBruto),
@@ -215,8 +228,11 @@ export async function coletarDoGoogle(
   const pausa = Math.max(800, op.pausaMs ?? 1800);
   const filtros = op.filtros ?? FILTROS_VAZIOS;
   const filtrando = temFiltro(filtros);
-  // Com filtro, junta mais links do que o alvo — muitos vão ser descartados.
-  const alvoLinks = filtrando ? Math.min(TETO_FICHAS, limite * FATOR_FILTRO) : limite;
+  const pulandoRepetidas = Boolean(filtros.evitarRepetidas && op.jaExistem);
+  // Com filtro ou pulando repetidas, junta mais links do que o alvo — muitos
+  // vão ser descartados antes ou depois de abrir.
+  const alvoLinks =
+    filtrando || pulandoRepetidas ? Math.min(TETO_FICHAS, limite * FATOR_FILTRO) : limite;
   /*
    * Nicho fora do catálogo NÃO é erro: é o ramo que o dono digitou à mão
    * ("loja de aquário") — o Maps busca por texto e acha do mesmo jeito. O
@@ -245,9 +261,30 @@ export async function coletarDoGoogle(
     await aceitarConsentimento(page, log);
 
     const bloqueio = await estaBloqueado(page);
-    if (bloqueio) return { empresas: [], falhas: 0, bloqueio, descartadas: 0 };
+    if (bloqueio) return { empresas: [], falhas: 0, bloqueio, descartadas: 0, repetidas: 0 };
 
-    const links = await coletarLinks(page, alvoLinks, log);
+    let links = await coletarLinks(page, alvoLinks, log);
+
+    /*
+     * Pula o que o cliente já tem — sem abrir ficha nenhuma.
+     *
+     * Pergunta ao painel quais destes ids já existem na lista (de QUALQUER
+     * busca anterior) e tira da fila. Falhou a pergunta? Segue com todos:
+     * uma repetida gravada de novo só atualiza a linha; um "erro de rede"
+     * que cancela a busca inteira é bem pior.
+     */
+    let repetidas = 0;
+    if (pulandoRepetidas) {
+      try {
+        const existentes = new Set(await op.jaExistem!(links.map(fonteIdDaUrl)));
+        const antes = links.length;
+        links = links.filter((l) => !existentes.has(fonteIdDaUrl(l)));
+        repetidas = antes - links.length;
+        if (repetidas > 0) log(`${repetidas} já estavam na sua lista — pulei sem abrir`);
+      } catch (e) {
+        log(`não consegui conferir repetidas (${(e as Error).message.slice(0, 60)}); sigo com todas`);
+      }
+    }
     log(
       filtrando
         ? `${links.length} empresas na lista; abrindo até completar ${limite} que passem no filtro`
@@ -298,7 +335,7 @@ export async function coletarDoGoogle(
       await op.aoProgredir?.(filtrando ? empresas.length : i + 1, totalBarra);
 
       const b = await estaBloqueado(page);
-      if (b) return { empresas, falhas, bloqueio: b, descartadas };
+      if (b) return { empresas, falhas, bloqueio: b, descartadas, repetidas };
       await espera(pausa);
     }
 
@@ -308,7 +345,7 @@ export async function coletarDoGoogle(
       );
     }
 
-    return { empresas, falhas, bloqueio: null, descartadas };
+    return { empresas, falhas, bloqueio: null, descartadas, repetidas };
   } finally {
     await ctx?.close().catch(() => {});
   }

@@ -60,8 +60,11 @@ export async function enfileirarBuscaGoogle(
     minAvaliacoes: formData.get("f_min_av"),
     maxAvaliacoes: formData.get("f_max_av"),
     minNota: formData.get("f_min_nota"),
+    // "1" = só empresas novas. É o padrão do formulário; a pessoa só troca
+    // quando quer, de propósito, trazer as mesmas de novo.
+    evitarRepetidas: formData.get("evitar_repetidas") !== "0",
   });
-  const comFiltro = temFiltro(filtros);
+  const comFiltro = temFiltro(filtros) || filtros.evitarRepetidas;
 
   const base = { org_id: org.id, nicho, local, limite };
   // O tipo gerado do banco ainda não conhece `filtros` (coluna nova), e a

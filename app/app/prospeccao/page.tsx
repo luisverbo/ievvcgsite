@@ -33,6 +33,7 @@ import {
   type TarefaRow,
 } from "@/lib/prospeccao/tipos";
 import { acharNicho } from "@/lib/prospeccao/nichos";
+import { chaveDaBusca, normalizarFiltros, resumoFiltros } from "@/lib/prospeccao/filtros";
 import { usuarioInstagramDe, IG_FILA_MAX, IG_LIMITE_DIA } from "@/lib/prospeccao/instagram";
 import { cardClass } from "@/components/painel/ui";
 import { IconTrash } from "@/components/painel/icons";
@@ -259,6 +260,40 @@ export default async function ProspeccaoPage({
   }
   const pesquisas = [...contagem.values()].sort((a, b2) => b2.total - a.total);
 
+  /*
+   * O histórico que o formulário de busca usa para avisar "você já buscou
+   * isto": para cada nicho|local, quantas empresas existem e o que a última
+   * busca pediu de filtro. Vem das tarefas concluídas — é lá que os filtros
+   * ficam gravados. Sem a coluna (migração 2026-08-24 não rodada) a consulta
+   * falha em silêncio e o aviso sai só com a contagem.
+   */
+  const ultimaPorChave = new Map<string, { em: string; filtros: unknown }>();
+  {
+    const { data: feitas } = await supabase
+      .from("prospeccao_tarefas")
+      .select("nicho, local, filtros, created_at")
+      .eq("org_id", org.id)
+      .eq("status", "concluida")
+      .order("created_at", { ascending: false })
+      .limit(300);
+    for (const t of (feitas as { nicho: string | null; local: string | null; filtros?: unknown; created_at: string }[] | null) ?? []) {
+      const k = chaveDaBusca(t.nicho ?? "", t.local ?? "");
+      if (!ultimaPorChave.has(k)) ultimaPorChave.set(k, { em: t.created_at, filtros: t.filtros ?? null });
+    }
+  }
+  const historico = [...contagem.entries()].map(([bruta, p]) => {
+    const [nicho, local] = bruta.split("|");
+    const k = chaveDaBusca(nicho, local);
+    const ultima = ultimaPorChave.get(k);
+    return {
+      chave: k,
+      rotulo: p.rotulo,
+      total: p.total,
+      ultimaEm: ultima?.em ?? null,
+      filtros: ultima ? resumoFiltros(normalizarFiltros(ultima.filtros)) : [],
+    };
+  });
+
   const { data: tarefasRaw } = await supabase
     .from("prospeccao_tarefas")
     .select("*")
@@ -463,7 +498,7 @@ export default async function ProspeccaoPage({
 
       <div className={`anim-entrada d3 ${cardClass}`}>
         <h2 className="mb-4 text-lg font-bold">🔎 Buscar empresas</h2>
-        <Busca agenteAtivo={agenteAtivo} temAgente={temAgente} />
+        <Busca agenteAtivo={agenteAtivo} temAgente={temAgente} historico={historico} />
         <div className="mt-4">
           <Importar />
         </div>

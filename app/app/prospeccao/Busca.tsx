@@ -3,14 +3,26 @@
 import { useActionState, useState } from "react";
 import { enfileirarBuscaGoogle, type BuscaState } from "./actions";
 import { NICHOS, GRUPOS_NICHOS } from "@/lib/prospeccao/nichos";
+import { chaveDaBusca } from "@/lib/prospeccao/filtros";
 import { inputClass, labelClass, fieldClass } from "@/components/painel/ui";
+
+export type BuscaFeita = {
+  /* chaveDaBusca(nicho, local) — normalizada, comparável com o que se digita */
+  chave: string;
+  rotulo: string;
+  total: number;
+  ultimaEm: string | null;
+  filtros: string[];
+};
 
 export default function Busca({
   agenteAtivo,
   temAgente,
+  historico,
 }: {
   agenteAtivo: boolean;
   temAgente: boolean;
+  historico: BuscaFeita[];
 }) {
   /*
    * Uma busca só: o Google Maps.
@@ -28,6 +40,31 @@ export default function Busca({
   // "outro" abre o campo livre: o Google acha qualquer ramo por texto.
   const [nichoEscolhido, setNichoEscolhido] = useState("dentista");
   const livre = nichoEscolhido === "__outro__";
+  const [nichoLivre, setNichoLivre] = useState("");
+  const [local, setLocal] = useState("");
+
+  /*
+   * "Você já buscou isto."
+   *
+   * Comparado enquanto a pessoa digita, contra o histórico da conta. Igual
+   * (mesmo ramo, mesmo lugar) vira a pergunta explícita: quer só as novas ou
+   * as mesmas de novo? Parecido (mesmo lugar OU mesmo ramo) vira só um aviso
+   * — as repetidas são puladas do mesmo jeito, mas sem interromper.
+   */
+  const nichoEfetivo = livre ? nichoLivre : nichoEscolhido;
+  const chave = chaveDaBusca(nichoEfetivo, local);
+  const [nichoNorm, localNorm] = chave.split("|");
+  const igual = localNorm ? historico.find((h) => h.chave === chave) : undefined;
+  const parecidas = localNorm
+    ? historico.filter((h) => {
+        if (h.chave === chave) return false;
+        const [n, l] = h.chave.split("|");
+        return l === localNorm || (nichoNorm && n === nichoNorm);
+      })
+    : [];
+  const somaParecidas = parecidas.reduce((acc, h) => acc + h.total, 0);
+  const quando = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : null;
 
   return (
     <form className="flex flex-col gap-4">
@@ -60,6 +97,8 @@ export default function Busca({
             <input
               name="nicho_livre"
               autoFocus
+              value={nichoLivre}
+              onChange={(e) => setNichoLivre(e.target.value)}
               placeholder="ex.: loja de aquário, energia solar, coworking…"
               className={`${inputClass} mt-2`}
             />
@@ -73,6 +112,8 @@ export default function Busca({
           <input
             id="local"
             name="local"
+            value={local}
+            onChange={(e) => setLocal(e.target.value)}
             placeholder="Barra da Tijuca, Rio de Janeiro"
             className={inputClass}
             required
@@ -94,6 +135,53 @@ export default function Busca({
           />
         </div>
       </div>
+
+      {/* ------------------- já buscou isto? ------------------- */}
+      {igual ? (
+        <div className="rounded-xl border border-warn/40 bg-warn/10 p-4">
+          <p className="text-sm font-bold text-warn">
+            🔁 Você já buscou isto — {igual.total} {igual.total === 1 ? "empresa" : "empresas"} de{" "}
+            <span className="text-paper">{igual.rotulo}</span> já estão na sua lista
+            {quando(igual.ultimaEm) ? ` (última busca em ${quando(igual.ultimaEm)})` : ""}
+            {igual.filtros.length > 0 ? `, com filtro: ${igual.filtros.join(" · ")}` : ""}.
+          </p>
+          <p className="mt-1 text-xs text-paper-dim">O que fazer com as que você já tem?</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-white/10 bg-ink-2 p-2.5 transition hover:border-white/25">
+              <input type="radio" name="evitar_repetidas" value="1" defaultChecked className="mt-0.5 accent-current" />
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-paper">Só empresas novas</span>
+                <span className="mt-0.5 block text-[11px] leading-snug text-paper-dim">
+                  Pula quem já está na sua lista e continua procurando até completar o número
+                  pedido. Recomendado.
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-white/10 bg-ink-2 p-2.5 transition hover:border-white/25">
+              <input type="radio" name="evitar_repetidas" value="0" className="mt-0.5 accent-current" />
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-paper">Trazer as mesmas de novo</span>
+                <span className="mt-0.5 block text-[11px] leading-snug text-paper-dim">
+                  Atualiza telefone, avaliações e site de quem já está na lista. Não duplica.
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Sem busca igual: só novas, sem perguntar — não há o que repetir. */}
+          <input type="hidden" name="evitar_repetidas" value="1" />
+          {parecidas.length > 0 && (
+            <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-paper-dim">
+              ℹ️ Você já tem {somaParecidas} {somaParecidas === 1 ? "empresa" : "empresas"} parecidas
+              ({parecidas.slice(0, 2).map((h) => h.rotulo).join(", ")}
+              {parecidas.length > 2 ? "…" : ""}). Se alguma aparecer de novo, ela é pulada — só entra
+              o que ainda não está na sua lista.
+            </p>
+          )}
+        </>
+      )}
 
       {/*
         Os filtros ficam recolhidos de propósito.

@@ -127,6 +127,27 @@ export async function POST(req: Request) {
       }
 
       /* --------------------------- empresas achadas ----------------------- */
+      case "ja_existem": {
+        /*
+         * "Destes ids, quais o cliente já tem?" — para o agente pular as
+         * repetidas sem abrir a ficha. Só ids da própria organização, e um
+         * lote por vez: uma busca real traz até 150 links.
+         */
+        const pedidos = Array.isArray(corpo.fonte_ids)
+          ? (corpo.fonte_ids as unknown[]).map(String).filter(Boolean).slice(0, 300)
+          : [];
+        if (pedidos.length === 0) return j({ existentes: [] });
+        const { data: achados } = await admin
+          .from("prospeccao")
+          .select("fonte_id")
+          .eq("org_id", org)
+          .eq("fonte", "google")
+          .in("fonte_id", pedidos);
+        return j({
+          existentes: ((achados as { fonte_id: string }[] | null) ?? []).map((a) => a.fonte_id),
+        });
+      }
+
       case "gravar_empresas": {
         // A pontuação roda aqui, no servidor: é a régua que decide quem vale a
         // pena abordar, e não pode depender da versão do agente que o cliente

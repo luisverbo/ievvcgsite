@@ -137,12 +137,13 @@ async function executar(t: api.Tarefa) {
 
   let ultimoProgresso = 0;
   const filtros = normalizarFiltros(t.filtros);
-  if (temFiltro(filtros)) log(`   filtro: ${resumoFiltros(filtros).join(" · ")}`);
+  if (temFiltro(filtros) || filtros.evitarRepetidas) log(`   filtro: ${resumoFiltros(filtros).join(" · ")}`);
 
   const resultado = await coletarDoGoogle(t.nicho!, t.local!, t.limite, {
     headless: HEADLESS,
     pausaMs: PAUSA_MS,
     filtros,
+    jaExistem: api.jaExistem,
     log: (m) => log(`   ${m}`),
     aoProgredir: async (lidas, total) => {
       // Grava progresso a cada 2 empresas: dá para acompanhar no painel sem
@@ -179,8 +180,18 @@ async function executar(t: api.Tarefa) {
          * entende que aquele bairro não tem 20 do que ele pediu e afrouxa o
          * filtro em vez de abrir chamado.
          */
-        resultado.descartadas > 0 && resultado.empresas.length < t.limite
-        ? `O filtro deixou de fora ${resultado.descartadas} empresas — foi o que essa região tinha. Afrouxe um filtro ou busque num bairro vizinho para completar.`
+        resultado.empresas.length < t.limite && (resultado.descartadas > 0 || resultado.repetidas > 0)
+        ? [
+            resultado.repetidas > 0
+              ? `${resultado.repetidas} já estavam na sua lista e foram puladas.`
+              : "",
+            resultado.descartadas > 0
+              ? `O filtro deixou de fora ${resultado.descartadas}.`
+              : "",
+            "Foi o que essa região tinha de novo — busque num bairro vizinho ou afrouxe um filtro para completar.",
+          ]
+            .filter(Boolean)
+            .join(" ")
         : null,
   });
 
