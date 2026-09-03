@@ -54,3 +54,4 @@ agente/.next
 
 # gerado no build (scripts/gerar-pacote-agente.mjs)
 lib/agente/pacote.ts
+/prints

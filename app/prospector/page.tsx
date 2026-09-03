@@ -6,6 +6,8 @@ import Pixel, { PixelCheckout } from "@/components/vendas/Pixel";
 import Analytics from "@/components/site/Analytics";
 import { ORG_VENDAS, PAGINA_VENDAS } from "@/lib/vendas-metricas";
 import Robo from "@/components/painel/Robo";
+import Image from "next/image";
+import { printDaLanding } from "@/lib/vendas-prints";
 
 /*
  * A landing do PROSPECTOR — página de ANÚNCIO, não de site institucional.
@@ -205,6 +207,12 @@ const PERGUNTAS = [
 export default async function ProspectorPage() {
   const preco = precoEmReais("prospector");
   const video = await videoDaLanding("prospector");
+  // Prints reais do painel (telefones embaçados). Sem os arquivos, o bloco some.
+  const prints = {
+    funil: printDaLanding("funil"),
+    abordar: printDaLanding("quem-abordar"),
+    leads: printDaLanding("leads"),
+  };
   const pixel = await pixelDasVendas();
   const suporte = (process.env.NEXT_PUBLIC_WHATSAPP_VENDAS ?? "").replace(/\D/g, "");
 
@@ -447,6 +455,91 @@ export default async function ProspectorPage() {
                 Quero fazer minha primeira prospecção →
               </Link>
             </p>
+          </section>
+        )}
+
+        {/* ========================== PROVA REAL =========================== */}
+        {/*
+          O painel de verdade, sem retoque além dos telefones embaçados. Um
+          print real vale mais que qualquer ilustração: o visitante vê os
+          números de uma conta em uso e entende que o produto existe e
+          trabalha. O bloco só aparece quando os arquivos existem.
+        */}
+        {prints.funil && (
+          <section className="bg-white px-5 py-20">
+            <div className="pv-rev mx-auto max-w-3xl text-center">
+              <span className="text-xs font-extrabold uppercase tracking-[0.22em] text-[#34A853]">
+                Prova real
+              </span>
+              <h2 className="mt-3 font-display text-3xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl">
+                Isto é o painel <span className="text-[#34A853]">funcionando de verdade</span>
+              </h2>
+              <p className="mx-auto mt-4 max-w-2xl text-[#5f6672]">
+                Print real de uma conta em uso, sem retoque — só os telefones e os nomes das pessoas
+                estão embaçados. Cada coluna é uma etapa: encontradas, abordadas, responderam,
+                fechadas.
+              </p>
+            </div>
+
+            <div className="pv-rev mx-auto mt-10 max-w-5xl overflow-hidden rounded-3xl border border-black/10 bg-[#1a1c22] shadow-[0_30px_80px_-30px_rgba(26,28,34,.5)]">
+              <Image
+                src={prints.funil.src}
+                width={prints.funil.largura}
+                height={prints.funil.altura}
+                alt="Funil do Prospector: empresas novas, contactadas, que responderam e fechadas, em colunas"
+                className="h-auto w-full"
+                sizes="(max-width: 1024px) 100vw, 1024px"
+                priority={false}
+              />
+            </div>
+            <p className="pv-rev mx-auto mt-3 max-w-2xl text-center text-sm text-[#5f6672]">
+              O funil: <b className="text-[#1a1c22]">236 empresas encontradas</b> pelo Agente,{" "}
+              <b className="text-[#1a1c22]">50 abordadas</b>, respostas e fechamentos cada um na sua
+              coluna — arrasta o card e pronto.
+            </p>
+
+            {(prints.abordar || prints.leads) && (
+              <div className="pv-rev mx-auto mt-8 grid max-w-5xl gap-6 md:grid-cols-2">
+                {prints.abordar && (
+                  <figure>
+                    <div className="overflow-hidden rounded-3xl border border-black/10 bg-[#1a1c22] shadow-[0_24px_70px_-35px_rgba(26,28,34,.5)]">
+                      <Image
+                        src={prints.abordar.src}
+                        width={prints.abordar.largura}
+                        height={prints.abordar.altura}
+                        alt="Tela Quem abordar: 122 empresas com celular prontas para chamar, da maior nota para a menor"
+                        className="h-auto w-full"
+                        sizes="(max-width: 768px) 100vw, 500px"
+                      />
+                    </div>
+                    <figcaption className="mt-3 text-sm text-[#5f6672]">
+                      <b className="text-[#1a1c22]">122 prontas para chamar</b> — só empresas com
+                      celular que ainda não foram abordadas, da maior nota para a menor. Marca a
+                      lista inteira num clique.
+                    </figcaption>
+                  </figure>
+                )}
+                {prints.leads && (
+                  <figure>
+                    <div className="overflow-hidden rounded-3xl border border-black/10 bg-[#1a1c22] shadow-[0_24px_70px_-35px_rgba(26,28,34,.5)]">
+                      <Image
+                        src={prints.leads.src}
+                        width={prints.leads.largura}
+                        height={prints.leads.altura}
+                        alt="Cards de leads com nota, avaliações do Google, etiquetas e o que o Agente descobriu sobre cada empresa"
+                        className="h-auto w-full"
+                        sizes="(max-width: 768px) 100vw, 500px"
+                      />
+                    </div>
+                    <figcaption className="mt-3 text-sm text-[#5f6672]">
+                      <b className="text-[#1a1c22]">Cada lead com tudo à vista</b> — nota, avaliações
+                      do Google, etiquetas 🔥 quente / ❄️ frio, e o que o Agente descobriu: tem site?
+                      tem WhatsApp? costuma pagar por isso?
+                    </figcaption>
+                  </figure>
+                )}
+              </div>
+            )}
           </section>
         )}
 
