@@ -40,22 +40,28 @@ SAIDA = RAIZ / "public" / "prospector"
 
 # (x0, y0, x1, y1) em pixels do print original.
 REGIOES: dict[str, list[tuple[int, int, int, int]]] = {
-    # 923 x 545 — a coluna dos telefones, à direita, sete linhas.
+    # 923 x 545 — só a coluna dos telefones, à direita.
+    #
+    # Os NOMES ficam de propósito: são empresas listadas publicamente no
+    # Google Maps e a tela não afirma nada sobre elas além de "tem celular e
+    # ainda não foi abordada". Embaçar tudo aqui destruiria a demonstração
+    # sem proteger ninguém — o que identifica é o telefone.
     "quem-abordar.png": [
         (783, 244, 884, 488),
     ],
-    # 574 x 532 — telefones no rodapé de cada card, link do Facebook e os
-    # nomes das profissionais (pessoa física) nos títulos.
+    # 568 x 529 — telefones, links que revelam perfil e os nomes das
+    # profissionais (pessoa física) nos títulos dos cards.
     "leads.png": [
-        (76, 10, 205, 32),     # "Psicóloga Lilian Karen Pires"
-        (80, 112, 154, 132),   # +55 21 98114-0910
-        (76, 148, 200, 170),   # "Tatiana - Psicóloga"
-        (80, 234, 154, 254),   # +55 21 99482-4422
-        (210, 234, 340, 254),  # www.facebook.com/psicologatati…
-        (76, 272, 215, 294),   # "Psicóloga Luana Oliveira"
-        (80, 358, 246, 378),   # +55 21 99757-6594 · wa.me/…
-        (226, 410, 334, 432),  # "Dra. Carolina Kede"
-        (80, 484, 154, 504),   # +55 21 97012-4312
+        (76, 12, 336, 30),     # "Psicóloga Lilian Karen Pires | Barra da Tijuca…"
+        (84, 116, 150, 130),   # +55 21 98114-0910
+        (76, 147, 158, 161),   # "Tatiana - Psicóloga"
+        (84, 236, 150, 250),   # +55 21 99482-4422
+        (198, 236, 310, 250),  # www.facebook.com/psicologatati…
+        (76, 271, 180, 285),   # "Psicóloga Luana Oliveira"
+        (84, 375, 150, 390),   # +55 21 99737-6594
+        (186, 375, 266, 390),  # wa.me/55021997376594
+        (226, 410, 304, 424),  # "| Dra. Carolina Kede"
+        (84, 504, 150, 519),   # +55 21 97012-4312
     ],
     # 1226 x 528 — nomes nas colunas Responderam, Fechados e Descartados.
     "funil.png": [
