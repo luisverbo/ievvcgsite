@@ -80,7 +80,7 @@ export async function enfileirarBuscaGoogle(
   if (error && comFiltro && /filtros/i.test(error.message)) {
     ({ error } = await supabase.from("prospeccao_tarefas").insert(base));
     if (!error) {
-      revalidatePath("/app/prospeccao");
+      revalidatePath("/app/prospeccao", "layout");
       return {
         ok: "Busca na fila — mas sem os filtros: falta rodar a migração 2026-08-24_filtros_busca.sql no Supabase.",
       };
@@ -88,7 +88,7 @@ export async function enfileirarBuscaGoogle(
   }
   if (error) return { error: error.message };
 
-  revalidatePath("/app/prospeccao");
+  revalidatePath("/app/prospeccao", "layout");
   return {
     ok: comFiltro
       ? `Busca na fila, filtrando por ${resumoFiltros(filtros).join(" · ")}. O agente abre mais empresas do que o pedido até completar ${limite} que passem.`
@@ -149,8 +149,7 @@ export async function importarPlanilha(
     .upsert(linhas, { onConflict: "org_id,fonte,fonte_id", ignoreDuplicates: false });
   if (error) return { error: error.message };
 
-  revalidatePath("/app/prospeccao");
-  revalidatePath("/app/prospeccao/funil");
+  revalidatePath("/app/prospeccao", "layout");
   return {
     ok:
       `${linhas.length} empresas importadas.` +
@@ -169,7 +168,7 @@ export async function cancelarTarefa(id: string) {
     .update({ status: "cancelada", concluida_em: new Date().toISOString() })
     .eq("id", id)
     .eq("status", "pendente");
-  revalidatePath("/app/prospeccao");
+  revalidatePath("/app/prospeccao", "layout");
 }
 
 export async function limparTarefas() {
@@ -179,7 +178,7 @@ export async function limparTarefas() {
     .from("prospeccao_tarefas")
     .delete()
     .in("status", ["concluida", "erro", "cancelada"]);
-  revalidatePath("/app/prospeccao");
+  revalidatePath("/app/prospeccao", "layout");
 }
 
 // Enfileira a leitura do Instagram desta empresa para o agente fazer.
@@ -224,7 +223,7 @@ export async function capturarInstagram(id: string) {
     local: null,
     limite: 1,
   });
-  revalidatePath("/app/prospeccao");
+  revalidatePath("/app/prospeccao", "layout");
 }
 
 /*
@@ -282,7 +281,7 @@ export async function pedirEspelho(id: string) {
     local: null,
     limite: 1,
   });
-  revalidatePath("/app/prospeccao");
+  revalidatePath("/app/prospeccao", "layout");
 }
 
 /*
@@ -298,8 +297,7 @@ export async function mudarEtiqueta(id: string, etiqueta: string | null) {
     .from("prospeccao")
     .update({ etiqueta: limpa || null, updated_at: new Date().toISOString() })
     .eq("id", id);
-  revalidatePath("/app/prospeccao");
-  revalidatePath("/app/prospeccao/funil");
+  revalidatePath("/app/prospeccao", "layout");
 }
 
 // A versão para <form>: o texto vem do campo, o id vem no bind.
@@ -324,8 +322,7 @@ export async function marcarLembrete(id: string, dias: number | null) {
     .from("prospeccao")
     .update({ lembrete_em: valor, updated_at: new Date().toISOString() })
     .eq("id", id);
-  revalidatePath("/app/prospeccao");
-  revalidatePath("/app/prospeccao/funil");
+  revalidatePath("/app/prospeccao", "layout");
 }
 
 export async function lembreteDoForm(id: string, formData: FormData) {
@@ -337,8 +334,7 @@ export async function lembreteDoForm(id: string, formData: FormData) {
     .from("prospeccao")
     .update({ lembrete_em: data, updated_at: new Date().toISOString() })
     .eq("id", id);
-  revalidatePath("/app/prospeccao");
-  revalidatePath("/app/prospeccao/funil");
+  revalidatePath("/app/prospeccao", "layout");
 }
 
 export async function mudarStatus(id: string, status: StatusProspecto) {
@@ -348,17 +344,16 @@ export async function mudarStatus(id: string, status: StatusProspecto) {
     .from("prospeccao")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id);
-  revalidatePath("/app/prospeccao");
+  revalidatePath("/app/prospeccao", "layout");
   // O Funil (Kanban) mostra os mesmos leads — sem isto o card voltaria de
   // coluna no próximo carregamento, desfazendo o arrasto na cara do dono.
-  revalidatePath("/app/prospeccao/funil");
 }
 
 export async function excluirProspecto(id: string) {
   if (!(await podeUsar("prospeccao"))) return;
   const supabase = await createClient();
   await supabase.from("prospeccao").delete().eq("id", id);
-  revalidatePath("/app/prospeccao");
+  revalidatePath("/app/prospeccao", "layout");
 }
 
 // Cria a página de IA já apontada para esta empresa e leva você ao construtor

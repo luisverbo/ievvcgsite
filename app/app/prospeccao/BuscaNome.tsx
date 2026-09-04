@@ -30,7 +30,7 @@ export default function BuscaNome() {
       const limpo = texto.trim();
       if (limpo) novos.set("q", limpo);
       else novos.delete("q");
-      router.replace(`/app/prospeccao?${novos.toString()}`, { scroll: false });
+      router.replace(`/app/prospeccao/leads?${novos.toString()}`, { scroll: false });
     }, 350);
     return () => {
       if (timer.current) window.clearTimeout(timer.current);

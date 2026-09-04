@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import Abas from "../Abas";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
@@ -122,11 +122,9 @@ export default async function AbordagemPage() {
 
   return (
     <div className="painel-wrap flex flex-col gap-6">
-      <div className="anim-entrada">
-        <Link href="/app/prospeccao" className="text-sm text-paper-dim hover:text-paper">
-          ← Prospecção
-        </Link>
-        <h1 className="mt-2 font-display text-3xl font-extrabold">Abordagem 💬</h1>
+      <div className="anim-entrada flex flex-col gap-4">
+        <div>
+        <h1 className="font-display text-3xl font-extrabold">Abordagem 💬</h1>
         {podeSites ? (
           <p className="mt-1 max-w-3xl text-sm text-paper-dim">
             A primeira mensagem <b className="text-paper">não leva o link do site</b> — ela
@@ -140,6 +138,8 @@ export default async function AbordagemPage() {
             conversa passa a ser sua.
           </p>
         )}
+        </div>
+        <Abas />
       </div>
 
       <div className="rounded-xl border border-brand-2/30 bg-brand/10 px-4 py-3 text-xs text-paper-dim">

@@ -398,8 +398,7 @@ export async function salvarRespostasRapidas(
   }
 
   revalidatePath("/app/prospeccao/abordagem");
-  revalidatePath("/app/prospeccao");
-  revalidatePath("/app/prospeccao/funil");
+  revalidatePath("/app/prospeccao", "layout");
   return { ok: respostas.length > 0 ? "Respostas salvas — aparecem ao lado de quem respondeu." : "Respostas removidas." };
 }
 

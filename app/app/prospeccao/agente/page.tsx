@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import Abas from "../Abas";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
@@ -48,23 +49,23 @@ export default async function MeuAgentePage() {
 
   return (
     <div className="painel-wrap flex flex-col gap-6">
-      <div>
-        <Link href="/app/prospeccao" className="text-sm text-paper-dim hover:text-paper">
-          ← Prospecção
-        </Link>
-        <h1 className="mt-2 font-display text-3xl font-extrabold">Meu agente 🤖</h1>
-        <p className="mt-1 max-w-2xl text-sm text-paper-dim">
-          A busca no Google e o envio no WhatsApp acontecem num programa que roda{" "}
-          <b className="text-paper">no seu computador</b>, não no nosso servidor. É o que faz o
-          WhatsApp ser o seu número e a busca sair do seu endereço de internet — sem dividir com
-          mais ninguém.
-        </p>
-        <Link
-          href="/app/comecar"
-          className="mt-3 inline-flex rounded-lg border border-white/15 px-4 py-2 text-xs font-bold text-paper transition hover:border-brand-2 hover:text-brand-2"
-        >
-          👋 É a sua primeira vez? Comece pelo passo a passo guiado →
-        </Link>
+      <div className="anim-entrada flex flex-col gap-4">
+        <div>
+          <h1 className="font-display text-3xl font-extrabold">Meu agente 🤖</h1>
+          <p className="mt-1 max-w-2xl text-sm text-paper-dim">
+            A busca no Google e o envio no WhatsApp acontecem num programa que roda{" "}
+            <b className="text-paper">no seu computador</b>, não no nosso servidor. É o que faz o
+            WhatsApp ser o seu número e a busca sair do seu endereço de internet — sem dividir
+            com mais ninguém.
+          </p>
+          <Link
+            href="/app/comecar"
+            className="mt-3 inline-flex rounded-lg border border-white/15 px-4 py-2 text-xs font-bold text-paper transition hover:border-brand-2 hover:text-brand-2"
+          >
+            👋 É a sua primeira vez? Comece pelo passo a passo guiado →
+          </Link>
+        </div>
+        <Abas />
       </div>
 
       {/* estado — quem já instalou precisa LIGAR, não instalar de novo */}

@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import Abas from "../Abas";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
@@ -84,23 +84,15 @@ export default async function FunilPage() {
 
   return (
     <div className="painel-wrap flex flex-col gap-5 !max-w-none">
-      <div className="anim-entrada flex flex-wrap items-end justify-between gap-3">
+      <div className="anim-entrada flex flex-col gap-4">
         <div>
-          <Link href="/app/prospeccao" className="text-sm text-paper-dim hover:text-paper">
-            ← Prospecção
-          </Link>
-          <h1 className="mt-2 font-display text-3xl font-extrabold">Funil 🗂️</h1>
+          <h1 className="font-display text-3xl font-extrabold">Funil 🗂️</h1>
           <p className="mt-1 text-sm text-paper-dim">
             Arraste os cards entre as colunas — ou toque num card para movê-lo. O quadro e a
-            lista mostram as mesmas empresas.
+            aba Leads mostram as mesmas empresas.
           </p>
         </div>
-        <Link
-          href="/app/prospeccao"
-          className="rounded-lg border border-white/15 px-4 py-2 text-sm font-bold text-paper-dim transition hover:border-brand-2 hover:text-brand-2"
-        >
-          📋 Ver como lista
-        </Link>
+        <Abas leads={leads.length} />
       </div>
 
       <Funil leads={leads} respostasRapidas={respostasRapidas} />

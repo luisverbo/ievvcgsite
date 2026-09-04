@@ -95,7 +95,7 @@ export default function SeletorPesquisa({
       {aberto && (
         <div className="absolute left-0 right-0 top-full mt-2 max-h-80 overflow-y-auto rounded-xl border border-white/15 bg-ink-2 p-2 shadow-[0_24px_70px_-20px_rgba(0,0,0,0.9)]">
           {linha(
-            `/app/prospeccao?f=${filtro}${sufixoQ}`,
+            `/app/prospeccao/leads?f=${filtro}${sufixoQ}`,
             busca === "todas",
             "Todas as pesquisas",
             total,
@@ -105,7 +105,7 @@ export default function SeletorPesquisa({
             return (
               <div key={p.chave}>
                 {linha(
-                  `/app/prospeccao?f=${filtro}&b=${encodeURIComponent(p.chave)}${sufixoQ}`,
+                  `/app/prospeccao/leads?f=${filtro}&b=${encodeURIComponent(p.chave)}${sufixoQ}`,
                   busca === p.chave,
                   <>
                     <span className="text-paper">{nicho}</span>
