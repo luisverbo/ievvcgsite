@@ -211,16 +211,33 @@ export async function lerRespostas(
   const linhas = page.locator('#pane-side [role="listitem"], div[aria-label*="Lista de conversas"] [role="listitem"]');
   const total = Math.min(await linhas.count().catch(() => 0), 40);
 
-  // Primeiro coleta os alvos, depois abre um a um: clicar muda a lista.
+  /*
+   * Primeiro coleta os alvos, depois abre um a um: clicar muda a lista.
+   *
+   * Duas pistas dizem que o lead respondeu, e a segunda é a que faltava:
+   *
+   *   1. o SELO de não lida ("1 mensagem não lida");
+   *   2. a última mensagem da conversa NÃO ser nossa — o WhatsApp desenha o
+   *      tiquinho de entrega (✓/✓✓) na prévia só quando quem falou por
+   *      último fomos nós. Sem tique, quem falou por último foi o lead.
+   *
+   * Só o selo não bastava: o dono vê a resposta chegar no celular, abre para
+   * ler, e o selo some. A conversa continua sendo uma resposta que ninguém
+   * registrou — e o lead ficava parado em "Contactado" no funil para sempre.
+   */
   const alvos: string[] = [];
   for (let i = 0; i < total; i++) {
     const linha = linhas.nth(i);
-    // Selo de não lida: "1 mensagem não lida", "2 unread messages"…
     const naoLida = await linha
       .locator('[aria-label*="não lida" i], [aria-label*="unread" i]')
       .count()
       .catch(() => 0);
-    if (naoLida === 0) continue;
+    // O tique da prévia: msg-check, msg-dblcheck, msg-dblcheck-ack, msg-time.
+    const nossoTique = await linha
+      .locator('[data-icon^="msg-"]')
+      .count()
+      .catch(() => 0);
+    if (naoLida === 0 && nossoTique > 0) continue;
 
     const titulo = (await linha.locator("span[title]").first().getAttribute("title").catch(() => "")) ?? "";
     const numero = numerosEsperados.find((n) => mesmoNumero(n, titulo));
@@ -243,6 +260,20 @@ export async function lerRespostas(
       if ((await caixa.count()) === 0) continue;
       await espera(1500);
 
+      /*
+       * Confere DENTRO da conversa quem falou por último. A pista da lista é
+       * um palpite bom, esta é a resposta: se a última bolha é nossa, o lead
+       * ainda não respondeu (ou nós já retomamos a conversa) e não há o que
+       * registrar. Sem esta conferência, um número com conversa antiga viraria
+       * "respondeu" por causa de uma mensagem de meses atrás.
+       */
+      const ultima = await page
+        .locator("div.message-in, div.message-out")
+        .last()
+        .getAttribute("class")
+        .catch(() => null);
+      if (!ultima?.includes("message-in")) continue;
+
       // As últimas bolhas RECEBIDAS (message-in), de trás para frente até a
       // nossa última enviada — é a resposta inteira mesmo quando vem picada
       // em três mensagens curtas, como todo mundo escreve no WhatsApp.
@@ -250,11 +281,14 @@ export async function lerRespostas(
         .locator("div.message-in span.selectable-text")
         .allInnerTexts()
         .catch(() => [] as string[]);
-      const texto = textos.slice(-3).join("\n").trim();
-      if (texto) {
-        saida.push({ telefone: numero, texto: texto.slice(0, 800) });
-        log(`💬 resposta detectada de ${numero}`);
-      }
+      /*
+       * Áudio e figurinha não têm texto — e responder com áudio é resposta
+       * como qualquer outra. Sem esta linha o lead respondia, o agente lia
+       * vazio e o card não saía de "Contactado".
+       */
+      const texto = textos.slice(-3).join("\n").trim() || "(respondeu com áudio ou imagem)";
+      saida.push({ telefone: numero, texto: texto.slice(0, 800) });
+      log(`💬 resposta detectada de ${numero}`);
     } catch {
       // Um chat problemático não pode impedir a leitura dos outros.
     }

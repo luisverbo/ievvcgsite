@@ -57,9 +57,13 @@ function linkZap(telefone: string | null): string | null {
 export default function Funil({
   leads,
   respostasRapidas = [],
+  hojeBr,
 }: {
   leads: LeadFunil[];
   respostasRapidas?: { t: string; x: string }[];
+  /* O "hoje" de Brasília, calculado no servidor: quadro não olha relógio no
+     meio do desenho, e assim a data não muda entre uma renderização e outra. */
+  hojeBr: string;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -78,7 +82,6 @@ export default function Funil({
     const mapa = new Map<StatusProspecto, LeadFunil[]>();
     for (const c of COLUNAS) mapa.set(c.chave, []);
     // Lembrete vencido sobe para o topo da coluna — é para isso que ele existe.
-    const hojeBr = new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10);
     const venceu = (l: LeadFunil) => !!l.lembrete && l.lembrete <= hojeBr;
     for (const l of otimista) mapa.get(l.status)?.push(l);
     for (const c of COLUNAS) {
@@ -86,7 +89,7 @@ export default function Funil({
       mapa.set(c.chave, [...cards.filter(venceu), ...cards.filter((l) => !venceu(l))]);
     }
     return mapa;
-  }, [otimista]);
+  }, [otimista, hojeBr]);
 
   function soltar(id: string, status: StatusProspecto) {
     setAlvo(null);
@@ -109,8 +112,6 @@ export default function Funil({
       }
     });
   }
-
-  const hojeBr = new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10);
 
   return (
     <div className="anim-entrada d1 -mx-6 overflow-x-auto px-6 pb-4">

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Abas from "../Abas";
+import Vigia from "../Vigia";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
@@ -20,6 +21,15 @@ import Funil, { type LeadFunil } from "./Funil";
  */
 
 export const dynamic = "force-dynamic";
+
+/*
+ * O "hoje" de Brasília é lido uma vez por pedido, aqui no servidor, e desce
+ * pronto para o quadro — em vez de o componente do cliente olhar o relógio
+ * no meio do desenho.
+ */
+function hojeBrasilia() {
+  return new Date(Date.now() - 3 * 3_600_000).toISOString().slice(0, 10);
+}
 
 export default async function FunilPage() {
   if (!(await podeUsar("prospeccao"))) notFound();
@@ -68,6 +78,7 @@ export default async function FunilPage() {
     if (Array.isArray(bruto)) respostasRapidas = bruto.filter((r) => r?.t && r?.x);
   }
 
+  const hojeBr = hojeBrasilia();
   const leads: LeadFunil[] = lista.map((p) => ({
     id: p.id,
     nome: p.nome,
@@ -95,7 +106,14 @@ export default async function FunilPage() {
         <Abas leads={leads.length} />
       </div>
 
-      <Funil leads={leads} respostasRapidas={respostasRapidas} />
+      <Funil leads={leads} respostasRapidas={respostasRapidas} hojeBr={hojeBr} />
+
+      {/*
+        O quadro se atualiza sozinho enquanto está aberto: quando o agente
+        escuta uma resposta, o card anda de Contactados para Responderam na
+        frente do vendedor, sem F5. É o que faz o funil parecer vivo.
+      */}
+      <Vigia modo="vigiando" />
     </div>
   );
 }
