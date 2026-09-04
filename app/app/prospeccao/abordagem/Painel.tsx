@@ -34,6 +34,7 @@ import { acharNicho } from "@/lib/prospeccao/nichos";
 import { inputClass, labelClass, cardClass } from "@/components/painel/ui";
 import Robo from "@/components/painel/Robo";
 import ModelosProntos from "./ModelosProntos";
+import PausarEnvio from "./PausarEnvio";
 
 // A primeira mensagem não precisa de etiqueta; as outras, sim — o usuário
 // tem que saber que está olhando a SEGUNDA conversa com aquele lead.
@@ -177,6 +178,8 @@ export default function Painel({
 
   const pendentes = mensagens.filter((m) => m.status === "pendente");
   const semi = pendentes.filter((m) => m.modo === "semi");
+  const pausado = config.envio_pausado === true;
+  const naFilaAuto = pendentes.filter((m) => m.modo === "auto").length;
   const enviadasHoje = mensagens.filter(
     (m) => m.status === "enviada" && m.enviada_em && m.enviada_em > hojeInicio(),
   ).length;
@@ -187,10 +190,11 @@ export default function Painel({
   // recarregar sozinha (e ele muda a cada ~20s).
   const conectando = config.whatsapp_status === "aguardando_qr";
   useEffect(() => {
-    if (!temFilaAuto && !conectando) return;
+    // Pausado a fila não anda: acompanhar de perto seria só gastar pedido.
+    if ((!temFilaAuto || pausado) && !conectando) return;
     const id = window.setInterval(() => router.refresh(), conectando ? 4000 : 10_000);
     return () => window.clearInterval(id);
-  }, [temFilaAuto, conectando, router]);
+  }, [temFilaAuto, pausado, conectando, router]);
 
   function alternar(id: string) {
     setMarcados((s) => {
@@ -210,11 +214,14 @@ export default function Painel({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Pausado, o aviso vem antes de tudo: é o estado que explica o silêncio. */}
+      {pausado && <PausarEnvio pausado naFila={naFilaAuto} desde={config.envio_pausado_em} />}
+
       {/*
         O agente conversando é o produto acontecendo — merece o palco de cima.
         Só aparece quando a fila automática está andando de verdade.
       */}
-      {temFilaAuto && config.whatsapp_status === "conectado" && (
+      {temFilaAuto && !pausado && config.whatsapp_status === "conectado" && (
         <div className="anim-entrada card-aurora rounded-2xl p-5">
           <div className="flex flex-wrap items-center gap-4">
             <Robo estado="trabalhando" tamanho={64} />
@@ -290,6 +297,13 @@ export default function Painel({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {/*
+              Parar fica AQUI, junto de conectar e desconectar: é onde a
+              pessoa procura quando quer que o agente pare de fazer alguma
+              coisa. Só aparece quando não está pausado — pausado, quem manda
+              é o aviso lá em cima.
+            */}
+            {!pausado && <PausarEnvio pausado={false} naFila={naFilaAuto} />}
             <form action={conectarWhatsapp}>
               <button
                 type="submit"

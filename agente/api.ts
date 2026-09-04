@@ -153,6 +153,8 @@ export const abordagemEstado = () =>
      * sai mesmo com a cota do dia esgotada. Servidor antigo não manda o campo.
      */
     continuacoes?: number;
+    /* Freio de mão puxado no painel: nada de envio até o dono retomar. */
+    pausado?: boolean;
   }>("abordagem_estado");
 
 /* --------------------------------- escuta --------------------------------- */

@@ -56,6 +56,9 @@ export type ConfigAbordagem = {
   abordagem_modo?: "direta" | "gancho" | null;
   gancho_msg_modelo?: string | null;
   apresentacao_msg_modelo?: string | null;
+  // O freio de mão: com isto ligado, nenhuma mensagem sai — a fila espera.
+  envio_pausado?: boolean | null;
+  envio_pausado_em?: string | null;
 };
 
 export type MensagemRow = {
@@ -500,6 +503,7 @@ export async function prepararAbordagem(
     abordagem_modo?: string | null;
     gancho_msg_modelo?: string | null;
     apresentacao_msg_modelo?: string | null;
+    envio_pausado?: boolean | null;
   } | null;
   /*
    * Modo Prospector: o modelo padrão fala da oferta própria — o de site
@@ -672,10 +676,15 @@ export async function prepararAbordagem(
   const complemento = modoGancho
     ? " Quem responder recebe a apresentação sozinho, minutos depois."
     : "";
+  // Prometer "começa a enviar em instantes" com o envio pausado seria mentira
+  // — e o cliente ficaria esperando um agente que está de freio puxado.
+  const comeco = cfg?.envio_pausado
+    ? " ⏸️ O envio está PAUSADO: elas ficam guardadas até você clicar em Retomar."
+    : " O agente começa a enviar em instantes.";
   return {
     ok:
       modo === "auto"
-        ? `${novas.length} ${oQue} na fila${aviso}.${assinatura} O agente começa a enviar em instantes.${complemento}`
+        ? `${novas.length} ${oQue} na fila${aviso}.${assinatura}${comeco}${complemento}`
         : `${novas.length} ${oQue} prontos${aviso}.${assinatura} Abra um a um aqui embaixo.${complemento}`,
   };
 }
@@ -720,6 +729,45 @@ export async function limparEnviadas() {
     .delete()
     .in("status", ["enviada", "cancelada", "erro", "sem_whatsapp"]);
   revalidatePath("/app/prospeccao/abordagem");
+}
+
+/*
+ * O freio de mão do envio: para tudo, sem perder a fila.
+ *
+ * Não é o mesmo que desconectar (que apaga a sessão e obriga a ler o QR de
+ * novo) nem que cancelar mensagem por mensagem. Pausado, o servidor
+ * simplesmente não entrega mensagem nenhuma ao agente — e por morar aqui, e
+ * não no agente, a pausa vale também para quem ainda não atualizou o programa
+ * no computador. Retomar é um clique, e a fila continua de onde parou.
+ */
+export async function alternarPausaEnvio(pausar: boolean): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("prospeccao_config").upsert(
+    {
+      org_id: org.id,
+      envio_pausado: pausar,
+      envio_pausado_em: pausar ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "org_id" },
+  );
+  if (error) {
+    return /envio_pausado/.test(error.message)
+      ? { error: "Rode a migração da pausa no Supabase (2026-09-05_pausar_envio.sql) primeiro." }
+      : { error: error.message };
+  }
+
+  revalidatePath("/app/prospeccao/abordagem");
+  revalidatePath("/app/prospeccao", "layout");
+  return {
+    ok: pausar
+      ? "Envio pausado. Nenhuma mensagem sai até você retomar — a fila fica guardada."
+      : "Envio retomado. O agente volta a mandar em instantes, no ritmo de sempre.",
+  };
 }
 
 /*

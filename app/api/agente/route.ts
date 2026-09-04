@@ -42,6 +42,28 @@ const idValido = (v: unknown): string | null => (UUID.test(String(v ?? "")) ? St
 // acima disso é erro ou abuso — e Storage cheio é conta nossa.
 const MAX_IMAGEM_BYTES = 4 * 1024 * 1024;
 
+/*
+ * O envio está pausado no painel?
+ *
+ * Consulta própria e tolerante de propósito: a coluna é de migração nova, e
+ * na dúvida a resposta é NÃO — um erro de SQL não pode calar o envio de uma
+ * conta que nunca pediu pausa.
+ */
+async function envioPausado(orgId: string): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("prospeccao_config")
+      .select("envio_pausado")
+      .eq("org_id", orgId)
+      .maybeSingle();
+    if (error) return false;
+    return (data as { envio_pausado: boolean | null } | null)?.envio_pausado === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: Request) {
   const agente = await agenteDaRequisicao(req);
   if (!agente) return j({ erro: "Token inválido ou desativado." }, 401);
@@ -410,6 +432,11 @@ export async function POST(req: Request) {
           .eq("org_id", org)
           .maybeSingle();
 
+        // O freio de mão. Em select próprio e tolerante: a coluna é de
+        // migração nova, e pedi-la junto derrubaria o estado inteiro em quem
+        // ainda não rodou o SQL — parando o envio de quem nem pausou nada.
+        const pausado = await envioPausado(org);
+
         const inicioDia = new Date();
         inicioDia.setHours(0, 0, 0, 0);
         /*
@@ -470,9 +497,12 @@ export async function POST(req: Request) {
             desconectar_pedido: false,
           },
           enviadasHoje: count ?? 0,
-          pendentes: pendentes ?? 0,
+          // Pausado, a fila some do ponto de vista do agente: ele não abre o
+          // WhatsApp só para enviar, mas continua escutando e conectando.
+          pendentes: pausado ? 0 : (pendentes ?? 0),
           aguardando,
-          continuacoes: continuacoes ?? 0,
+          continuacoes: pausado ? 0 : (continuacoes ?? 0),
+          pausado,
         });
       }
 
@@ -641,6 +671,13 @@ export async function POST(req: Request) {
       }
 
       case "proxima_mensagem": {
+        /*
+         * A trava da pausa mora AQUI, e não no agente, de propósito: assim
+         * "Parar" para o envio na hora mesmo em quem ainda não atualizou o
+         * programa no computador. Sem mensagem entregue, não há o que enviar.
+         */
+        if (await envioPausado(org)) return j({ mensagem: null });
+
         /*
          * Apresentação primeiro: o lead respondeu ao gancho e está com o
          * WhatsApp na mão AGORA. Ela não espera atrás de vinte contatos novos.

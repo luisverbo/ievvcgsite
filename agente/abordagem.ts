@@ -45,6 +45,9 @@ let proximaChecagemEm = 0;
 // seria movimento demais na conta — a cada ~2 minutos é ritmo de gente.
 let proximaEscutaEm = 0;
 
+// O aviso de "pausado" sai uma vez por pausa, não a cada 20 segundos.
+let pausadoAvisado = false;
+
 /*
  * Fecha o navegador do WhatsApp de propósito, na saída do serviço.
  *
@@ -74,7 +77,20 @@ export async function rodarAbordagem(headless: boolean, log: (m: string) => void
     aguardando = 0,
     resumoDevido = false,
     continuacoes = 0,
+    pausado = false,
   } = await api.abordagemEstado();
+
+  /*
+   * Envio pausado no painel: o agente não manda nada, mas segue ESCUTANDO e
+   * conectando — quem pausou o disparo não quer ficar surdo para quem já
+   * respondeu. O servidor também não entrega mensagem enquanto isso, então
+   * a pausa vale mesmo com um agente antigo; este aviso é para o log não
+   * ficar mudo e o dono entender por que nada sai.
+   */
+  if (pausado && !pausadoAvisado) {
+    log("⏸️  envio pausado no painel — nenhuma mensagem sai até você retomar");
+  }
+  pausadoAvisado = pausado;
 
   // Pedido de desconexão vem primeiro: apaga a sessão para poder entrar com
   // outro número.
