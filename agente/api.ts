@@ -147,6 +147,12 @@ export const abordagemEstado = () =>
     pendentes: number;
     aguardando: number;
     resumoDevido: boolean;
+    /*
+     * Apresentações na fila: a segunda mensagem de quem RESPONDEU ao gancho.
+     * É continuação de conversa que o lead abriu, não contato novo — por isso
+     * sai mesmo com a cota do dia esgotada. Servidor antigo não manda o campo.
+     */
+    continuacoes?: number;
   }>("abordagem_estado");
 
 /* --------------------------------- escuta --------------------------------- */

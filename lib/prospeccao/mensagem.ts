@@ -59,6 +59,43 @@ export const MODELO_FOLLOWUP_PROPRIA = `[Oi|Olá]{contato}, tudo certo?
 
 Se não for o momento, sem problema nenhum — é só me dizer e eu não incomodo mais. Mas se quiser, te explico em duas linhas. 🙂`;
 
+/*
+ * O modo GANCHO + APRESENTAÇÃO.
+ *
+ * A abordagem longa chega inteira no preview da notificação, e o lead
+ * decide que é disparo antes de abrir. O gancho é uma linha só, cabe no
+ * preview e termina numa pergunta fácil de responder. Só quem responde
+ * recebe a apresentação — que aqui NÃO repete o "oi, tudo bem?", porque a
+ * conversa já começou.
+ *
+ * O gancho leva {empresa} de propósito: "oi, tudo bem?" seco de número
+ * desconhecido é o padrão de golpe que as pessoas denunciam, e denúncia é o
+ * que mais derruba número. "Falo com alguém da Padaria X?" continua curto,
+ * dá o mesmo gancho de curiosidade e um motivo para responder.
+ */
+export const MODELO_GANCHO = `[Oi|Olá|Opa]{contato}, tudo bem? [Falo com alguém da|É da|Aqui é da] {empresa}?`;
+
+export const MODELO_APRESENTACAO = `[Que bom|Ótimo|Legal]! Meu nome é {meunome}. [Encontrei|Achei] a {empresa} pesquisando empresas{regiao}.
+
+Trabalho com criação de sites e acabei montando, por iniciativa própria, uma versão de como poderia ser o site da {empresa} — já pensando em transformar as visitas em contatos pelo WhatsApp.
+
+Sem compromisso nenhum, fiz como demonstração. Posso te mandar o link [para dar uma olhada|para você ver como ficou]?`;
+
+export const MODELO_APRESENTACAO_PROPRIA = `[Que bom|Ótimo|Legal]! Meu nome é {meunome}. [Encontrei|Achei] a {empresa} pesquisando empresas de {ramo}{regiao}{prova}.
+
+[Eu trabalho com|Trabalho com] {oferta} e atendo [empresas|negócios] como o seu aqui da região.
+
+Não quero tomar seu tempo — posso te mandar [um resumo rápido|duas linhas] de como funciona, sem compromisso?`;
+
+/*
+ * Remarketing de quem nem o gancho respondeu: não há o que "retomar", então
+ * o primeiro toque é a própria apresentação, com um preâmbulo que explica
+ * o silêncio. Vai colado na frente do modelo de apresentação.
+ */
+export const PREFIXO_FOLLOWUP_GANCHO = `[Oi|Olá]{contato}, [tentei falar com vocês esses dias|mandei uma mensagem esses dias] e acho que passou batido. 🙂
+
+`;
+
 export type DadosEmpresa = {
   nome: string;
   nicho_busca?: string | null;

@@ -7,6 +7,9 @@ import { podeUsar } from "@/lib/painel/permissoes";
 import {
   MODELO_PADRAO,
   MODELO_PADRAO_PROPRIA,
+  MODELO_GANCHO,
+  MODELO_APRESENTACAO,
+  MODELO_APRESENTACAO_PROPRIA,
   montarMensagem,
   telefoneWhatsapp,
   type DadosEmpresa,
@@ -46,6 +49,13 @@ export type ConfigAbordagem = {
   oferta_resumo?: string | null;
   // Textos prontos para colar quando o lead responde ({t: título, x: texto}).
   respostas_rapidas?: { t: string; x: string }[] | null;
+  /*
+   * Como a primeira mensagem sai: 'direta' (uma mensagem só, a de sempre) ou
+   * 'gancho' (uma linha curta primeiro; a apresentação só para quem responde).
+   */
+  abordagem_modo?: "direta" | "gancho" | null;
+  gancho_msg_modelo?: string | null;
+  apresentacao_msg_modelo?: string | null;
 };
 
 export type MensagemRow = {
@@ -53,7 +63,7 @@ export type MensagemRow = {
   prospecto_id: string;
   telefone: string;
   texto: string;
-  tipo?: "abordagem" | "fechamento" | "followup";
+  tipo?: "abordagem" | "fechamento" | "followup" | "gancho" | "apresentacao";
   modo: "semi" | "auto";
   status: "pendente" | "enviada" | "erro" | "cancelada" | "sem_whatsapp";
   erro: string | null;
@@ -74,33 +84,73 @@ export async function salvarConfig(
   const remetente = String(formData.get("remetente_nome") ?? "").trim().slice(0, 60);
   if (remetente.length < 2) return { error: "Escreva seu nome — é ele que assina a mensagem." };
 
+  /*
+   * Dois modos, e cada um valida o SEU texto. A tela só manda as caixas do
+   * modo escolhido — o texto do outro modo fica guardado como estava, para
+   * a pessoa poder ir e voltar sem perder o que escreveu.
+   */
+  const modoGancho = String(formData.get("abordagem_modo") ?? "direta") === "gancho";
+
   const modelo = String(formData.get("modelo_mensagem") ?? "").trim();
-  if (modelo.length < 30) return { error: "A mensagem está curta demais." };
-  if (!modelo.includes("{empresa}")) {
-    return { error: "Use {empresa} na mensagem — sem o nome ela vira spam genérico." };
+  if (!modoGancho) {
+    if (modelo.length < 30) return { error: "A mensagem está curta demais." };
+    if (!modelo.includes("{empresa}")) {
+      return { error: "Use {empresa} na mensagem — sem o nome ela vira spam genérico." };
+    }
+  }
+
+  const gancho = String(formData.get("gancho_msg_modelo") ?? "").trim().slice(0, 300);
+  const apresentacao = String(formData.get("apresentacao_msg_modelo") ?? "").trim().slice(0, 1500);
+  if (modoGancho) {
+    if (gancho.length < 8) return { error: "O gancho está curto demais — uma linha com uma pergunta." };
+    if (gancho.length > 160) {
+      return { error: "O gancho passou de 160 caracteres. A graça dele é caber inteiro no preview da notificação." };
+    }
+    if (apresentacao.length < 30) return { error: "A apresentação está curta demais." };
+    if (!apresentacao.includes("{empresa}")) {
+      return { error: "Use {empresa} na apresentação — sem o nome ela vira spam genérico." };
+    }
   }
 
   const limite = Math.min(200, Math.max(1, Number(formData.get("limite_diario")) || 20));
   const min = Math.max(20, Number(formData.get("intervalo_min_s")) || 45);
   const max = Math.max(min + 5, Number(formData.get("intervalo_max_s")) || 150);
 
+  const base = {
+    org_id: org.id,
+    remetente_nome: remetente,
+    ...(modelo ? { modelo_mensagem: modelo } : {}),
+    limite_diario: limite,
+    intervalo_min_s: min,
+    intervalo_max_s: max,
+    updated_at: new Date().toISOString(),
+  };
+
   const supabase = await createClient();
-  const { error } = await supabase.from("prospeccao_config").upsert(
+  let { error } = await supabase.from("prospeccao_config").upsert(
     {
-      org_id: org.id,
-      remetente_nome: remetente,
-      modelo_mensagem: modelo,
-      limite_diario: limite,
-      intervalo_min_s: min,
-      intervalo_max_s: max,
-      updated_at: new Date().toISOString(),
+      ...base,
+      abordagem_modo: modoGancho ? "gancho" : "direta",
+      ...(gancho ? { gancho_msg_modelo: gancho } : {}),
+      ...(apresentacao ? { apresentacao_msg_modelo: apresentacao } : {}),
     },
     { onConflict: "org_id" },
   );
+  // Migração do gancho pendente: o modo direto salva como sempre; o gancho avisa.
+  if (error && /abordagem_modo|gancho_msg_modelo|apresentacao_msg_modelo/.test(error.message)) {
+    if (modoGancho) {
+      return { error: "Rode a migração do gancho no Supabase (2026-09-04_gancho.sql) para ligar este modo." };
+    }
+    ({ error } = await supabase.from("prospeccao_config").upsert(base, { onConflict: "org_id" }));
+  }
   if (error) return { error: error.message };
 
   revalidatePath("/app/prospeccao/abordagem");
-  return { ok: "Configuração salva." };
+  return {
+    ok: modoGancho
+      ? "Salvo! As próximas abordagens saem em dois passos: gancho e, para quem responder, a apresentação."
+      : "Configuração salva.",
+  };
 }
 
 /*
@@ -437,27 +487,41 @@ export async function prepararAbordagem(
   if (ids.length > 50) return { error: "Máximo de 50 empresas por vez." };
 
   const supabase = await createClient();
+  // select * de propósito: as colunas do gancho são de migração nova, e
+  // pedi-las pelo nome derrubaria a abordagem direta de quem não rodou o SQL.
   const [{ data: cfgRaw }, { data: prospRaw }] = await Promise.all([
-    supabase
-      .from("prospeccao_config")
-      .select("modelo_mensagem, remetente_nome")
-      .eq("org_id", org.id)
-      .maybeSingle(),
+    supabase.from("prospeccao_config").select("*").eq("org_id", org.id).maybeSingle(),
     supabase.from("prospeccao").select("*").eq("org_id", org.id).in("id", ids),
   ]);
 
-  const cfg = cfgRaw as { modelo_mensagem: string | null; remetente_nome: string | null } | null;
+  const cfg = cfgRaw as {
+    modelo_mensagem: string | null;
+    remetente_nome: string | null;
+    abordagem_modo?: string | null;
+    gancho_msg_modelo?: string | null;
+    apresentacao_msg_modelo?: string | null;
+  } | null;
   /*
    * Modo Prospector: o modelo padrão fala da oferta própria — o de site
    * ofereceria uma demonstração que não existe. Modelo escrito pelo dono
    * continua valendo nos dois modos.
    */
   const oferta = await ofertaDaOrg(org.id);
-  const modelo =
-    cfg?.modelo_mensagem || (oferta.tipo === "propria" ? MODELO_PADRAO_PROPRIA : MODELO_PADRAO);
+  /*
+   * Modo GANCHO: o que entra na fila é a linha curta; a apresentação só
+   * nasce quando o lead responde (lib/prospeccao/gancho.ts). A IA não entra
+   * aqui — gancho é uma linha, não tem o que escrever.
+   */
+  const modoGancho = cfg?.abordagem_modo === "gancho";
+  const modelo = modoGancho
+    ? cfg?.gancho_msg_modelo?.trim() || MODELO_GANCHO
+    : cfg?.modelo_mensagem || (oferta.tipo === "propria" ? MODELO_PADRAO_PROPRIA : MODELO_PADRAO);
   const remetente = (cfg?.remetente_nome ?? "").trim();
   const extras = { oferta: oferta.resumo || "o meu trabalho" };
-  if (oferta.tipo === "propria" && !oferta.resumo && modelo.includes("{oferta}")) {
+  const apresentacaoUsaOferta =
+    modoGancho &&
+    (cfg?.apresentacao_msg_modelo?.trim() || MODELO_APRESENTACAO_PROPRIA).includes("{oferta}");
+  if (oferta.tipo === "propria" && !oferta.resumo && (modelo.includes("{oferta}") || apresentacaoUsaOferta)) {
     return {
       error:
         'Preencha "O que você vende" no card 🎯 O que você oferece — é isso que entra na mensagem.',
@@ -467,7 +531,9 @@ export async function prepararAbordagem(
   // Sem o nome, a mensagem sairia com "Meu nome é." — melhor barrar aqui do
   // que mandar texto quebrado para o cliente. Na IA ele também é obrigatório:
   // é quem assina.
-  if ((estrategia === "ia" || modelo.includes("{meunome}")) && remetente.length < 2) {
+  const apresentacaoUsaNome =
+    modoGancho && (cfg?.apresentacao_msg_modelo?.trim() || MODELO_APRESENTACAO).includes("{meunome}");
+  if ((estrategia === "ia" || modelo.includes("{meunome}") || apresentacaoUsaNome) && remetente.length < 2) {
     return {
       error: 'Preencha "Seu nome" aí em cima e salve — sem ele a mensagem sai com "Meu nome é." e nada mais.',
     };
@@ -518,6 +584,7 @@ export async function prepararAbordagem(
       texto: montarMensagem(modelo, p as DadosEmpresa, p.id, remetente, extras),
       modo,
       status: "pendente",
+      ...(modoGancho ? { tipo: "gancho" } : {}),
     });
   }
 
@@ -537,11 +604,12 @@ export async function prepararAbordagem(
    * índice parcial sem o predicado. Filtrar antes resolve, e o índice
    * continua lá como rede de segurança contra corrida.
    */
+  // Abordado é abordado, foi direto ou por gancho: ninguém recebe as duas.
   const { data: jaExistem } = await supabase
     .from("prospeccao_mensagens")
     .select("prospecto_id")
     .eq("org_id", org.id)
-    .eq("tipo", "abordagem")
+    .in("tipo", ["abordagem", "gancho"])
     .in("prospecto_id", linhas.map((l) => l.prospecto_id as string));
   const abordados = new Set(
     ((jaExistem as { prospecto_id: string }[] | null) ?? []).map((l) => l.prospecto_id),
@@ -600,11 +668,15 @@ export async function prepararAbordagem(
         ? " 🧠 Todas escritas pela IA, uma diferente para cada."
         : ` 🧠 ${escritas} escritas pela IA; ${novas.length - escritas} saíram do seu modelo.`
       : "";
+  const oQue = modoGancho ? "ganchos" : "mensagens";
+  const complemento = modoGancho
+    ? " Quem responder recebe a apresentação sozinho, minutos depois."
+    : "";
   return {
     ok:
       modo === "auto"
-        ? `${novas.length} mensagens na fila${aviso}.${assinatura} O agente começa a enviar em instantes.`
-        : `${novas.length} mensagens prontas${aviso}.${assinatura} Abra uma a uma aqui embaixo.`,
+        ? `${novas.length} ${oQue} na fila${aviso}.${assinatura} O agente começa a enviar em instantes.${complemento}`
+        : `${novas.length} ${oQue} prontos${aviso}.${assinatura} Abra um a um aqui embaixo.${complemento}`,
   };
 }
 

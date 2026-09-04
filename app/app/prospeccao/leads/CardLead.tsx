@@ -92,7 +92,7 @@ export default function CardLead({
 }: {
   p: ProspectoRow;
   ctx: ContextoCard;
-  resposta?: { texto: string; classe: string | null; em: string };
+  resposta?: { texto: string; classe: string | null; em: string; tipo?: string | null };
   abertura?: { total: number; ultima: string };
   atraso: number;
 }) {
@@ -365,7 +365,20 @@ export default function CardLead({
                   {quente && <span className="font-extrabold"> — liga agora!</span>}
                 </p>
               )}
-              {resposta && visualResposta && (
+              {/*
+                Resposta ao GANCHO ("tudo bem e você?"): ainda não é conversa
+                para assumir — a apresentação vai sozinha. Aparece discreta,
+                sem a caixa verde nem as respostas prontas, para o vendedor
+                não pular em cima de um "oi".
+              */}
+              {resposta?.tipo === "gancho" && (
+                <p className="inline-flex w-fit items-center gap-2 rounded-lg border border-brand-2/30 bg-brand/10 px-2.5 py-1 text-xs">
+                  <span className="font-bold text-brand-2">👋 respondeu ao gancho</span>
+                  <span className="text-paper-dim">· apresentação a caminho</span>
+                  <span className="max-w-[16rem] truncate italic text-paper-dim">“{resposta.texto}”</span>
+                </p>
+              )}
+              {resposta && resposta.tipo !== "gancho" && visualResposta && (
                 <div className="rounded-lg border border-ok/30 bg-ok/5 p-2.5">
                   <p className="flex flex-wrap items-center gap-2 text-xs">
                     <span className={`rounded-full px-2 py-0.5 font-bold ${visualResposta.classe}`}>

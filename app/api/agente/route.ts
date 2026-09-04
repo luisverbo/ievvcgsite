@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { agenteDaRequisicao } from "@/lib/agente/token";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pontuarEGravar } from "@/lib/prospeccao/gravar";
-import { classificarResposta } from "@/lib/prospeccao/classificar";
+import { classificarResposta, classificarPorPalavras } from "@/lib/prospeccao/classificar";
 import { dispararFechador } from "@/lib/prospeccao/fechador";
+import { enfileirarApresentacao, TIPO_APRESENTACAO } from "@/lib/prospeccao/gancho";
 import { montarResumoDoDia, resumoDevido, resumoFalhou } from "@/lib/prospeccao/resumo";
 import { prepararFollowups } from "@/lib/prospeccao/followup";
 import { funcaoLigada } from "@/lib/painel/flags";
@@ -411,11 +412,17 @@ export async function POST(req: Request) {
 
         const inicioDia = new Date();
         inicioDia.setHours(0, 0, 0, 0);
+        /*
+         * O limite diário conta CONTATOS: a apresentação de quem respondeu ao
+         * gancho é continuação de conversa, não contato novo, e fica de fora
+         * da conta — senão cada resposta boa gastaria duas vagas da cota.
+         */
         const { count } = await admin
           .from("prospeccao_mensagens")
           .select("id", { count: "exact", head: true })
           .eq("org_id", org)
           .eq("status", "enviada")
+          .neq("tipo", TIPO_APRESENTACAO)
           .gte("enviada_em", inicioDia.toISOString());
 
         const { count: pendentes } = await admin
@@ -424,6 +431,15 @@ export async function POST(req: Request) {
           .eq("org_id", org)
           .eq("status", "pendente")
           .eq("modo", "auto");
+
+        // Apresentações esperando: o agente as manda mesmo com a cota cheia.
+        const { count: continuacoes } = await admin
+          .from("prospeccao_mensagens")
+          .select("id", { count: "exact", head: true })
+          .eq("org_id", org)
+          .eq("status", "pendente")
+          .eq("modo", "auto")
+          .eq("tipo", TIPO_APRESENTACAO);
 
         /*
          * `aguardando` = de quantos números esperamos resposta. É o que faz o
@@ -456,6 +472,7 @@ export async function POST(req: Request) {
           enviadasHoje: count ?? 0,
           pendentes: pendentes ?? 0,
           aguardando,
+          continuacoes: continuacoes ?? 0,
         });
       }
 
@@ -493,16 +510,50 @@ export async function POST(req: Request) {
 
         const { data: msgRaw } = await admin
           .from("prospeccao_mensagens")
-          .select("id, prospecto_id")
+          .select("id, prospecto_id, tipo, modo")
           .eq("org_id", org)
           .eq("status", "enviada")
           .eq("telefone", telefone)
           .is("resposta_em", null)
           .order("enviada_em", { ascending: false })
           .limit(1);
-        const msg = (msgRaw as { id: string; prospecto_id: string }[] | null)?.[0];
+        const msg = (
+          msgRaw as { id: string; prospecto_id: string; tipo: string | null; modo: string }[] | null
+        )?.[0];
         // Sem mensagem esperando: resposta duplicada ou conversa antiga. Nada a fazer.
         if (!msg) return j({ ok: true, classe: null });
+
+        /*
+         * Resposta ao GANCHO: o lead só disse "tudo bem e você?" — ainda não
+         * é conversa para o vendedor assumir. Guarda a resposta, e coloca a
+         * APRESENTAÇÃO na fila; o lead continua "contactado" e só vira
+         * "respondeu" quando responder à apresentação. Só a recusa fura
+         * isso: "não quero" é opt-out, venha em que etapa vier.
+         */
+        if (msg.tipo === "gancho") {
+          const recusou = classificarPorPalavras(texto) === "recusa";
+          await admin
+            .from("prospeccao_mensagens")
+            .update({ resposta_texto: texto, resposta_em: agora(), resposta_classe: recusou ? "recusa" : "outro" })
+            .eq("id", msg.id)
+            .eq("org_id", org);
+          if (recusou) {
+            await admin
+              .from("prospeccao")
+              .update({ status: "respondeu", nao_perturbar: true })
+              .eq("id", msg.prospecto_id)
+              .eq("org_id", org)
+              .neq("status", "fechou");
+            return j({ ok: true, classe: "recusa" });
+          }
+          const entrou = await enfileirarApresentacao(
+            org,
+            msg.prospecto_id,
+            telefone,
+            msg.modo === "semi" ? "semi" : "auto",
+          );
+          return j({ ok: true, classe: entrou ? "gancho" : null });
+        }
 
         const classe = await classificarResposta(org, texto);
 
@@ -590,6 +641,44 @@ export async function POST(req: Request) {
       }
 
       case "proxima_mensagem": {
+        /*
+         * Apresentação primeiro: o lead respondeu ao gancho e está com o
+         * WhatsApp na mão AGORA. Ela não espera atrás de vinte contatos novos.
+         */
+        const { data: apres } = await admin
+          .from("prospeccao_mensagens")
+          .select("id, prospecto_id, telefone, texto")
+          .eq("org_id", org)
+          .eq("status", "pendente")
+          .eq("modo", "auto")
+          .eq("tipo", TIPO_APRESENTACAO)
+          .order("created_at")
+          .limit(1);
+        const apresentacao = (apres as unknown[] | null)?.[0];
+        if (apresentacao) return j({ mensagem: apresentacao });
+
+        /*
+         * Contato novo só dentro da cota. O agente já confere isso antes de
+         * pedir — mas com a apresentação passando por cima da cota, o servidor
+         * é quem garante que a passagem não leva os contatos novos junto.
+         */
+        const { data: cfgLim } = await admin
+          .from("prospeccao_config")
+          .select("limite_diario")
+          .eq("org_id", org)
+          .maybeSingle();
+        const limite = (cfgLim as { limite_diario: number } | null)?.limite_diario ?? 20;
+        const inicio = new Date();
+        inicio.setHours(0, 0, 0, 0);
+        const { count: contatosHoje } = await admin
+          .from("prospeccao_mensagens")
+          .select("id", { count: "exact", head: true })
+          .eq("org_id", org)
+          .eq("status", "enviada")
+          .neq("tipo", TIPO_APRESENTACAO)
+          .gte("enviada_em", inicio.toISOString());
+        if ((contatosHoje ?? 0) >= limite) return j({ mensagem: null });
+
         const { data } = await admin
           .from("prospeccao_mensagens")
           .select("id, prospecto_id, telefone, texto")

@@ -25,6 +25,9 @@ import {
   MODELO_PADRAO_PROPRIA,
   MODELO_FOLLOWUP_PADRAO,
   MODELO_FOLLOWUP_PROPRIA,
+  MODELO_GANCHO,
+  MODELO_APRESENTACAO,
+  MODELO_APRESENTACAO_PROPRIA,
 } from "@/lib/prospeccao/mensagem";
 import { faixa, type ProspectoRow } from "@/lib/prospeccao/tipos";
 import { acharNicho } from "@/lib/prospeccao/nichos";
@@ -37,6 +40,8 @@ import ModelosProntos from "./ModelosProntos";
 const ROTULO_TIPO: Record<string, string> = {
   fechamento: "🤝 com o site",
   followup: "🔁 remarketing",
+  gancho: "👋 gancho",
+  apresentacao: "📣 apresentação",
 };
 
 // O nível do Fechador em uma palavra, para o chip das configurações.
@@ -124,6 +129,11 @@ export default function Painel({
   );
   const [fupLigado, setFupLigado] = useState(config.followup_ligado);
   const [nivelFech, setNivelFech] = useState(config.fechador_nivel);
+  // Como a primeira mensagem sai: de uma vez (direta) ou em dois passos (gancho).
+  const [modoAbordagem, setModoAbordagem] = useState<"direta" | "gancho">(
+    config.abordagem_modo === "gancho" ? "gancho" : "direta",
+  );
+  const modoGancho = modoAbordagem === "gancho";
   const [marcados, setMarcados] = useState<Set<string>>(new Set());
 
   // Controlados para a tela mostrar, ao vivo, quanto tempo o envio vai levar —
@@ -758,16 +768,119 @@ export default function Painel({
           />
         </div>
 
-        <ModelosProntos alvo="modelo_mensagem" />
-        <textarea
-          id="modelo_mensagem"
-          name="modelo_mensagem"
-          defaultValue={
-            config.modelo_mensagem || (ofertaPropria ? MODELO_PADRAO_PROPRIA : MODELO_PADRAO)
-          }
-          rows={10}
-          className={`${inputClass} w-full resize-y font-mono text-xs`}
-        />
+        {/* ------------------- como a primeira mensagem sai ------------------- */}
+        {/*
+          A mensagem longa chega inteira no preview da notificação e o lead
+          decide que é disparo antes de abrir. O modo gancho manda uma linha
+          curta primeiro; só quem responde recebe a apresentação. O modo
+          direto continua existindo — é escolha de quem envia.
+        */}
+        <fieldset className="mb-4">
+          <legend className={labelClass}>Como a primeira mensagem sai</legend>
+          <div className="mt-1.5 grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                {
+                  v: "direta",
+                  emoji: "✉️",
+                  titulo: "Direta",
+                  texto: "Uma mensagem só, completa, para cada empresa. O jeito de sempre.",
+                },
+                {
+                  v: "gancho",
+                  emoji: "👋",
+                  titulo: "Gancho + apresentação",
+                  texto:
+                    "Primeiro uma linha curta que cabe no preview. Só quem responder recebe a apresentação, minutos depois, sozinha.",
+                },
+              ] as const
+            ).map((op) => (
+              <label
+                key={op.v}
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
+                  modoAbordagem === op.v
+                    ? "border-brand bg-brand/10"
+                    : "border-white/10 bg-white/[0.03] hover:border-white/25"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="abordagem_modo"
+                  value={op.v}
+                  checked={modoAbordagem === op.v}
+                  onChange={() => setModoAbordagem(op.v)}
+                  className="mt-1 accent-brand"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold">
+                    {op.emoji} {op.titulo}
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-paper-dim">{op.texto}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        {modoGancho ? (
+          <div className="grid gap-4">
+            <div>
+              <label className={labelClass} htmlFor="gancho_msg_modelo">
+                1º passo · o gancho
+              </label>
+              <textarea
+                id="gancho_msg_modelo"
+                name="gancho_msg_modelo"
+                defaultValue={config.gancho_msg_modelo || MODELO_GANCHO}
+                rows={2}
+                maxLength={160}
+                className={`${inputClass} mt-1 w-full resize-y font-mono text-xs`}
+              />
+              <p className="mt-1 text-xs text-paper-dim">
+                Uma linha, até 160 caracteres, terminando numa pergunta fácil de responder. Leve{" "}
+                <code className="text-paper">{"{empresa}"}</code>: “oi, tudo bem?” seco de número
+                desconhecido é o padrão de golpe que as pessoas denunciam — e denúncia derruba
+                número. Exemplos que funcionam:{" "}
+                <i>“Oi, tudo bem? Falo com alguém da {"{empresa}"}?”</i> ·{" "}
+                <i>“Olá! É da {"{empresa}"}? Posso tirar uma dúvida rápida?”</i>
+              </p>
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="apresentacao_msg_modelo">
+                2º passo · a apresentação (sai sozinha para quem responder)
+              </label>
+              <textarea
+                id="apresentacao_msg_modelo"
+                name="apresentacao_msg_modelo"
+                defaultValue={
+                  config.apresentacao_msg_modelo ||
+                  (ofertaPropria ? MODELO_APRESENTACAO_PROPRIA : MODELO_APRESENTACAO)
+                }
+                rows={9}
+                className={`${inputClass} w-full resize-y font-mono text-xs`}
+              />
+              <p className="mt-1 text-xs text-paper-dim">
+                Não repita o “oi, tudo bem?” — a conversa já começou. Quem disser “não quero” no
+                gancho não recebe a apresentação e vira opt-out. Quem não responder ao gancho entra
+                no remarketing normal: o primeiro toque é esta apresentação, com um “tentei falar
+                esses dias” na frente.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <ModelosProntos alvo="modelo_mensagem" />
+            <textarea
+              id="modelo_mensagem"
+              name="modelo_mensagem"
+              defaultValue={
+                config.modelo_mensagem || (ofertaPropria ? MODELO_PADRAO_PROPRIA : MODELO_PADRAO)
+              }
+              rows={10}
+              className={`${inputClass} w-full resize-y font-mono text-xs`}
+            />
+          </>
+        )}
 
         <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <h3 className="font-bold">Ritmo do envio automático</h3>

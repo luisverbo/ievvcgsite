@@ -98,7 +98,7 @@ export default async function LeadsPage({
       lista.length > 0
         ? supabase
             .from("prospeccao_mensagens")
-            .select("prospecto_id, resposta_texto, resposta_classe, resposta_em")
+            .select("prospecto_id, resposta_texto, resposta_classe, resposta_em, tipo")
             .eq("org_id", org.id)
             .not("resposta_em", "is", null)
             .in("prospecto_id", lista.map((p) => p.id))
@@ -127,15 +127,26 @@ export default async function LeadsPage({
     .sort((a, b2) => b2.total - a.total)
     .slice(0, 12);
 
-  const respostaPorProspecto = new Map<string, { texto: string; classe: string | null; em: string }>();
+  // A resposta mais recente de cada lead. `tipo` diz a QUE ela respondeu: à
+  // resposta do gancho o card reage de outro jeito (a apresentação vai sozinha).
+  const respostaPorProspecto = new Map<
+    string,
+    { texto: string; classe: string | null; em: string; tipo: string | null }
+  >();
   for (const r of (respRaw as {
     prospecto_id: string;
     resposta_texto: string;
     resposta_classe: string | null;
     resposta_em: string;
+    tipo: string | null;
   }[] | null) ?? []) {
     if (!respostaPorProspecto.has(r.prospecto_id)) {
-      respostaPorProspecto.set(r.prospecto_id, { texto: r.resposta_texto, classe: r.resposta_classe, em: r.resposta_em });
+      respostaPorProspecto.set(r.prospecto_id, {
+        texto: r.resposta_texto,
+        classe: r.resposta_classe,
+        em: r.resposta_em,
+        tipo: r.tipo,
+      });
     }
   }
 

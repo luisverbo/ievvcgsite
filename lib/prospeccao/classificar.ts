@@ -34,7 +34,13 @@ export type ClasseResposta = "interesse" | "preco" | "duvida" | "recusa" | "outr
 
 const MODELO_CLASSIFICADOR = "claude-haiku-4-5";
 
-// Camada 1: o que se resolve com português, sem gastar nada.
+// Camada 1: o que se resolve com português, sem gastar nada. Exportada
+// porque a resposta ao GANCHO só precisa desta camada: ali só importa
+// separar recusa do resto — "tudo bem e você?" não é interesse nem dúvida.
+export function classificarPorPalavras(texto: string): ClasseResposta | null {
+  return porPalavras(texto.trim().slice(0, 600));
+}
+
 function porPalavras(texto: string): ClasseResposta | null {
   const t = texto.toLowerCase();
 

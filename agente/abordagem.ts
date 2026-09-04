@@ -73,6 +73,7 @@ export async function rodarAbordagem(headless: boolean, log: (m: string) => void
     pendentes,
     aguardando = 0,
     resumoDevido = false,
+    continuacoes = 0,
   } = await api.abordagemEstado();
 
   // Pedido de desconexão vem primeiro: apaga a sessão para poder entrar com
@@ -114,8 +115,13 @@ export async function rodarAbordagem(headless: boolean, log: (m: string) => void
    * reconectaria depois da cota), a escuta também (parar de ouvir quem
    * respondeu porque a cota acabou seria surdez voluntária) — e o resumo
    * idem: é uma mensagem para o próprio dono, não abordagem.
+   *
+   * A apresentação de quem respondeu ao gancho também passa: é a continuação
+   * de uma conversa que o LEAD abriu, e deixá-lo esperando até amanhã seria
+   * pior que qualquer cota. O servidor só entrega apresentações quando a
+   * cota estourou — a fila de contatos novos continua parada.
    */
-  const podeEnviar = enviadasHoje < cfg.limite_diario;
+  const podeEnviar = enviadasHoje < cfg.limite_diario || continuacoes > 0;
   if (!pedidoConexao && !escutar && !resumo && !podeEnviar) {
     log(`limite diário atingido (${enviadasHoje}/${cfg.limite_diario}) — abordagem pausada até amanhã`);
     return;

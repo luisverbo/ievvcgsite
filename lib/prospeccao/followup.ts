@@ -6,8 +6,17 @@ import {
   montarMensagem,
   MODELO_FOLLOWUP_PADRAO,
   MODELO_FOLLOWUP_PROPRIA,
+  MODELO_APRESENTACAO,
+  MODELO_APRESENTACAO_PROPRIA,
+  PREFIXO_FOLLOWUP_GANCHO,
   type DadosEmpresa,
 } from "./mensagem";
+
+// Tira a saudação de abertura ("[Que bom|Ótimo]! ") do modelo de apresentação:
+// depois do preâmbulo do toque ela não faz sentido.
+function semSaudacao(modelo: string): string {
+  return modelo.replace(/^\s*(\[[^\]]*\]|[^\n!]{1,20})!\s*/, "");
+}
 import { ofertaDaOrg } from "./oferta";
 import type { ProspectoRow } from "./tipos";
 
@@ -43,6 +52,7 @@ type ConfigFollowup = {
   followup_msg_modelo: string | null;
   followup_rodou_em: string | null;
   remetente_nome: string | null;
+  apresentacao_msg_modelo?: string | null;
 };
 
 /*
@@ -93,6 +103,10 @@ export async function prepararFollowups(orgId: string): Promise<number> {
     const oferta = await ofertaDaOrg(orgId);
     const padrao = oferta.tipo === "propria" ? MODELO_FOLLOWUP_PROPRIA : MODELO_FOLLOWUP_PADRAO;
     const modelo = cfg.followup_msg_modelo?.trim() || padrao;
+    // A apresentação do modo gancho, para o toque de quem não respondeu ao "oi".
+    const modeloApresentacao =
+      cfg.apresentacao_msg_modelo?.trim() ||
+      (oferta.tipo === "propria" ? MODELO_APRESENTACAO_PROPRIA : MODELO_APRESENTACAO);
     const remetente = (cfg.remetente_nome ?? "").trim();
     const extras = { oferta: oferta.resumo || "o que eu tinha comentado" };
 
@@ -120,20 +134,27 @@ export async function prepararFollowups(orgId: string): Promise<number> {
        */
       let q = admin
         .from("prospeccao_mensagens")
-        .select("prospecto_id, telefone, modo")
+        .select("prospecto_id, telefone, modo, tipo")
         .eq("org_id", orgId)
         .eq("status", "enviada")
         .is("resposta_em", null)
         .lte("enviada_em", corte)
         .gte("enviada_em", new Date(agora - 30 * 86_400_000).toISOString())
         .limit(200);
+      /*
+       * O primeiro toque vem depois de qualquer PRIMEIRA mensagem sem
+       * resposta: a abordagem direta, a apresentação (modo gancho) — ou o
+       * próprio gancho, quando o lead nem o "oi" respondeu.
+       */
       q =
         etapa.n === 1
-          ? q.eq("tipo", "abordagem")
+          ? q.in("tipo", ["abordagem", "apresentacao", "gancho"])
           : q.eq("tipo", "followup").eq("etapa", etapa.n - 1);
       const { data: anterioresRaw } = await q;
       const anteriores =
-        (anterioresRaw as { prospecto_id: string; telefone: string; modo: string }[] | null) ?? [];
+        (anterioresRaw as
+          | { prospecto_id: string; telefone: string; modo: string; tipo: string | null }[]
+          | null) ?? [];
       if (anteriores.length === 0) continue;
 
       const ids = [...new Set(anteriores.map((a) => a.prospecto_id))];
@@ -167,13 +188,23 @@ export async function prepararFollowups(orgId: string): Promise<number> {
         if (!p || p.nao_perturbar) continue;
         if (p.status === "respondeu" || p.status === "fechou" || p.status === "descartado") continue;
 
+        /*
+         * Quem nem o GANCHO respondeu não tem o que "retomar": o primeiro
+         * toque é a própria apresentação, com um preâmbulo explicando o
+         * silêncio — sem a saudação de "que bom!" que só cabe depois de uma
+         * resposta.
+         */
+        const modeloDoToque =
+          a.tipo === "gancho" && etapa.n === 1
+            ? PREFIXO_FOLLOWUP_GANCHO + semSaudacao(modeloApresentacao)
+            : modelo;
         linhas.push({
           org_id: orgId,
           prospecto_id: p.id,
           telefone: a.telefone,
           // A chave do sorteio muda por etapa ("fu2::"), então cada toque não
           // repete as mesmas escolhas de [a|b] do anterior — pareceria cópia.
-          texto: montarMensagem(modelo, p as DadosEmpresa, `fu${etapa.n}::${p.id}`, remetente, extras),
+          texto: montarMensagem(modeloDoToque, p as DadosEmpresa, `fu${etapa.n}::${p.id}`, remetente, extras),
           tipo: "followup",
           etapa: etapa.n,
           modo: a.modo === "semi" ? "semi" : "auto",
