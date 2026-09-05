@@ -72,6 +72,19 @@ async function chamar<T>(
 /* --------------------------------- presença ------------------------------- */
 export const ping = () => chamar<{ ok: boolean; agente: string }>("ping");
 
+/* --------------------------------- versão --------------------------------- */
+/*
+ * Conta ao painel qual versão está rodando e pergunta se o dono pediu
+ * atualização. `atual` é a versão que o painel tem para entregar; o painel
+ * compara as duas para mostrar "desatualizado" na tela do agente.
+ */
+export const versao = (local: string) =>
+  chamar<{ atual: string | null; atualizar: boolean }>("versao", { versao: local });
+
+// Os arquivos novos, para a instalação por zip escrever por cima dos seus.
+export const pacote = () =>
+  chamar<{ arquivos: Record<string, string> }>("pacote").then((r) => r.arquivos);
+
 /* ------------------------------ fila de buscas ---------------------------- */
 export type Tarefa = {
   id: string;

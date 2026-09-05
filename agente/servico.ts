@@ -16,6 +16,7 @@ import { rodarAbordagem, fecharSessaoZap } from "./abordagem.ts";
 import { capturarInstagramDoProspecto } from "./capturaIg.ts";
 import { capturarEspelhoDoProspecto } from "./espelho.ts";
 import { rodarEstudio, estudioLigado } from "./estudio.ts";
+import { versaoLocal, aplicarAtualizacao, instaladoPorGit, CODIGO_REINICIAR } from "./versao.ts";
 import { normalizarFiltros, resumoFiltros, temFiltro } from "../lib/prospeccao/filtros.ts";
 
 const AGENTE = process.env.AGENTE_NOME || os.hostname();
@@ -79,6 +80,41 @@ async function encerrar(sinal: string) {
 
 process.on("SIGTERM", () => void encerrar("SIGTERM"));
 process.on("SIGINT", () => void encerrar("SIGINT"));
+
+/*
+ * Versão e atualização pelo painel.
+ *
+ * A cada 5 minutos (e no arranque) o agente diz ao painel qual versão está
+ * rodando e pergunta se o dono clicou em Atualizar. Se clicou: aplica, fecha
+ * o WhatsApp com cuidado e sai com o código de "me religue" — o systemd na
+ * VPS e o LIGAR-AGENTE no Windows/Mac sobem o agente novo em segundos.
+ *
+ * Falha aqui nunca derruba o serviço: atualizar é bônus, prospectar é a
+ * obrigação. Um erro vira uma linha no log e a próxima checagem tenta de novo.
+ */
+const VERSAO_A_CADA_MS = 5 * 60_000;
+let proximaChecagemVersaoEm = 0;
+
+async function talvezAtualizar(): Promise<void> {
+  if (Date.now() < proximaChecagemVersaoEm || encerrando) return;
+  proximaChecagemVersaoEm = Date.now() + VERSAO_A_CADA_MS;
+  try {
+    const local = versaoLocal();
+    const r = await api.versao(local);
+    if (!r.atualizar) return;
+
+    log(`🔄 o painel pediu atualização (${instaladoPorGit() ? "git" : "zip"})…`);
+    const mudou = await aplicarAtualizacao(api.pacote, (m) => log(`   ${m}`));
+    if (!mudou) return;
+
+    encerrando = true;
+    log("reiniciando para carregar a versão nova…");
+    await Promise.race([fecharSessaoZap().catch(() => {}), new Promise((r) => setTimeout(r, 8000))]);
+    process.exit(CODIGO_REINICIAR);
+  } catch (e) {
+    log(`⚠️  atualização: ${(e as Error).message.slice(0, 200)}`);
+  }
+}
 
 if (!api.configurado()) {
   console.error(`\n❌ ${api.faltaConfig()}\n`);
@@ -209,8 +245,11 @@ async function main() {
     process.exit(1);
   }
 
-  log(`agente "${AGENTE}" no ar · navegador ${HEADLESS ? "oculto" : "visível"}`);
+  log(`agente "${AGENTE}" no ar · versão ${versaoLocal()} · navegador ${HEADLESS ? "oculto" : "visível"}`);
   if (estudioLigado()) log(`🎬 Estúdio de Vídeos ligado — MoneyPrinterTurbo em ${process.env.MPT_URL}`);
+  // Primeira checagem já no arranque: quem religou depois de um Atualizar
+  // confirma ao painel, na hora, que está na versão nova.
+  await talvezAtualizar();
 
   /*
    * Modo estúdio: laço curto e sozinho. Nada de WhatsApp, nada de buscas —
@@ -225,6 +264,7 @@ async function main() {
     log("modo estúdio: só vídeos (WhatsApp e prospecção ficam com o outro agente)");
     for (;;) {
       if (encerrando) return;
+      await talvezAtualizar();
       try {
         await rodarEstudio((m) => log(`   ${m}`));
       } catch (e) {
@@ -240,6 +280,8 @@ async function main() {
   for (;;) {
     // Desligando: não pega trabalho novo, deixa o encerrar() terminar.
     if (encerrando) return;
+    // Entre uma tarefa e outra é a hora segura de trocar de versão.
+    await talvezAtualizar();
     try {
       const tarefa = igEmDescanso()
         ? await api.proximaTarefa().then((t) => (t?.tipo === "instagram" ? null : t))

@@ -84,14 +84,24 @@ journalctl -u paginapro-agente -f        # acompanhar o que ele está fazendo
 ```
 
 Pronto: o botão **Buscar no Google** do painel passa a funcionar, inclusive do
-celular. Para atualizar depois:
+celular.
+
+### Atualizar
+
+Pelo painel: **Prospecção › Meu agente › Atualizar**. O agente vê o pedido em
+até 5 minutos, faz `git pull`, reinstala dependências se mudaram e sai com o
+código 75 — o `Restart=always` do systemd religa na versão nova. A tela mostra
+a versão de cada agente e avisa quando está desatualizado.
+
+Na mão, dá no mesmo:
 
 ```bash
 cd /opt/ievvcgsite && git pull && systemctl restart paginapro-agente
 ```
 
-O `git pull` **não encosta** no `.env` nem na pasta `.perfil-whatsapp` (as duas
-ficam fora do repositório), então atualizar não custa a sessão do WhatsApp.
+Nenhum dos dois caminhos **encosta** no `.env` nem na pasta `.perfil-whatsapp`
+(as duas ficam fora do repositório), então atualizar não custa a sessão do
+WhatsApp.
 
 ### Se depois de um restart ele pedir QR de novo
 

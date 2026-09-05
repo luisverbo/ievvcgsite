@@ -47,6 +47,26 @@ export async function criarToken(_prev: TokenState, formData: FormData): Promise
   return { token };
 }
 
+/*
+ * Pede ao agente que se atualize.
+ *
+ * É só uma bandeira na linha dele: o agente pergunta a cada 5 minutos, vê o
+ * pedido, puxa o código novo (git na VPS, download no zip) e reinicia. O
+ * painel não empurra nada — o agente continua sem porta aberta, só pergunta.
+ */
+export async function pedirAtualizacao(id: string) {
+  if (!(await podeUsar("prospeccao"))) return;
+  const org = await getMinhaOrg();
+  if (!org) return;
+  const admin = createAdminClient();
+  await admin
+    .from("agentes")
+    .update({ atualizar_pedido: true })
+    .eq("id", id)
+    .eq("org_id", org.id);
+  revalidatePath("/app/prospeccao/agente");
+}
+
 export async function apagarAgente(id: string) {
   if (!(await podeUsar("prospeccao"))) return;
   const org = await getMinhaOrg();

@@ -13,44 +13,40 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import { createHash } from "node:crypto";
 
 const RAIZ = process.cwd();
 
+// A lista mora em agente/arquivos.json, e não aqui, porque o AGENTE também
+// precisa dela: é sobre esses mesmos arquivos que ele calcula a própria
+// versão, e os dois lados só batem se lerem a mesma lista.
+//
 // Escrita à mão, e não varredura de pasta: um `**/*` acabaria empacotando
 // node_modules, o .env do servidor ou o perfil do navegador.
 //
-// ⚠️ Arquivo novo no agente ENTRA AQUI. Esquecer disto gera um zip que só
+// ⚠️ Arquivo novo no agente ENTRA NA LISTA. Esquecer disto gera um zip que só
 // quebra na máquina do cliente ("Cannot find module ... espelho.ts") — foi
 // exatamente o que aconteceu com espelho.ts e estudio.ts. A conferência de
 // imports no fim deste script existe para isso não se repetir.
-const ARQUIVOS = [
-  "agente/api.ts",
-  "agente/abordagem.ts",
-  "agente/capturaIg.ts",
-  "agente/coletor.ts",
-  "agente/espelho.ts",
-  "agente/estudio.ts",
-  "agente/instagram.ts",
-  "agente/prospectar.ts",
-  "agente/servico.ts",
-  "agente/transcricao.ts",
-  "agente/whatsapp.ts",
-  "agente/package.json",
-  "agente/tsconfig.json",
-  "agente/README.md",
-  "lib/prospeccao/tipos.ts",
-  "lib/prospeccao/nichos.ts",
-  "lib/prospeccao/filtros.ts",
-  "lib/prospeccao/instagram.ts",
-];
+const ARQUIVOS = JSON.parse(await fs.readFile(path.join(RAIZ, "agente/arquivos.json"), "utf8"));
 
 const partes = [];
 const conteudos = new Map();
+const hash = createHash("sha256");
 for (const relativo of ARQUIVOS) {
   const conteudo = await fs.readFile(path.join(RAIZ, relativo), "utf8");
   conteudos.set(relativo, conteudo);
   partes.push(`  ${JSON.stringify(relativo)}: ${JSON.stringify(conteudo)},`);
+  // A versão é o conteúdo, normalizado: um checkout com CRLF no Windows tem
+  // que dar o mesmo número que o zip. agente/versao.ts faz a mesma conta.
+  hash.update(relativo + "\n" + conteudo.replace(/\r\n/g, "\n") + "\n");
 }
+/*
+ * A versão do agente é o hash do que vai dentro dele — muda só quando um
+ * arquivo do agente muda, não a cada deploy do painel. É o que o painel
+ * compara com a versão que cada agente reporta para dizer "desatualizado".
+ */
+const VERSAO = hash.digest("hex").slice(0, 12);
 
 /*
  * A trava: todo import relativo dos arquivos empacotados TEM que estar na
@@ -82,8 +78,11 @@ const saida = `// GERADO AUTOMATICAMENTE — não edite.
 export const ARQUIVOS_DO_AGENTE: Record<string, string> = {
 ${partes.join("\n")}
 };
+
+// Hash do conteúdo acima. O agente calcula o mesmo (agente/versao.ts).
+export const VERSAO_AGENTE = ${JSON.stringify(VERSAO)};
 `;
 
 await fs.mkdir(path.join(RAIZ, "lib/agente"), { recursive: true });
 await fs.writeFile(path.join(RAIZ, "lib/agente/pacote.ts"), saida);
-console.log(`✓ pacote do agente gerado (${ARQUIVOS.length} arquivos)`);
+console.log(`✓ pacote do agente gerado (${ARQUIVOS.length} arquivos, versão ${VERSAO})`);

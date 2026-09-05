@@ -8,6 +8,7 @@ import { enfileirarApresentacao, TIPO_APRESENTACAO } from "@/lib/prospeccao/ganc
 import { montarResumoDoDia, resumoDevido, resumoFalhou } from "@/lib/prospeccao/resumo";
 import { prepararFollowups } from "@/lib/prospeccao/followup";
 import { funcaoLigada } from "@/lib/painel/flags";
+import { ARQUIVOS_DO_AGENTE, VERSAO_AGENTE } from "@/lib/agente/pacote";
 import type { EmpresaEncontrada } from "@/lib/prospeccao/tipos";
 
 /*
@@ -83,7 +84,49 @@ export async function POST(req: Request) {
     switch (acao) {
       /* ------------------------------ presença ---------------------------- */
       case "ping":
-        return j({ ok: true, agente: agente.nome });
+        return j({ ok: true, agente: agente.nome, versao: VERSAO_AGENTE });
+
+      /* ------------------------ versão e atualização ---------------------- */
+      /*
+       * O agente conta a versão que está rodando e pergunta se o dono pediu
+       * atualização. O pedido é limpo AQUI, ao ser entregue: se a atualização
+       * falhar na ponta, o dono clica de novo — melhor isso do que um agente
+       * tentando reiniciar em laço a cada 5 minutos.
+       *
+       * Tolerante às colunas novas: sem a migração, o agente segue trabalhando
+       * e só a tela deixa de saber a versão dele.
+       */
+      case "versao": {
+        const local = String(corpo.versao ?? "").slice(0, 40) || null;
+        let atualizar = false;
+        try {
+          const { data: linha } = await admin
+            .from("agentes")
+            .select("atualizar_pedido")
+            .eq("id", agente.id)
+            .maybeSingle();
+          atualizar = (linha as { atualizar_pedido: boolean | null } | null)?.atualizar_pedido === true;
+          await admin
+            .from("agentes")
+            .update({
+              versao: local,
+              versao_em: agora(),
+              ...(atualizar ? { atualizar_pedido: false } : {}),
+            })
+            .eq("id", agente.id);
+        } catch {
+          /* migração pendente — sem versão na tela, e só. */
+        }
+        return j({ atual: VERSAO_AGENTE, atualizar });
+      }
+
+      /*
+       * Os arquivos do agente, para a instalação por zip se atualizar por
+       * cima. Autenticado pelo token como tudo aqui — e o pacote não carrega
+       * .env nem segredo nenhum: é o mesmo código aberto que vai no zip.
+       */
+      case "pacote":
+        return j({ arquivos: ARQUIVOS_DO_AGENTE, versao: VERSAO_AGENTE });
 
       /* --------------------------- fila de buscas ------------------------- */
       case "proxima_tarefa": {

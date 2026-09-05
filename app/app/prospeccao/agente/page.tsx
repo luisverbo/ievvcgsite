@@ -4,10 +4,11 @@ import Abas from "../Abas";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
-import { apagarAgente } from "./actions";
+import { apagarAgente, pedirAtualizacao } from "./actions";
 import NovoToken from "./NovoToken";
 import Tutorial from "@/components/painel/Tutorial";
 import { IconTrash } from "@/components/painel/icons";
+import { VERSAO_AGENTE } from "@/lib/agente/pacote";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,23 @@ type AgenteRow = {
   token_final: string;
   ultimo_contato: string | null;
   created_at: string;
+  // Colunas da migração 2026-09-06: ausentes = migração pendente ou agente antigo.
+  versao?: string | null;
+  versao_em?: string | null;
+  atualizar_pedido?: boolean | null;
 };
+
+/*
+ * O agente está na versão que o painel tem para entregar?
+ *
+ * "desconhecida" e null são agentes antigos (de antes de reportar versão):
+ * contam como desatualizados, porque estão — e o botão não os alcança; a
+ * primeira atualização deles é na mão (o aviso na tela explica).
+ */
+function situacaoVersao(a: AgenteRow): "atual" | "desatualizado" | "antigo" {
+  if (!a.versao || a.versao === "desconhecida") return "antigo";
+  return a.versao === VERSAO_AGENTE ? "atual" : "desatualizado";
+}
 
 /*
  * Online = deu sinal nos últimos 15 minutos.
@@ -37,15 +54,21 @@ export default async function MeuAgentePage() {
   if (!org) notFound();
 
   const supabase = await createClient();
+  // select * de propósito: as colunas de versão são de migração nova, e
+  // pedi-las pelo nome derrubaria a tela inteira em quem não rodou o SQL.
   const { data } = await supabase
     .from("agentes")
-    .select("id, nome, token_final, ultimo_contato, created_at")
+    .select("*")
     .eq("org_id", org.id)
     .order("created_at", { ascending: false });
   const agentes = (data as AgenteRow[] | null) ?? [];
 
   const url = process.env.NEXT_PUBLIC_APP_URL || "https://seu-site.com.br";
   const algumOnline = agentes.some((a) => online(a.ultimo_contato));
+  // Só agente LIGADO conta como desatualizado: o desligado não tem como saber.
+  const ligados = agentes.filter((a) => online(a.ultimo_contato));
+  const desatualizados = ligados.filter((a) => situacaoVersao(a) === "desatualizado");
+  const antigos = ligados.filter((a) => situacaoVersao(a) === "antigo");
 
   return (
     <div className="painel-wrap flex flex-col gap-6">
@@ -102,6 +125,37 @@ export default async function MeuAgentePage() {
             Sem ele, a busca no Google e o envio no WhatsApp não funcionam. Leva uns 10 minutos, uma
             vez só — e o passo a passo está logo abaixo.
           </p>
+        </div>
+      )}
+
+      {/*
+        Versão: o aviso que substitui o "baixe o agente de novo" dito no
+        escuro. Aparece só quando há agente ligado atrás da versão do painel —
+        e o botão resolve sem SSH nem download.
+      */}
+      {(desatualizados.length > 0 || antigos.length > 0) && (
+        <div className="rounded-xl border border-warn/40 bg-warn/10 p-5">
+          <p className="font-display text-lg font-extrabold text-warn">
+            🔄 Tem versão nova do agente
+          </p>
+          {desatualizados.length > 0 && (
+            <p className="mt-1 text-sm text-paper">
+              {desatualizados.length === 1
+                ? `O agente "${desatualizados[0].nome}" está`
+                : `${desatualizados.length} agentes estão`}{" "}
+              numa versão anterior. Clique em <b>Atualizar</b> na lista aí embaixo: ele baixa o
+              código novo e reinicia sozinho em até 5 minutos — na VPS o systemd religa; no
+              Windows e no Mac, a janela do LIGAR-AGENTE religa. O WhatsApp continua conectado.
+            </p>
+          )}
+          {antigos.length > 0 && (
+            <p className="mt-1 text-sm text-paper-dim">
+              {antigos.length === 1 ? `O agente "${antigos[0].nome}" é` : `${antigos.length} agentes são`}{" "}
+              de antes de o painel saber versão — o botão ainda não os alcança. Uma vez na mão
+              (na VPS: <code className="text-paper">git pull && systemctl restart paginapro-agente</code>;
+              no computador: baixar o zip de novo) e daí em diante é só o botão.
+            </p>
+          )}
         </div>
       )}
 
@@ -257,6 +311,44 @@ export default async function MeuAgentePage() {
         </details>
       </div>
 
+      {/*
+        A VPS: o caminho de quem quer o agente 24h sem depender de computador
+        ligado. Recolhido — é técnico, e a maioria instala no PC. Os comandos
+        completos moram no README que vai dentro do próprio pacote.
+      */}
+      <details className="rounded-xl border border-white/10 bg-ink-2 p-4">
+        <summary className="cursor-pointer text-sm font-bold text-paper-dim">
+          🖥️ Rodar numa VPS (Linux), 24 horas por dia
+        </summary>
+        <div className="mt-3 flex flex-col gap-3 text-sm text-paper-dim">
+          <p>
+            Mesmo código, sem tela: o agente vira um serviço do sistema e volta sozinho quando a
+            máquina reinicia. Serve para quem não quer deixar o computador ligado — o WhatsApp
+            continua sendo o seu número, lido uma vez pelo QR.
+          </p>
+          <ol className="flex flex-col gap-1.5 pl-4 [&>li]:list-decimal">
+            <li>
+              Baixe o zip acima e descompacte na VPS (ex.: <code className="text-paper">/opt/paginapro-agente</code>).
+              O <code className="text-paper">.env</code> já vai com o seu código dentro.
+            </li>
+            <li>
+              Instale o Node 22 e o navegador:{" "}
+              <code className="text-paper">cd agente && npm install && npx playwright install --with-deps chromium</code>
+            </li>
+            <li>
+              Crie o serviço seguindo o <code className="text-paper">agente/README.md</code> (seção
+              “Instalar na VPS”) e ligue: <code className="text-paper">systemctl enable --now paginapro-agente</code>
+            </li>
+          </ol>
+          <p className="rounded-lg border border-brand-2/30 bg-brand/10 px-3 py-2.5">
+            <b className="text-paper">Atualizar depois é pelo botão</b> na lista de agentes aí embaixo:
+            o agente vê o pedido em até 5 minutos, puxa o código novo (por <code>git pull</code> se
+            você clonou o repositório, ou baixando os arquivos do painel se usou o zip) e reinicia
+            — o systemd religa na versão nova, e o WhatsApp não cai.
+          </p>
+        </div>
+      </details>
+
       {/* agentes criados */}
       {agentes.length > 0 && (
         <div>
@@ -284,6 +376,52 @@ export default async function MeuAgentePage() {
                       })}`
                     : "nunca conectou"}
                 </span>
+
+                {/* a versão, e o botão que a corrige */}
+                {(() => {
+                  const s = situacaoVersao(a);
+                  const ligado = online(a.ultimo_contato);
+                  return (
+                    <>
+                      <span
+                        title={a.versao ? `versão ${a.versao} · painel ${VERSAO_AGENTE}` : undefined}
+                        className={`rounded-full px-2 py-0.5 font-bold ${
+                          s === "atual"
+                            ? "bg-ok/15 text-ok"
+                            : s === "desatualizado"
+                              ? "bg-warn/15 text-warn"
+                              : "bg-white/10 text-paper-dim"
+                        }`}
+                      >
+                        {s === "atual" ? "✓ atualizado" : s === "desatualizado" ? "versão anterior" : "versão desconhecida"}
+                      </span>
+                      {a.atualizar_pedido ? (
+                        <span className="text-brand-2">🔄 atualização pedida — reinicia em até 5 min</span>
+                      ) : (
+                        ligado &&
+                        s !== "antigo" && (
+                          <form action={pedirAtualizacao.bind(null, a.id)}>
+                            <button
+                              type="submit"
+                              title={
+                                s === "atual"
+                                  ? "Já está na versão do painel — força um reinício na mesma versão"
+                                  : "Baixa a versão nova e reinicia sozinho, sem perder o WhatsApp"
+                              }
+                              className={`rounded-md px-2.5 py-1 font-bold transition ${
+                                s === "desatualizado"
+                                  ? "bg-brand text-white hover:bg-brand-2"
+                                  : "border border-white/15 text-paper-dim hover:border-brand-2 hover:text-brand-2"
+                              }`}
+                            >
+                              🔄 Atualizar
+                            </button>
+                          </form>
+                        )
+                      )}
+                    </>
+                  );
+                })()}
                 <form action={apagarAgente.bind(null, a.id)} className="ml-auto">
                   <button
                     type="submit"
