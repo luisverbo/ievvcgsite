@@ -5,6 +5,8 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar, exigirProspeccao } from "@/lib/painel/permissoes";
 import { funcaoLigada } from "@/lib/painel/flags";
 import Painel from "./Painel";
+import type { LinhaTela } from "./Linhas";
+import { linhasDaOrg, MAX_LINHAS } from "@/lib/prospeccao/linhas";
 import type { ConfigAbordagem, MensagemRow } from "./actions";
 import { telefoneWhatsapp } from "@/lib/prospeccao/mensagem";
 import type { ProspectoRow } from "@/lib/prospeccao/tipos";
@@ -88,6 +90,32 @@ export default async function AbordagemPage() {
 
   const mensagens = (msgsRaw as MensagemRow[] | null) ?? [];
   const jaNaFila = new Set(mensagens.map((m) => m.prospecto_id));
+
+  /*
+   * As linhas de WhatsApp, com QR e o total enviado hoje por cada uma.
+   * null = migração pendente: o Painel desenha a linha das colunas antigas.
+   */
+  const linhasRaw = await linhasDaOrg(org.id, true);
+  const inicioHoje = new Date();
+  inicioHoje.setHours(0, 0, 0, 0);
+  const principalId = linhasRaw?.find((l) => l.principal)?.id ?? null;
+  const enviadasPorLinha = new Map<string, number>();
+  for (const m of mensagens) {
+    if (m.status !== "enviada" || !m.enviada_em || m.enviada_em < inicioHoje.toISOString()) continue;
+    const chave = (m as { linha_id?: string | null }).linha_id ?? principalId;
+    if (chave) enviadasPorLinha.set(chave, (enviadasPorLinha.get(chave) ?? 0) + 1);
+  }
+  const linhasTela: LinhaTela[] = (linhasRaw ?? []).map((l) => ({
+    id: l.id,
+    nome: l.nome,
+    principal: l.principal,
+    status: l.status,
+    qr: l.qr,
+    mensagem: l.mensagem,
+    ativa: l.ativa,
+    desconectar_pedido: l.desconectar_pedido,
+    enviadasHoje: enviadasPorLinha.get(l.id) ?? 0,
+  }));
   const prospectos = (prospRaw as ProspectoRow[] | null) ?? [];
 
   // Só vale abordar quem tem celular (WhatsApp em fixo é raro) e ainda não
@@ -158,6 +186,8 @@ export default async function AbordagemPage() {
         candidatos={candidatos}
         mensagens={mensagens}
         nomePorProspecto={nomePorProspecto}
+        linhas={linhasTela}
+        maxLinhas={MAX_LINHAS}
         fechadorLigado={(await funcaoLigada("fechador")) && podeSites}
         resumoLigado={(await funcaoLigada("resumo_diario")) && (await podeUsar("prospeccao_resumo"))}
         cerebroLigado={(await funcaoLigada("mensagens_ia")) && (await podeUsar("prospeccao_ia"))}

@@ -59,6 +59,9 @@ export type ConfigAbordagem = {
   // O freio de mão: com isto ligado, nenhuma mensagem sai — a fila espera.
   envio_pausado?: boolean | null;
   envio_pausado_em?: string | null;
+  // Quantas linhas de WhatsApp enviam ao mesmo tempo (1 = uma por vez, com
+  // as outras de reserva; 2+ = revezando).
+  linhas_simultaneas?: number | null;
 };
 
 export type MensagemRow = {
@@ -780,53 +783,208 @@ export async function alternarPausaEnvio(pausar: boolean): Promise<EstadoAbordag
   };
 }
 
+/* ------------------------------ as linhas ------------------------------ */
 /*
- * Pede ao agente que abra o WhatsApp e mostre o QR.
+ * Cada número de WhatsApp é uma LINHA (lib/prospeccao/linhas.ts). Os botões
+ * abaixo mexem numa linha; quem executa (abrir o navegador, mostrar o QR,
+ * apagar o perfil) é o agente, na próxima volta. Sem a migração das linhas,
+ * tudo cai na linha principal pelas colunas antigas — nada quebra.
+ */
+
+const MSG_PEDIDO = "Pedido enviado ao agente. O QR aparece aqui em alguns segundos…";
+const MSG_DESCONECTANDO = "Desconectando… aguarde alguns segundos.";
+
+// A linha que um pedido nomeia — só se for desta organização.
+async function linhaDaOrg(orgId: string, linhaId: string) {
+  const { linhasDaOrg } = await import("@/lib/prospeccao/linhas");
+  return (await linhasDaOrg(orgId))?.find((l) => l.id === linhaId) ?? null;
+}
+
+/*
+ * Pede ao agente que abra o WhatsApp de uma linha e mostre o QR.
  *
  * O status 'aguardando_qr' é o próprio recado: o agente vê isso na fila e
- * abre a sessão mesmo sem ter mensagem para enviar. Antes este botão só
- * limpava o estado e não acontecia nada — o agente nunca era acionado.
+ * abre a sessão mesmo sem ter mensagem para enviar. Linha sem dono é
+ * reivindicada pelo primeiro agente que passar — é assim que um número novo
+ * vai parar numa máquina.
  */
-export async function conectarWhatsapp() {
+export async function conectarLinha(linhaId: string) {
   if (!(await podeUsar("prospeccao"))) return;
   const org = await getMinhaOrg();
   if (!org) return;
-  const supabase = await createClient();
-  await supabase.from("prospeccao_config").upsert(
-    {
-      org_id: org.id,
-      whatsapp_status: "aguardando_qr",
-      whatsapp_qr: null,
-      whatsapp_mensagem: "Pedido enviado ao agente. O QR aparece aqui em alguns segundos…",
-      whatsapp_em: new Date().toISOString(),
-    },
-    { onConflict: "org_id" },
-  );
+  const { atualizarLinha } = await import("@/lib/prospeccao/linhas");
+  const linha = await linhaDaOrg(org.id, linhaId);
+  if (!linha) return;
+  await atualizarLinha(org.id, linha, { status: "aguardando_qr", qr: null, mensagem: MSG_PEDIDO });
   revalidatePath("/app/prospeccao/abordagem");
 }
 
 /*
- * Desconecta o WhatsApp para você entrar com outro número.
+ * Desconecta uma linha para entrar com outro número.
  *
  * Não basta mudar o status: o agente guarda a sessão num perfil de navegador,
  * e sem apagá-lo o WhatsApp entraria de novo com o mesmo número. Por isso a
  * bandeira — quem apaga o perfil é o agente.
  */
-export async function desconectarWhatsapp() {
+export async function desconectarLinha(linhaId: string) {
+  if (!(await podeUsar("prospeccao"))) return;
+  const org = await getMinhaOrg();
+  if (!org) return;
+  const { atualizarLinha } = await import("@/lib/prospeccao/linhas");
+  const linha = await linhaDaOrg(org.id, linhaId);
+  if (!linha) return;
+  await atualizarLinha(org.id, linha, {
+    desconectar_pedido: true,
+    status: "desconectado",
+    qr: null,
+    mensagem: MSG_DESCONECTANDO,
+  });
+  revalidatePath("/app/prospeccao/abordagem");
+}
+
+// Liga/desliga uma linha no envio, sem desconectar (fica de fora do revezamento).
+export async function alternarLinha(linhaId: string, ativa: boolean) {
   if (!(await podeUsar("prospeccao"))) return;
   const org = await getMinhaOrg();
   if (!org) return;
   const supabase = await createClient();
-  await supabase.from("prospeccao_config").upsert(
-    {
-      org_id: org.id,
+  await supabase.from("whatsapp_linhas").update({ ativa }).eq("id", linhaId).eq("org_id", org.id);
+  revalidatePath("/app/prospeccao/abordagem");
+}
+
+export async function adicionarLinha(): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+  const { linhasDaOrg, garantirPrincipal, MAX_LINHAS } = await import("@/lib/prospeccao/linhas");
+
+  // A principal precisa existir antes da segunda: é ela que herda o perfil antigo.
+  if (!(await garantirPrincipal(org.id))) {
+    return { error: "Rode a migração das linhas no Supabase (2026-09-09_linhas_whatsapp.sql) primeiro." };
+  }
+  const linhas = (await linhasDaOrg(org.id)) ?? [];
+  if (linhas.length >= MAX_LINHAS) {
+    return { error: `Máximo de ${MAX_LINHAS} números por conta — cada um é um navegador aberto na sua máquina.` };
+  }
+  const ordem = Math.max(0, ...linhas.map((l) => l.ordem)) + 1;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("whatsapp_linhas").insert({
+    org_id: org.id,
+    nome: `Linha ${ordem}`,
+    ordem,
+    status: "desconectado",
+    mensagem: "Clique em Conectar para ler o QR deste número.",
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/prospeccao/abordagem");
+  return { ok: `Linha ${ordem} criada. Clique em Conectar nela e leia o QR com o novo chip.` };
+}
+
+/*
+ * Remove uma linha. A principal não sai (é o perfil de sempre; para trocar
+ * o número dela, Desconectar). O agente percebe a linha sumir e apaga o
+ * perfil dela na próxima volta.
+ */
+export async function removerLinha(linhaId: string) {
+  if (!(await podeUsar("prospeccao"))) return;
+  const org = await getMinhaOrg();
+  if (!org) return;
+  const supabase = await createClient();
+  await supabase
+    .from("whatsapp_linhas")
+    .delete()
+    .eq("id", linhaId)
+    .eq("org_id", org.id)
+    .eq("principal", false);
+  revalidatePath("/app/prospeccao/abordagem");
+}
+
+/*
+ * Quantas linhas enviam ao mesmo tempo. É a única regra do revezamento:
+ *   1  = uma linha manda; as outras ficam de reserva e assumem quando ela cai;
+ *   2+ = as N primeiras conectadas revezam, mensagem sim mensagem não.
+ */
+export async function salvarLinhasSimultaneas(n: number): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+  const { MAX_LINHAS } = await import("@/lib/prospeccao/linhas");
+  const valor = Math.max(1, Math.min(MAX_LINHAS, Math.round(Number(n) || 1)));
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("prospeccao_config")
+    .upsert({ org_id: org.id, linhas_simultaneas: valor, updated_at: new Date().toISOString() }, { onConflict: "org_id" });
+  if (error) {
+    return /linhas_simultaneas/.test(error.message)
+      ? { error: "Rode a migração das linhas no Supabase (2026-09-09_linhas_whatsapp.sql) primeiro." }
+      : { error: error.message };
+  }
+  revalidatePath("/app/prospeccao/abordagem");
+  return {
+    ok:
+      valor === 1
+        ? "Salvo: uma linha envia por vez; as outras ficam de reserva e assumem se ela cair."
+        : `Salvo: ${valor} linhas revezam o envio; caiu uma, a próxima conectada entra no lugar.`,
+  };
+}
+
+/*
+ * Os botões antigos (um WhatsApp só) continuam existindo: viram a linha
+ * principal. Sem a migração, escrevem nas colunas velhas como sempre.
+ */
+export async function conectarWhatsapp() {
+  if (!(await podeUsar("prospeccao"))) return;
+  const org = await getMinhaOrg();
+  if (!org) return;
+  const { garantirPrincipal, atualizarLinha } = await import("@/lib/prospeccao/linhas");
+  const principal = await garantirPrincipal(org.id);
+  if (principal) {
+    await atualizarLinha(org.id, principal, { status: "aguardando_qr", qr: null, mensagem: MSG_PEDIDO });
+  } else {
+    const supabase = await createClient();
+    await supabase.from("prospeccao_config").upsert(
+      {
+        org_id: org.id,
+        whatsapp_status: "aguardando_qr",
+        whatsapp_qr: null,
+        whatsapp_mensagem: MSG_PEDIDO,
+        whatsapp_em: new Date().toISOString(),
+      },
+      { onConflict: "org_id" },
+    );
+  }
+  revalidatePath("/app/prospeccao/abordagem");
+}
+
+export async function desconectarWhatsapp() {
+  if (!(await podeUsar("prospeccao"))) return;
+  const org = await getMinhaOrg();
+  if (!org) return;
+  const { garantirPrincipal, atualizarLinha } = await import("@/lib/prospeccao/linhas");
+  const principal = await garantirPrincipal(org.id);
+  if (principal) {
+    await atualizarLinha(org.id, principal, {
       desconectar_pedido: true,
-      whatsapp_status: "desconectado",
-      whatsapp_qr: null,
-      whatsapp_mensagem: "Desconectando… aguarde alguns segundos.",
-      whatsapp_em: new Date().toISOString(),
-    },
-    { onConflict: "org_id" },
-  );
+      status: "desconectado",
+      qr: null,
+      mensagem: MSG_DESCONECTANDO,
+    });
+  } else {
+    const supabase = await createClient();
+    await supabase.from("prospeccao_config").upsert(
+      {
+        org_id: org.id,
+        desconectar_pedido: true,
+        whatsapp_status: "desconectado",
+        whatsapp_qr: null,
+        whatsapp_mensagem: MSG_DESCONECTANDO,
+        whatsapp_em: new Date().toISOString(),
+      },
+      { onConflict: "org_id" },
+    );
+  }
   revalidatePath("/app/prospeccao/abordagem");
 }

@@ -16,7 +16,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
+// O perfil da linha PRINCIPAL — o de sempre. As outras linhas ganham uma
+// pasta cada (perfilDaLinha): cada número é uma sessão, um navegador.
 export const PERFIL_ZAP = path.join(AQUI, ".perfil-whatsapp");
+
+export function perfilDaLinha(linhaId: string): string {
+  return path.join(AQUI, `.perfil-whatsapp-${linhaId.replace(/[^a-z0-9-]/gi, "")}`);
+}
 
 export type EstadoZap = "desconectado" | "aguardando_qr" | "conectado" | "erro";
 
@@ -54,8 +60,8 @@ async function userAgentDeNavegador(): Promise<string> {
   return userAgentCache!;
 }
 
-export async function abrirWhatsapp(headless: boolean): Promise<SessaoZap> {
-  const ctx = await chromium.launchPersistentContext(PERFIL_ZAP, {
+export async function abrirWhatsapp(headless: boolean, perfil: string = PERFIL_ZAP): Promise<SessaoZap> {
+  const ctx = await chromium.launchPersistentContext(perfil, {
     headless,
     locale: "pt-BR",
     timezoneId: "America/Sao_Paulo",

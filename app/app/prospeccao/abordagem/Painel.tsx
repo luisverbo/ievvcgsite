@@ -7,8 +7,6 @@ import {
   limparEnviadas,
   marcarEnviada,
   prepararAbordagem,
-  conectarWhatsapp,
-  desconectarWhatsapp,
   salvarBriefing,
   salvarConfig,
   salvarFechador,
@@ -35,6 +33,7 @@ import { inputClass, labelClass, cardClass } from "@/components/painel/ui";
 import Robo from "@/components/painel/Robo";
 import ModelosProntos from "./ModelosProntos";
 import PausarEnvio from "./PausarEnvio";
+import Linhas, { type LinhaTela } from "./Linhas";
 
 // A primeira mensagem não precisa de etiqueta; as outras, sim — o usuário
 // tem que saber que está olhando a SEGUNDA conversa com aquele lead.
@@ -72,11 +71,16 @@ export default function Painel({
   followupLigado = false,
   placar = [],
   somenteOfertaPropria = false,
+  linhas = [],
+  maxLinhas = 5,
 }: {
   config: ConfigAbordagem;
   candidatos: ProspectoRow[];
   mensagens: MensagemRow[];
   nomePorProspecto: Record<string, string>;
+  /* As linhas de WhatsApp (vazio = migração pendente: vale a linha das colunas antigas). */
+  linhas?: LinhaTela[];
+  maxLinhas?: number;
   /* Interruptores do Admin: desligado, o card correspondente nem aparece. */
   fechadorLigado?: boolean;
   resumoLigado?: boolean;
@@ -187,8 +191,9 @@ export default function Painel({
   // Enquanto houver fila automática, acompanha o envio sem precisar recarregar.
   const temFilaAuto = pendentes.some((m) => m.modo === "auto");
   // Também durante a conexão: o QR chega do agente e só aparece se a página
-  // recarregar sozinha (e ele muda a cada ~20s).
-  const conectando = config.whatsapp_status === "aguardando_qr";
+  // recarregar sozinha (e ele muda a cada ~20s). Qualquer linha conectando conta.
+  const conectando =
+    config.whatsapp_status === "aguardando_qr" || linhas.some((l) => l.status === "aguardando_qr");
   useEffect(() => {
     // Pausado a fila não anda: acompanhar de perto seria só gastar pedido.
     if ((!temFilaAuto || pausado) && !conectando) return;
@@ -205,12 +210,27 @@ export default function Painel({
     });
   }
 
-  const corStatus =
-    config.whatsapp_status === "conectado"
-      ? "text-ok"
-      : config.whatsapp_status === "erro"
-        ? "text-danger"
-        : "text-paper-dim";
+  /*
+   * As linhas para a tela. Sem a migração (`linhas` vazio), a principal é
+   * desenhada a partir das colunas antigas — a tela não muda para quem não
+   * migrou; só não dá para adicionar número.
+   */
+  const linhasLegado = linhas.length === 0;
+  const linhasTela: LinhaTela[] = linhasLegado
+    ? [
+        {
+          id: "principal",
+          nome: "WhatsApp",
+          principal: true,
+          status: config.whatsapp_status,
+          qr: config.whatsapp_qr,
+          mensagem: config.whatsapp_mensagem,
+          ativa: true,
+          desconectar_pedido: false,
+          enviadasHoje,
+        },
+      ]
+    : linhas;
 
   return (
     <div className="flex flex-col gap-6">
@@ -256,104 +276,21 @@ export default function Painel({
         </div>
       )}
 
-      {/* --------------------------- WhatsApp --------------------------- */}
-      <div
-        className={`anim-entrada d1 rounded-xl border bg-ink-2 p-5 ${
-          config.whatsapp_status === "conectado"
-            ? "border-ok/30"
-            : config.whatsapp_status === "erro"
-              ? "border-danger/40"
-              : "border-white/10"
-        }`}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-3">
-            <Robo
-              estado={
-                config.whatsapp_status === "conectado"
-                  ? "trabalhando"
-                  : config.whatsapp_status === "aguardando_qr"
-                    ? "novo"
-                    : "dormindo"
-              }
-              tamanho={48}
-            />
-            <div className="min-w-0">
-              <h2 className="text-lg font-bold">
-                WhatsApp do agente ·{" "}
-                <span className={corStatus}>
-                  {config.whatsapp_status === "conectado"
-                    ? "conectado"
-                    : config.whatsapp_status === "aguardando_qr"
-                      ? "aguardando leitura do QR"
-                      : config.whatsapp_status === "erro"
-                        ? "com problema"
-                        : "desconectado"}
-                </span>
-              </h2>
-              {config.whatsapp_mensagem && (
-                <p className="mt-0.5 text-sm text-paper-dim">{config.whatsapp_mensagem}</p>
-              )}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {/*
-              Parar fica AQUI, junto de conectar e desconectar: é onde a
-              pessoa procura quando quer que o agente pare de fazer alguma
-              coisa. Só aparece quando não está pausado — pausado, quem manda
-              é o aviso lá em cima.
-            */}
-            {!pausado && <PausarEnvio pausado={false} naFila={naFilaAuto} />}
-            <form action={conectarWhatsapp}>
-              <button
-                type="submit"
-                className={`rounded-lg px-5 py-2.5 text-sm font-bold transition ${
-                  config.whatsapp_status === "conectado"
-                    ? "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
-                    : "bg-brand text-white hover:bg-brand-2"
-                }`}
-              >
-                {config.whatsapp_status === "conectado" ? "Reconectar" : "Conectar WhatsApp"}
-              </button>
-            </form>
-            <form action={desconectarWhatsapp}>
-              <button
-                type="submit"
-                title="Apaga a sessão para você entrar com outro número"
-                className="rounded-lg border border-white/15 px-4 py-2.5 text-sm font-bold text-paper-dim transition hover:border-danger hover:text-danger"
-              >
-                Desconectar
-              </button>
-            </form>
-          </div>
-        </div>
-
-        {conectando && !config.whatsapp_qr && (
-          <p className="mt-4 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-brand-2">
-            Aguardando o agente abrir o WhatsApp… o QR aparece aqui em alguns segundos. Se não
-            aparecer em 1 minuto, confira se o serviço está no ar na VPS.
-          </p>
-        )}
-
-        {config.whatsapp_qr && config.whatsapp_status !== "conectado" && (
-          <div className="mt-4 flex flex-col items-center gap-2 rounded-xl bg-white p-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={config.whatsapp_qr}
-              alt="QR do WhatsApp"
-              className="max-h-[420px] w-auto max-w-full rounded"
-            />
-            <p className="text-center text-xs text-black">
-              WhatsApp no celular → <b>Aparelhos conectados</b> → <b>Conectar aparelho</b>
-            </p>
-          </div>
-        )}
-
-        <p className="mt-3 text-xs text-paper-dim">
-          Use um <b className="text-paper">chip separado</b>, nunca o número que seus clientes já
-          têm. Enviadas hoje: <b className="text-paper">{enviadasHoje}</b> de {config.limite_diario}.
-        </p>
-      </div>
+      {/* --------------------------- WhatsApp (as linhas) --------------------------- */}
+      {/*
+        Parar fica junto de conectar e desconectar, dentro do card: é onde a
+        pessoa procura quando quer que o agente pare de fazer alguma coisa.
+        Pausado, quem manda é o aviso lá em cima.
+      */}
+      <Linhas
+        linhas={linhasTela}
+        legado={linhasLegado}
+        simultaneas={config.linhas_simultaneas ?? 1}
+        limiteDiario={config.limite_diario}
+        pausado={pausado}
+        naFila={naFilaAuto}
+        maxLinhas={maxLinhas}
+      />
 
       {/* ------------------------- escolher ----------------------------- */}
       <form action={prepararFila} className={`anim-entrada d3 ${cardClass}`}>
@@ -905,7 +842,7 @@ export default function Painel({
 
           <div className="mt-4">
             <label className={labelClass} htmlFor="limite_diario">
-              Quantas mensagens por dia, no máximo
+              Quantas mensagens por dia, no máximo — por número
             </label>
             <input
               id="limite_diario"
@@ -918,8 +855,9 @@ export default function Painel({
               className={`${inputClass} mt-1 w-28`}
             />
             <p className="mt-1 text-xs text-paper-dim">
-              Ao chegar nesse número o agente para sozinho e só volta no dia seguinte. Comece
-              baixo: 15 a 20 nos primeiros dias.
+              Vale para cada linha de WhatsApp: com 4 números e 25 aqui, saem 100 por dia. Ao
+              chegar nesse número a linha para sozinha e só volta no dia seguinte. Comece baixo:
+              15 a 20 nos primeiros dias de cada chip.
             </p>
           </div>
 

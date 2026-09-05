@@ -168,11 +168,16 @@ export const abordagemEstado = () =>
     continuacoes?: number;
     /* Freio de mão puxado no painel: nada de envio até o dono retomar. */
     pausado?: boolean;
+    /* As linhas de WhatsApp da conta. Servidor antigo não manda: uma linha só. */
+    linhas?: LinhaInfo[];
   }>("abordagem_estado");
 
 /* --------------------------------- escuta --------------------------------- */
-export const aguardandoResposta = () =>
-  chamar<{ numeros: string[] }>("aguardando_resposta").then((r) => r.numeros);
+// Por linha: cada WhatsApp só enxerga as conversas que ELE abriu.
+export const aguardandoResposta = (linhaId?: string | null) =>
+  chamar<{ numeros: string[] }>("aguardando_resposta", linhaId ? { linha_id: linhaId } : {}).then(
+    (r) => r.numeros,
+  );
 
 export const respostaRecebida = (telefone: string, texto: string) =>
   chamar<{ ok: boolean; classe: string | null }>("resposta_recebida", { telefone, texto });
@@ -221,10 +226,39 @@ export const videoFim = (dados: {
   erro?: string;
 }) => chamar("video_fim", dados, TOKEN_ESTUDIO);
 
-export const zapEstado = (estado: string, mensagem?: string, qr?: string | null) =>
-  chamar("zap_estado", { estado, mensagem, ...(qr !== undefined ? { qr } : {}) });
+/*
+ * Tudo abaixo aceita `linhaId`: qual dos WhatsApps desta conta está falando.
+ * Sem ele (agente antigo, ou conta com um número só) o servidor entende a
+ * linha principal — a do perfil de sempre.
+ */
+export const zapEstado = (estado: string, mensagem?: string, qr?: string | null, linhaId?: string | null) =>
+  chamar("zap_estado", {
+    estado,
+    mensagem,
+    ...(qr !== undefined ? { qr } : {}),
+    ...(linhaId ? { linha_id: linhaId } : {}),
+  });
 
-export const zapDesconectado = () => chamar("zap_desconectado");
+export const zapDesconectado = (linhaId?: string | null) =>
+  chamar("zap_desconectado", linhaId ? { linha_id: linhaId } : {});
+
+/*
+ * As linhas que o painel conhece. `minha` = este agente segura a sessão;
+ * sem agente e pedindo QR = livre para quem chegar primeiro reivindicar.
+ */
+export type LinhaInfo = {
+  id: string;
+  nome: string;
+  principal: boolean;
+  status: "desconectado" | "aguardando_qr" | "conectado" | "erro";
+  desconectar_pedido: boolean;
+  agente_id: string | null;
+  minha: boolean;
+  ativa: boolean;
+};
+
+export const linhaReivindicar = (linhaId: string) =>
+  chamar<{ ok: boolean }>("linha_reivindicar", { linha_id: linhaId }).then((r) => r.ok);
 
 export type MensagemPendente = {
   id: string;
@@ -233,8 +267,11 @@ export type MensagemPendente = {
   texto: string;
 };
 
-export const proximaMensagem = () =>
-  chamar<{ mensagem: MensagemPendente | null }>("proxima_mensagem").then((r) => r.mensagem);
+export const proximaMensagem = (linhaId?: string | null) =>
+  chamar<{ mensagem: MensagemPendente | null; motivo?: string }>(
+    "proxima_mensagem",
+    linhaId ? { linha_id: linhaId } : {},
+  );
 
 export const fimMensagem = (dados: {
   id: string;
@@ -242,4 +279,7 @@ export const fimMensagem = (dados: {
   ok: boolean;
   semWhatsapp?: boolean;
   erro?: string;
-}) => chamar("fim_mensagem", dados);
+  linha_id?: string | null;
+  // A sessão caiu no meio: a mensagem volta para a fila, outra linha assume.
+  pararTudo?: boolean;
+}) => chamar("fim_mensagem", { ...dados, linha_id: dados.linha_id ?? undefined });

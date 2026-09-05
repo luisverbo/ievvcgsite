@@ -7,6 +7,39 @@ import { dispararFechador } from "@/lib/prospeccao/fechador";
 import { enfileirarApresentacao, TIPO_APRESENTACAO } from "@/lib/prospeccao/gancho";
 import { montarResumoDoDia, resumoDevido, resumoFalhou } from "@/lib/prospeccao/resumo";
 import { avisoPendente, proximoAviso, avisoFalhou } from "@/lib/avisos/zap";
+import {
+  linhasDaOrg,
+  resolverLinha,
+  atualizarLinha,
+  podeEnviarPor,
+  registrarEntrega,
+  liberarCadencia,
+  type CadenciaEnvio,
+} from "@/lib/prospeccao/linhas";
+
+type MensagemFila = { id: string; prospecto_id: string; telefone: string; texto: string };
+
+/*
+ * A cadência e o limite da conta, tolerantes às colunas novas: sem a
+ * migração das linhas, `linhas_simultaneas` e `proximo_envio_em` não existem
+ * e a leitura cai no padrão — o envio de quem não migrou não pode parar.
+ */
+async function cadenciaDaOrg(orgId: string): Promise<CadenciaEnvio & { limite_diario: number }> {
+  const admin = createAdminClient();
+  const padrao = { limite_diario: 20, intervalo_min_s: 45, intervalo_max_s: 150, linhas_simultaneas: 1, proximo_envio_em: null };
+  const { data, error } = await admin
+    .from("prospeccao_config")
+    .select("limite_diario, intervalo_min_s, intervalo_max_s, linhas_simultaneas, proximo_envio_em")
+    .eq("org_id", orgId)
+    .maybeSingle();
+  if (!error && data) return { ...padrao, ...(data as Partial<typeof padrao>) };
+  const { data: velho } = await admin
+    .from("prospeccao_config")
+    .select("limite_diario, intervalo_min_s, intervalo_max_s")
+    .eq("org_id", orgId)
+    .maybeSingle();
+  return { ...padrao, ...((velho as Partial<typeof padrao> | null) ?? {}) };
+}
 import { prepararFollowups } from "@/lib/prospeccao/followup";
 import { funcaoLigada } from "@/lib/painel/flags";
 import { orgPodeUsar } from "@/lib/painel/permissoes";
@@ -569,7 +602,41 @@ export async function POST(req: Request) {
           aguardando,
           continuacoes: pausado ? 0 : (continuacoes ?? 0),
           pausado,
+          /*
+           * As linhas de WhatsApp da conta, para o agente saber quais sessões
+           * abrir: as dele (`minha`), e as livres pedindo QR, que ele pode
+           * reivindicar. Sem a migração, o campo não vai — e o agente segue
+           * com a linha única de sempre.
+           */
+          linhas: (await linhasDaOrg(org))?.map((l) => ({
+            id: l.id,
+            nome: l.nome,
+            principal: l.principal,
+            status: l.status,
+            desconectar_pedido: l.desconectar_pedido,
+            agente_id: l.agente_id,
+            minha: l.agente_id === agente.id,
+            ativa: l.ativa,
+          })),
         });
+      }
+
+      /*
+       * Um agente pega para si uma linha que ninguém segura (a que o painel
+       * acabou de pedir para conectar). Quem chegar primeiro leva — o filtro
+       * agente_id IS NULL no UPDATE é a trava.
+       */
+      case "linha_reivindicar": {
+        const id = idValido(corpo.linha_id);
+        if (!id) return j({ ok: false });
+        const { data } = await admin
+          .from("whatsapp_linhas")
+          .update({ agente_id: agente.id, atualizado_em: agora() })
+          .eq("id", id)
+          .eq("org_id", org)
+          .is("agente_id", null)
+          .select("id");
+        return j({ ok: !!data && data.length > 0 });
       }
 
       /*
@@ -580,7 +647,7 @@ export async function POST(req: Request) {
        */
       case "aguardando_resposta": {
         if (!(await funcaoLigada("escuta"))) return j({ numeros: [] });
-        const { data } = await admin
+        let q = admin
           .from("prospeccao_mensagens")
           .select("telefone")
           .eq("org_id", org)
@@ -589,6 +656,18 @@ export async function POST(req: Request) {
           .gte("enviada_em", new Date(Date.now() - 14 * 86_400_000).toISOString())
           .order("enviada_em", { ascending: false })
           .limit(60);
+        /*
+         * Por linha: cada WhatsApp só tem as conversas que ELE abriu, então
+         * só vale conferir os números que saíram por ele. A principal herda
+         * as mensagens de antes das linhas (sem linha_id).
+         */
+        const linhaEscuta = corpo.linha_id ? await resolverLinha(org, corpo.linha_id) : null;
+        if (linhaEscuta) {
+          q = linhaEscuta.principal
+            ? q.or(`linha_id.eq.${linhaEscuta.id},linha_id.is.null`)
+            : q.eq("linha_id", linhaEscuta.id);
+        }
+        const { data } = await q;
         const numeros = [...new Set(((data as { telefone: string }[] | null) ?? []).map((m) => m.telefone))];
         return j({ numeros });
       }
@@ -718,12 +797,35 @@ export async function POST(req: Request) {
           qr = null;
         }
         const estados = ["desconectado", "aguardando_qr", "conectado", "erro"];
-        const estado = String(corpo.estado ?? "desconectado");
+        const estadoBruto = String(corpo.estado ?? "desconectado");
+        const estado = (estados.includes(estadoBruto) ? estadoBruto : "erro") as
+          | "desconectado"
+          | "aguardando_qr"
+          | "conectado"
+          | "erro";
+        const mensagem = ((corpo.mensagem as string) ?? null)?.slice(0, 300) ?? null;
+
+        /*
+         * Por linha (a principal, para agente antigo). A principal espelha nas
+         * colunas velhas de prospeccao_config — é atualizarLinha quem faz. E o
+         * agente que reporta uma linha sem dono passa a ser o dono dela: é
+         * ele quem segura o perfil.
+         */
+        const linhaEstado = await resolverLinha(org, corpo.linha_id);
+        if (linhaEstado) {
+          await atualizarLinha(org, linhaEstado, {
+            status: estado,
+            mensagem,
+            ...(qr !== undefined ? { qr } : {}),
+            ...(linhaEstado.agente_id === null ? { agente_id: agente.id } : {}),
+          });
+          return j({ ok: true });
+        }
         await admin.from("prospeccao_config").upsert(
           {
             org_id: org,
-            whatsapp_status: estados.includes(estado) ? estado : "erro",
-            whatsapp_mensagem: ((corpo.mensagem as string) ?? null)?.slice(0, 300) ?? null,
+            whatsapp_status: estado,
+            whatsapp_mensagem: mensagem,
             ...(qr !== undefined ? { whatsapp_qr: qr } : {}),
             whatsapp_em: agora(),
           },
@@ -733,13 +835,24 @@ export async function POST(req: Request) {
       }
 
       case "zap_desconectado": {
+        const linhaDesc = await resolverLinha(org, corpo.linha_id);
+        const patch = {
+          desconectar_pedido: false,
+          status: "desconectado" as const,
+          qr: null,
+          mensagem: "Desconectado. Clique em Conectar para entrar com outro número.",
+        };
+        if (linhaDesc) {
+          await atualizarLinha(org, linhaDesc, patch);
+          return j({ ok: true });
+        }
         await admin
           .from("prospeccao_config")
           .update({
             desconectar_pedido: false,
             whatsapp_status: "desconectado",
             whatsapp_qr: null,
-            whatsapp_mensagem: "Desconectado. Clique em Conectar para entrar com outro número.",
+            whatsapp_mensagem: patch.mensagem,
             whatsapp_em: agora(),
           })
           .eq("org_id", org);
@@ -752,12 +865,24 @@ export async function POST(req: Request) {
          * "Parar" para o envio na hora mesmo em quem ainda não atualizou o
          * programa no computador. Sem mensagem entregue, não há o que enviar.
          */
-        if (await envioPausado(org)) return j({ mensagem: null });
-        if (!(await orgPodeUsar(org, "prospeccao"))) return j({ mensagem: null });
+        if (await envioPausado(org)) return j({ mensagem: null, motivo: "pausado" });
+        if (!(await orgPodeUsar(org, "prospeccao"))) return j({ mensagem: null, motivo: "sem prospecção no plano" });
+
+        /*
+         * Qual linha está pedindo. Com a migração das linhas, o servidor é o
+         * escalonador: decide se ESTA linha manda AGORA (em uso, na vez, dentro
+         * da cadência e do limite dela). Sem a migração, `linha` é null e vale
+         * o comportamento antigo — um WhatsApp por conta.
+         */
+        const linha = await resolverLinha(org, corpo.linha_id);
+        const cadencia = await cadenciaDaOrg(org);
+        const tetoDoPlano = await tetoEnviosDaOrg(org);
+        const limite = tetoDoPlano === null ? cadencia.limite_diario : Math.min(cadencia.limite_diario, tetoDoPlano);
 
         /*
          * Apresentação primeiro: o lead respondeu ao gancho e está com o
-         * WhatsApp na mão AGORA. Ela não espera atrás de vinte contatos novos.
+         * WhatsApp na mão AGORA. Ela não espera atrás de vinte contatos novos
+         * — nem a vez do revezamento; só precisa de uma linha viva.
          */
         const { data: apres } = await admin
           .from("prospeccao_mensagens")
@@ -768,33 +893,36 @@ export async function POST(req: Request) {
           .eq("tipo", TIPO_APRESENTACAO)
           .order("created_at")
           .limit(1);
-        const apresentacao = (apres as unknown[] | null)?.[0];
-        if (apresentacao) return j({ mensagem: apresentacao });
+        const apresentacao = (apres as MensagemFila[] | null)?.[0];
+        if (apresentacao) {
+          if (linha) {
+            const v = await podeEnviarPor(org, linha, cadencia, limite, true);
+            if (!v.pode) return j({ mensagem: null, motivo: v.motivo });
+          }
+          return j({ mensagem: { ...apresentacao, linha_id: linha?.id ?? null } });
+        }
 
-        /*
-         * Contato novo só dentro da cota. O agente já confere isso antes de
-         * pedir — mas com a apresentação passando por cima da cota, o servidor
-         * é quem garante que a passagem não leva os contatos novos junto.
-         */
-        const { data: cfgLim } = await admin
-          .from("prospeccao_config")
-          .select("limite_diario")
-          .eq("org_id", org)
-          .maybeSingle();
-        const limiteCfg = (cfgLim as { limite_diario: number } | null)?.limite_diario ?? 20;
-        // Teste grátis: o teto do plano vale por cima do configurado.
-        const tetoDoPlano = await tetoEnviosDaOrg(org);
-        const limite = tetoDoPlano === null ? limiteCfg : Math.min(limiteCfg, tetoDoPlano);
-        const inicio = new Date();
-        inicio.setHours(0, 0, 0, 0);
-        const { count: contatosHoje } = await admin
-          .from("prospeccao_mensagens")
-          .select("id", { count: "exact", head: true })
-          .eq("org_id", org)
-          .eq("status", "enviada")
-          .neq("tipo", TIPO_APRESENTACAO)
-          .gte("enviada_em", inicio.toISOString());
-        if ((contatosHoje ?? 0) >= limite) return j({ mensagem: null });
+        if (linha) {
+          const v = await podeEnviarPor(org, linha, cadencia, limite, false);
+          if (!v.pode) return j({ mensagem: null, motivo: v.motivo });
+        } else {
+          /*
+           * Sem linhas (migração pendente): a cota é da conta inteira, como
+           * sempre foi. O agente já confere isso antes de pedir — mas com a
+           * apresentação passando por cima da cota, o servidor é quem garante
+           * que a passagem não leva os contatos novos junto.
+           */
+          const inicio = new Date();
+          inicio.setHours(0, 0, 0, 0);
+          const { count: contatosHoje } = await admin
+            .from("prospeccao_mensagens")
+            .select("id", { count: "exact", head: true })
+            .eq("org_id", org)
+            .eq("status", "enviada")
+            .neq("tipo", TIPO_APRESENTACAO)
+            .gte("enviada_em", inicio.toISOString());
+          if ((contatosHoje ?? 0) >= limite) return j({ mensagem: null, motivo: "limite do dia" });
+        }
 
         const { data } = await admin
           .from("prospeccao_mensagens")
@@ -804,7 +932,12 @@ export async function POST(req: Request) {
           .eq("modo", "auto")
           .order("created_at")
           .limit(1);
-        return j({ mensagem: (data as unknown[] | null)?.[0] ?? null });
+        const proxima = (data as MensagemFila[] | null)?.[0];
+        if (!proxima) return j({ mensagem: null, motivo: "fila vazia" });
+
+        // Entregue: a vez é desta linha, e a conta espera o intervalo até a próxima.
+        if (linha) await registrarEntrega(org, linha, cadencia);
+        return j({ mensagem: { ...proxima, linha_id: linha?.id ?? null } });
       }
 
       case "fim_mensagem": {
@@ -845,12 +978,20 @@ export async function POST(req: Request) {
           await anotarWhatsapp(false).catch(() => {});
         }
 
+        // Por qual linha saiu: conta o limite do dia daquele número e diz em
+        // qual WhatsApp ouvir a resposta. Coluna de migração nova, tolerante.
+        const linhaEnvio = idValido(corpo.linha_id);
+
         if (corpo.ok) {
-          await admin
+          const base = { status: "enviada", enviada_em: agora(), agente: agente.nome };
+          let { error: e1 } = await admin
             .from("prospeccao_mensagens")
-            .update({ status: "enviada", enviada_em: agora(), agente: agente.nome })
+            .update(linhaEnvio ? { ...base, linha_id: linhaEnvio } : base)
             .eq("id", id)
             .eq("org_id", org);
+          if (e1 && linhaEnvio) {
+            ({ error: e1 } = await admin.from("prospeccao_mensagens").update(base).eq("id", id).eq("org_id", org));
+          }
           if (corpo.prospecto_id) {
             // Só sobe de "novo" para "contactado". A entrega do FECHAMENTO
             // chega aqui também — e não pode rebaixar quem já "respondeu".
@@ -861,6 +1002,19 @@ export async function POST(req: Request) {
               .eq("org_id", org)
               .eq("status", "novo");
           }
+        } else if (corpo.pararTudo) {
+          /*
+           * A SESSÃO caiu no meio do envio — a mensagem não tem culpa. Volta
+           * para a fila para outra linha (ou esta, reconectada) mandar, e a
+           * cadência é liberada na hora: com "1 linha enviando", é assim que
+           * a reserva assume sem esperar o intervalo.
+           */
+          await admin
+            .from("prospeccao_mensagens")
+            .update({ status: "pendente", erro: null })
+            .eq("id", id)
+            .eq("org_id", org);
+          await liberarCadencia(org);
         } else {
           await admin
             .from("prospeccao_mensagens")
