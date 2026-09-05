@@ -5,7 +5,8 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { planoVendidoValido, priceIdDaStripe } from "@/lib/pagamentos/planos";
 import { checkoutAssinatura } from "@/lib/pagamentos/stripe";
 import { registrarFunil, landingDoPlano } from "@/lib/vendas-funil";
-import { fimDoTeste } from "@/lib/painel/teste";
+import { fimDoTeste, configDoTeste } from "@/lib/painel/teste";
+import { avisarDono, textoNovoTeste } from "@/lib/avisos/zap";
 
 /*
  * Ativa o teste grátis de 7 dias do Prospector — o /assinar sem Stripe.
@@ -40,9 +41,10 @@ async function ativarTeste(req: Request): Promise<NextResponse> {
     return NextResponse.redirect(new URL("/app", req.url));
   }
 
+  const ate = await fimDoTeste();
   const { error } = await admin
     .from("organizacoes")
-    .update({ plano: "teste", teste_ate: await fimDoTeste() })
+    .update({ plano: "teste", teste_ate: ate })
     .eq("id", org.id)
     .eq("plano", "free");
   if (error) {
@@ -53,6 +55,11 @@ async function ativarTeste(req: Request): Promise<NextResponse> {
   }
 
   await registrarFunil("prospector", "Começou o teste", "/assinar/teste");
+
+  // O dono fica sabendo na hora, no WhatsApp dele. Cortesia: nunca derruba a ativação.
+  const { dias } = await configDoTeste();
+  const aviso = textoNovoTeste({ empresa: org.nome, email: user.email ?? null, ate, dias });
+  await avisarDono(aviso.titulo, aviso.linhas);
   return NextResponse.redirect(new URL("/app/comecar", req.url));
 }
 

@@ -6,6 +6,7 @@ import { classificarResposta, classificarPorPalavras } from "@/lib/prospeccao/cl
 import { dispararFechador } from "@/lib/prospeccao/fechador";
 import { enfileirarApresentacao, TIPO_APRESENTACAO } from "@/lib/prospeccao/gancho";
 import { montarResumoDoDia, resumoDevido, resumoFalhou } from "@/lib/prospeccao/resumo";
+import { avisoPendente, proximoAviso, avisoFalhou } from "@/lib/avisos/zap";
 import { prepararFollowups } from "@/lib/prospeccao/followup";
 import { funcaoLigada } from "@/lib/painel/flags";
 import { orgPodeUsar } from "@/lib/painel/permissoes";
@@ -552,8 +553,10 @@ export async function POST(req: Request) {
           desconectar_pedido: false,
         };
         return j({
-          // Hora do resumo diário? O agente abre o WhatsApp também por isso.
-          resumoDevido: await resumoDevido(org),
+          // Hora do resumo diário — ou há um AVISO do painel para o dono
+          // esperando? Os dois saem pelo mesmo caminho: o agente abre o
+          // WhatsApp e pede o texto em resumo_pendente.
+          resumoDevido: (await avisoPendente(org)) || (await resumoDevido(org)),
           config: {
             ...cfgBase,
             limite_diario:
@@ -686,11 +689,21 @@ export async function POST(req: Request) {
        * agente chama resumo_falhou e a vez volta.
        */
       case "resumo_pendente": {
+        /*
+         * Avisos do painel primeiro ("alguém assinou", "alguém entrou no
+         * teste"): são notícia, e notícia não espera as 18h do resumo. O
+         * agente não distingue os dois — para ele é uma mensagem ao dono.
+         */
+        const aviso = await proximoAviso(org);
+        if (aviso) return j({ resumo: aviso });
         const resumo = await montarResumoDoDia(org);
         return j({ resumo });
       }
 
       case "resumo_falhou": {
+        // Devolve a vez aos dois: o aviso volta para a fila, e o resumo do
+        // dia (se era ele) fica para a próxima volta.
+        await avisoFalhou(org);
         await resumoFalhou(org);
         return j({ ok: true });
       }

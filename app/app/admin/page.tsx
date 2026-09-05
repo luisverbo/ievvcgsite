@@ -10,7 +10,9 @@ import { CHAVES_VIDEO } from "@/lib/landing";
 import FuncoesNovas from "./FuncoesNovas";
 import PixelVendas from "./PixelVendas";
 import TesteGratis from "./TesteGratis";
+import AvisosZap from "./AvisosZap";
 import { configDoTeste } from "@/lib/painel/teste";
+import { configAvisos } from "@/lib/avisos/zap";
 import LinkAcesso from "./LinkAcesso";
 import { CHAVES_PIXEL } from "@/lib/vendas-pixel";
 import { NOME_LANDING } from "@/lib/vendas-metricas";
@@ -26,6 +28,11 @@ import { cardClass } from "@/components/painel/ui";
 // Acesso restrito ao email em ADMIN_EMAIL (variável de ambiente).
 
 type Plano = "free" | "pro" | "agencia" | "prospector" | "teste";
+
+// Agente vivo = deu sinal nos últimos 15 min (o mesmo critério da tela do agente).
+function agenteVivo(ultimo: string | null | undefined): boolean {
+  return !!ultimo && Date.now() - new Date(ultimo).getTime() < 15 * 60_000;
+}
 type OrgRow = {
   id: string;
   nome: string;
@@ -85,6 +92,19 @@ export default async function AdminPage() {
   const videoProspector = valorDe(CHAVES_VIDEO.prospector);
   // O teste grátis: dias e tetos, e o link da campanha no domínio do Prospector.
   const cfgTeste = await configDoTeste();
+  // Avisos no WhatsApp do dono: o número, e se o agente da org dele está vivo.
+  const avisos = await configAvisos();
+  let agenteAdminOnline = false;
+  if (avisos) {
+    const { data: ag } = await admin
+      .from("agentes")
+      .select("ultimo_contato")
+      .eq("org_id", avisos.orgId)
+      .order("ultimo_contato", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    agenteAdminOnline = agenteVivo((ag as { ultimo_contato: string | null } | null)?.ultimo_contato);
+  }
   const hostProspector = (process.env.NEXT_PUBLIC_HOST_PROSPECTOR ?? "").trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
   const linkTeste = hostProspector
     ? `https://${hostProspector}/teste`
@@ -219,6 +239,8 @@ export default async function AdminPage() {
           ))}
         </div>
       </div>
+
+      <AvisosZap telefone={avisos?.telefone ?? ""} agenteOnline={agenteAdminOnline} />
 
       <TesteGratis
         dias={cfgTeste.dias}

@@ -9,6 +9,7 @@ import { mandarBoasVindas } from "@/lib/email/boas-vindas";
 import { enviarCompraAoMeta } from "@/lib/meta/capi";
 import { emailDoDono } from "@/lib/painel/acesso";
 import { registrarFunil, landingDoPlano } from "@/lib/vendas-funil";
+import { avisarDono, textoNovaVenda } from "@/lib/avisos/zap";
 
 /*
  * Qual plano esta fatura realmente cobrou.
@@ -281,6 +282,24 @@ export async function POST(req: Request) {
 
           // O último degrau do funil, no relatório de métricas da landing.
           await registrarFunil(landingDoPlano(planoPago), "Comprou", "/app/pagamento");
+
+          /*
+           * O dono fica sabendo na hora, no WhatsApp dele. Cortesia como o
+           * resto deste bloco: engolida, nunca vira erro para a Stripe.
+           */
+          const { data: orgRow } = await admin
+            .from("organizacoes")
+            .select("nome")
+            .eq("id", orgId)
+            .maybeSingle();
+          const venda = textoNovaVenda({
+            plano: planoPago,
+            valor: `R$ ${((f.amount_paid ?? 0) / 100).toLocaleString("pt-BR")}`,
+            empresa: (orgRow as { nome: string } | null)?.nome ?? "(sem nome)",
+            email: await emailDoDono(orgId).catch(() => null),
+            vindoDoTeste: planoAntigo === "teste",
+          });
+          await avisarDono(venda.titulo, venda.linhas);
         }
         break;
       }

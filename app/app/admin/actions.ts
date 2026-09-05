@@ -1,6 +1,8 @@
 "use server";
 
 import { fimDoTeste, CHAVES_TESTE } from "@/lib/painel/teste";
+import { CHAVES_AVISO, avisarDono } from "@/lib/avisos/zap";
+import { telefoneWhatsapp } from "@/lib/prospeccao/mensagem";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -162,6 +164,46 @@ export async function salvarTesteGratis(
   revalidatePath("/prospector/teste");
   revalidatePath("/prospector");
   return { ok: `Salvo: ${dias} dias, ${empresas} empresas e ${envios} envios por dia.` };
+}
+
+/* --------------------------- avisos no WhatsApp ---------------------------- */
+/*
+ * O número do dono e a organização cujo agente vai entregar (a dele — a
+ * mesma da sessão que salva). Guardar o org_id aqui evita ter que descobrir
+ * "qual é a org do admin" sem sessão, lá no webhook.
+ */
+export type AvisosState = { ok?: string; error?: string } | undefined;
+
+export async function salvarAvisosZap(_prev: AvisosState, formData: FormData): Promise<AvisosState> {
+  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Sua organização não foi encontrada." };
+
+  const bruto = String(formData.get("telefone") ?? "").trim();
+  const telefone = bruto ? telefoneWhatsapp(bruto) : null;
+  if (bruto && !telefone) return { error: "Número inválido — use celular com DDD, ex.: (21) 99999-8888." };
+
+  const admin = createAdminClient();
+  const agora = new Date().toISOString();
+  const { error } = await admin.from("config_sistema").upsert(
+    [
+      { chave: CHAVES_AVISO.numero, valor: telefone ?? "", updated_at: agora },
+      { chave: CHAVES_AVISO.org, valor: telefone ? org.id : "", updated_at: agora },
+    ],
+    { onConflict: "chave" },
+  );
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/admin");
+  return { ok: telefone ? `Avisos ligados para ${bruto}.` : "Avisos desligados." };
+}
+
+export async function testarAvisoZap(): Promise<AvisosState> {
+  if (!(await ehAdmin())) return { error: "Sem permissão." };
+  await avisarDono("✅ Teste dos avisos do painel", [
+    "Se esta mensagem chegou, os avisos de teste grátis e de assinatura vão chegar por aqui também.",
+  ]);
+  return { ok: "Aviso na fila. Chega em até 2 minutos, se o seu agente estiver ligado e com o WhatsApp conectado." };
 }
 
 /* ------------------------------ plano grátis ------------------------------- */
