@@ -92,13 +92,15 @@ export default async function PainelHome() {
    * testou, com o botão de assinar em cima, não a de um criador de sites.
    */
   if (!admin && (plano === "prospector" || org.plano === "prospector" || org.plano === "teste")) {
-    const { situacaoDoTeste } = await import("@/lib/painel/teste");
+    const { situacaoDoTeste, configDoTeste } = await import("@/lib/painel/teste");
+    const situacaoTeste = situacaoDoTeste(org as { plano: string; teste_ate?: string | null });
     return (
       <HomeProspector
         orgId={org.id}
         nome={org.nome}
         avisoAssinatura={situacao.aviso}
-        teste={situacaoDoTeste(org as { plano: string; teste_ate?: string | null })}
+        teste={situacaoTeste}
+        limites={situacaoTeste ? await configDoTeste() : null}
       />
     );
   }
@@ -485,12 +487,15 @@ async function HomeProspector({
   nome,
   avisoAssinatura,
   teste = null,
+  limites = null,
 }: {
   orgId: string;
   nome: string;
   avisoAssinatura: string | null;
   /* Em teste grátis (ativo ou vencido); null para assinante. */
   teste?: import("@/lib/painel/teste").SituacaoTeste | null;
+  /* Dias e tetos do teste, como o Admin configurou. */
+  limites?: import("@/lib/painel/teste").ConfigTeste | null;
 }) {
   const supabase = await createClient();
   const desde = desde30Dias();
@@ -593,7 +598,9 @@ async function HomeProspector({
           <div className="min-w-0">
             {teste.acabou ? (
               <>
-                <p className="font-bold text-danger">⏰ Seu teste grátis de 7 dias terminou.</p>
+                <p className="font-bold text-danger">
+                  ⏰ Seu teste grátis de {limites?.dias ?? 7} dias terminou.
+                </p>
                 <p className="mt-0.5 text-paper-dim">
                   Sua lista, seu funil e suas conversas continuam guardados. Assinando, o agente
                   volta a buscar e enviar hoje mesmo — sem teto por dia.
@@ -606,8 +613,9 @@ async function HomeProspector({
                   {teste.diasRestantes === 1 ? "hoje é o último dia" : `${teste.diasRestantes} dias restantes`}
                 </p>
                 <p className="mt-0.5 text-paper-dim">
-                  Até 30 empresas encontradas e 30 mensagens por dia. Assinando, o teto some e
-                  nada do que você fez se perde.
+                  Até {limites?.empresasPorDia ?? 30} empresas encontradas e{" "}
+                  {limites?.enviosPorDia ?? 30} mensagens por dia. Assinando, o teto some e nada
+                  do que você fez se perde.
                 </p>
               </>
             )}

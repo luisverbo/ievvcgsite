@@ -15,11 +15,52 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * os dias), e a rota do agente (para não entregar fila a teste vencido).
  */
 
+// Os padrões. O que vale é o que o Admin gravou (configDoTeste).
 export const TESTE = {
   dias: 7,
   empresasPorDia: 30,
   enviosPorDia: 30,
 } as const;
+
+export type ConfigTeste = { dias: number; empresasPorDia: number; enviosPorDia: number };
+
+// As chaves em config_sistema — o card "Teste grátis" do Admin escreve nelas.
+export const CHAVES_TESTE = {
+  dias: "teste_dias",
+  empresasPorDia: "teste_empresas_dia",
+  enviosPorDia: "teste_envios_dia",
+} as const;
+
+/*
+ * Dias e tetos do teste, como o dono configurou no Admin.
+ *
+ * Lê config_sistema; sem linha (ou com lixo) vale o padrão. É consultada na
+ * landing, no cadastro, no painel e nos freios do servidor — mudar de 7
+ * para 14 dias no Admin muda em todos ao mesmo tempo, sem deploy.
+ */
+export async function configDoTeste(): Promise<ConfigTeste> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("config_sistema")
+      .select("chave, valor")
+      .in("chave", Object.values(CHAVES_TESTE));
+    const mapa = new Map(
+      ((data as { chave: string; valor: string | null }[] | null) ?? []).map((l) => [l.chave, l.valor]),
+    );
+    const num = (chave: string, padrao: number, min: number, max: number) => {
+      const v = Number(mapa.get(chave));
+      return Number.isFinite(v) && v >= min && v <= max ? Math.round(v) : padrao;
+    };
+    return {
+      dias: num(CHAVES_TESTE.dias, TESTE.dias, 1, 90),
+      empresasPorDia: num(CHAVES_TESTE.empresasPorDia, TESTE.empresasPorDia, 5, 500),
+      enviosPorDia: num(CHAVES_TESTE.enviosPorDia, TESTE.enviosPorDia, 5, 200),
+    };
+  } catch {
+    return { ...TESTE };
+  }
+}
 
 export type SituacaoTeste = {
   /* Ainda dentro dos 7 dias. */
@@ -57,9 +98,10 @@ export function situacaoDoTeste(
   };
 }
 
-// Quando o teste começa hoje, até quando vale.
-export function fimDoTeste(agora: Date = new Date()): string {
-  return new Date(agora.getTime() + TESTE.dias * DIA).toISOString();
+// Quando o teste começa hoje, até quando vale — pelos dias do Admin.
+export async function fimDoTeste(agora: Date = new Date()): Promise<string> {
+  const { dias } = await configDoTeste();
+  return new Date(agora.getTime() + dias * DIA).toISOString();
 }
 
 /*
@@ -86,7 +128,8 @@ export async function orgEmTeste(orgId: string): Promise<boolean> {
  * quando não há teto além do que o cliente configurou.
  */
 export async function tetoEnviosDaOrg(orgId: string): Promise<number | null> {
-  return (await orgEmTeste(orgId)) ? TESTE.enviosPorDia : null;
+  if (!(await orgEmTeste(orgId))) return null;
+  return (await configDoTeste()).enviosPorDia;
 }
 
 /*
@@ -98,6 +141,7 @@ export async function tetoEnviosDaOrg(orgId: string): Promise<number | null> {
  */
 export async function empresasDisponiveisHoje(orgId: string): Promise<number | null> {
   if (!(await orgEmTeste(orgId))) return null;
+  const { empresasPorDia } = await configDoTeste();
   try {
     const admin = createAdminClient();
     const inicio = new Date(Date.now() - 3 * 3_600_000);
@@ -122,8 +166,8 @@ export async function empresasDisponiveisHoje(orgId: string): Promise<number | n
       (s, t) => s + (Number(t.limite) || 0),
       0,
     );
-    return Math.max(0, TESTE.empresasPorDia - (gravadas ?? 0) - reservadas);
+    return Math.max(0, empresasPorDia - (gravadas ?? 0) - reservadas);
   } catch {
-    return TESTE.empresasPorDia;
+    return empresasPorDia;
   }
 }

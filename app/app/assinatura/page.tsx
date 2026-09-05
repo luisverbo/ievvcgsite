@@ -6,7 +6,7 @@ import { assinar, abrirPortal, pixDaMensalidade, subirDePlano } from "./actions"
 import CodigoPix from "./CodigoPix";
 import { situacaoDaAssinatura, periodoDe, type AssinaturaRow } from "@/lib/pagamentos/estado";
 import { PLANOS, sitesDoPlano } from "@/lib/painel/permissoes";
-import { situacaoDoTeste } from "@/lib/painel/teste";
+import { situacaoDoTeste, configDoTeste } from "@/lib/painel/teste";
 import { precoEmReais, planoVendidoValido, podeSubirPara } from "@/lib/pagamentos/planos";
 import { emDolar, PACOTES } from "@/lib/creditos/precos";
 
@@ -104,6 +104,7 @@ export default async function AssinaturaPage({
   // Teste grátis: em que pé está (para o card de assinar contar os dias).
   const testeInfo = situacaoDoTeste(org as { plano: string; teste_ate?: string | null });
   const testeAcabou = testeInfo?.acabou === true;
+  const testeCfg = testeInfo ? await configDoTeste() : null;
 
   /*
    * Cor e rótulo do estado, num lugar só.
@@ -197,8 +198,8 @@ export default async function AssinaturaPage({
           </p>
           <p className="mt-3 max-w-xl text-sm text-paper-dim">
             {testeAcabou
-              ? "Seu teste de 7 dias terminou. Sua lista, seu funil e suas conversas continuam guardados — assinando, o agente volta a buscar e enviar hoje mesmo, sem teto por dia."
-              : "Assinando agora, o teto de 30 empresas e 30 mensagens por dia some na hora, e nada do que você já fez se perde. Sem fidelidade: cancela quando quiser, aqui mesmo."}
+              ? `Seu teste de ${testeCfg?.dias ?? 7} dias terminou. Sua lista, seu funil e suas conversas continuam guardados — assinando, o agente volta a buscar e enviar hoje mesmo, sem teto por dia.`
+              : `Assinando agora, o teto de ${testeCfg?.empresasPorDia ?? 30} empresas e ${testeCfg?.enviosPorDia ?? 30} mensagens por dia some na hora, e nada do que você já fez se perde. Sem fidelidade: cancela quando quiser, aqui mesmo.`}
           </p>
           <ul className="mt-5 flex flex-col gap-2 text-sm text-paper-dim">
             <li>✓ Buscas de até 120 empresas, quantas quiser por dia</li>

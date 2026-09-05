@@ -71,6 +71,21 @@ export default async function proxy(request: NextRequest) {
     url.pathname = "/";
     return NextResponse.redirect(url);
   }
+  /*
+   * A landing do teste grátis, no domínio do Prospector, atende em /teste —
+   * é o link da campanha. Mesma lógica: rewrite para a rota interna, e o
+   * caminho interno redireciona para o canônico, para não medir em dobro.
+   */
+  if (ehProspector && (pathname === "/teste" || pathname === "/teste/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/prospector/teste";
+    return NextResponse.rewrite(url);
+  }
+  if (ehProspector && (pathname === "/prospector/teste" || pathname === "/prospector/teste/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/teste";
+    return NextResponse.redirect(url);
+  }
 
   // Subdomínio de cliente → reescreve para a rota interna /s/[site]
   if (

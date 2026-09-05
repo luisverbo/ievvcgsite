@@ -9,6 +9,8 @@ import VideoLanding from "./VideoLanding";
 import { CHAVES_VIDEO } from "@/lib/landing";
 import FuncoesNovas from "./FuncoesNovas";
 import PixelVendas from "./PixelVendas";
+import TesteGratis from "./TesteGratis";
+import { configDoTeste } from "@/lib/painel/teste";
 import LinkAcesso from "./LinkAcesso";
 import { CHAVES_PIXEL } from "@/lib/vendas-pixel";
 import { NOME_LANDING } from "@/lib/vendas-metricas";
@@ -81,6 +83,12 @@ export default async function AdminPage() {
   const valorDe = (c: string) => linhasConfig.find((l) => l.chave === c)?.valor ?? "";
   const videoAtual = valorDe(CHAVES_VIDEO.principal);
   const videoProspector = valorDe(CHAVES_VIDEO.prospector);
+  // O teste grátis: dias e tetos, e o link da campanha no domínio do Prospector.
+  const cfgTeste = await configDoTeste();
+  const hostProspector = (process.env.NEXT_PUBLIC_HOST_PROSPECTOR ?? "").trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+  const linkTeste = hostProspector
+    ? `https://${hostProspector}/teste`
+    : `${(process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "")}/prospector/teste`;
 
   const orgs = (orgsRaw as OrgRow[] | null) ?? [];
   const sites = (sitesRaw as { org_id: string; publicado: boolean }[] | null) ?? [];
@@ -211,6 +219,13 @@ export default async function AdminPage() {
           ))}
         </div>
       </div>
+
+      <TesteGratis
+        dias={cfgTeste.dias}
+        empresas={cfgTeste.empresasPorDia}
+        envios={cfgTeste.enviosPorDia}
+        linkTeste={linkTeste}
+      />
 
       <PixelVendas
         meta={valorDe(CHAVES_PIXEL.meta)}

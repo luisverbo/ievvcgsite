@@ -8,6 +8,7 @@ import Analytics from "@/components/site/Analytics";
 import { ORG_VENDAS, PAGINA_VENDAS } from "@/lib/vendas-metricas";
 
 import { planoVendidoValido, precoEmReais } from "@/lib/pagamentos/planos";
+import { configDoTeste } from "@/lib/painel/teste";
 
 const ROTULO: Record<string, string> = { pro: "Pro", agencia: "Agência", prospector: "Prospector" };
 
@@ -44,6 +45,8 @@ export async function generateMetadata({ searchParams }: { searchParams: Busca }
 export default async function CadastroPage({ searchParams }: { searchParams: Busca }) {
   const { plano, prospector, teste } = await contexto(searchParams);
   const preco = plano ? precoEmReais(plano) : null;
+  // Dias e tetos do teste, como o Admin configurou — a copy acompanha.
+  const cfgTeste = teste ? await configDoTeste() : null;
   // Para onde a conta vai depois de criada: pagar, ativar o teste, ou o painel.
   const destino = teste ? "/assinar/teste" : plano ? `/assinar/${plano}` : undefined;
   const suporte = (process.env.NEXT_PUBLIC_WHATSAPP_VENDAS ?? "").replace(/\D/g, "");
@@ -81,7 +84,7 @@ export default async function CadastroPage({ searchParams }: { searchParams: Bus
           </h1>
           <p className="mb-6 mt-1.5 text-sm text-paper-dim">
             {teste
-              ? "Sete dias com o Prospector inteiro, sem cartão. Leva vinte segundos: crie a conta e o painel já abre no passo a passo."
+              ? `${cfgTeste?.dias ?? 7} dias com o Prospector inteiro, sem cartão. Leva vinte segundos: crie a conta e o painel já abre no passo a passo.`
               : prospector
                 ? "Leva vinte segundos. Na próxima etapa você escolhe a forma de pagamento e o Prospector já fica ativo."
                 : plano
@@ -104,8 +107,8 @@ export default async function CadastroPage({ searchParams }: { searchParams: Bus
           )}
           {teste && (
             <p className="mt-3 text-xs text-paper-dim">
-              Não pedimos cartão. Quando os 7 dias acabarem, você decide se assina — nada é cobrado
-              sozinho.
+              Não pedimos cartão. Quando os {cfgTeste?.dias ?? 7} dias acabarem, você decide se
+              assina — nada é cobrado sozinho.
             </p>
           )}
 
@@ -132,15 +135,17 @@ export default async function CadastroPage({ searchParams }: { searchParams: Bus
           <aside className="flex flex-col gap-4 rounded-2xl border border-warn/30 bg-ink-2 p-6 text-sm">
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-paper-dim">Seu teste</p>
-              <p className="mt-1 font-display text-xl font-extrabold text-paper">Prospector · 7 dias</p>
+              <p className="mt-1 font-display text-xl font-extrabold text-paper">
+                Prospector · {cfgTeste?.dias ?? 7} dias
+              </p>
               <p className="mt-1 font-display text-3xl font-extrabold text-paper">
-                R$ 0<span className="text-sm font-bold text-paper-dim"> por 7 dias</span>
+                R$ 0<span className="text-sm font-bold text-paper-dim"> por {cfgTeste?.dias ?? 7} dias</span>
               </p>
             </div>
             <ul className="flex flex-col gap-2 text-paper-dim">
               <li className="flex gap-2"><span className="text-ok">✓</span> Agente, WhatsApp, funil e remarketing</li>
-              <li className="flex gap-2"><span className="text-ok">✓</span> Até 30 empresas encontradas por dia</li>
-              <li className="flex gap-2"><span className="text-ok">✓</span> Até 30 mensagens por dia</li>
+              <li className="flex gap-2"><span className="text-ok">✓</span> Até {cfgTeste?.empresasPorDia ?? 30} empresas encontradas por dia</li>
+              <li className="flex gap-2"><span className="text-ok">✓</span> Até {cfgTeste?.enviosPorDia ?? 30} mensagens por dia</li>
               <li className="flex gap-2"><span className="text-ok">✓</span> Sem cartão, sem cobrança automática</li>
             </ul>
             <div className="border-t border-white/10 pt-4 text-xs text-paper-dim">

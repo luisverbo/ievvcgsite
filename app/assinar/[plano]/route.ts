@@ -42,7 +42,7 @@ async function ativarTeste(req: Request): Promise<NextResponse> {
 
   const { error } = await admin
     .from("organizacoes")
-    .update({ plano: "teste", teste_ate: fimDoTeste() })
+    .update({ plano: "teste", teste_ate: await fimDoTeste() })
     .eq("id", org.id)
     .eq("plano", "free");
   if (error) {

@@ -1,5 +1,6 @@
 "use server";
 
+import { fimDoTeste, CHAVES_TESTE } from "@/lib/painel/teste";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -16,6 +17,7 @@ import { cotaDoPlano, PLANOS } from "@/lib/painel/permissoes";
 export async function ehAdmin(): Promise<boolean> {
   return checarAdmin();
 }
+
 
 export async function alterarPlano(
   orgId: string,
@@ -40,9 +42,7 @@ export async function alterarPlano(
       cota_mensal: cotaDoPlano(novoPlano),
       // Teste ligado na mão pelo Admin: começa a contar agora. Sem data o
       // teste nasceria vencido (planoVigente trata nulo como passado).
-      ...(novoPlano === "teste"
-        ? { teste_ate: new Date(Date.now() + 7 * 86_400_000).toISOString() }
-        : {}),
+      ...(novoPlano === "teste" ? { teste_ate: await fimDoTeste() } : {}),
     })
     .eq("id", orgId);
   /*
@@ -119,6 +119,49 @@ export async function ajustarCredito(
 
   revalidatePath("/app/admin");
   return { ok: `${dolares > 0 ? "Creditado" : "Debitado"} US$ ${Math.abs(dolares)}.` };
+}
+
+/* ------------------------------ teste grátis ------------------------------- */
+/*
+ * Dias e tetos do teste grátis do Prospector. Vale para os testes que
+ * COMEÇAREM depois de salvar (a data de quem já está testando não muda) e
+ * para os freios de quem está em teste agora.
+ */
+export type TesteGratisState = { ok?: string; error?: string } | undefined;
+
+export async function salvarTesteGratis(
+  _prev: TesteGratisState,
+  formData: FormData,
+): Promise<TesteGratisState> {
+  if (!(await ehAdmin())) return { error: "Sem permissão." };
+
+  const dias = Number(formData.get("dias"));
+  const empresas = Number(formData.get("empresas"));
+  const envios = Number(formData.get("envios"));
+  if (!Number.isInteger(dias) || dias < 1 || dias > 90) return { error: "Dias: entre 1 e 90." };
+  if (!Number.isInteger(empresas) || empresas < 5 || empresas > 500) {
+    return { error: "Empresas por dia: entre 5 e 500." };
+  }
+  if (!Number.isInteger(envios) || envios < 5 || envios > 200) {
+    return { error: "Envios por dia: entre 5 e 200." };
+  }
+
+  const admin = createAdminClient();
+  const agora = new Date().toISOString();
+  const { error } = await admin.from("config_sistema").upsert(
+    [
+      { chave: CHAVES_TESTE.dias, valor: String(dias), updated_at: agora },
+      { chave: CHAVES_TESTE.empresasPorDia, valor: String(empresas), updated_at: agora },
+      { chave: CHAVES_TESTE.enviosPorDia, valor: String(envios), updated_at: agora },
+    ],
+    { onConflict: "chave" },
+  );
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/admin");
+  revalidatePath("/prospector/teste");
+  revalidatePath("/prospector");
+  return { ok: `Salvo: ${dias} dias, ${empresas} empresas e ${envios} envios por dia.` };
 }
 
 /* ------------------------------ plano grátis ------------------------------- */
