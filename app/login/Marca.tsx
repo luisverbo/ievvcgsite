@@ -37,8 +37,11 @@ export default function Marca({ prospector }: { prospector: boolean }) {
 export function ehFunilProspector(params: { plano?: string; de?: string; p?: string }): boolean {
   return (
     params.plano === "prospector" ||
+    // O teste grátis é do Prospector: mesma marca, mesma cor, mesmo funil.
+    params.plano === "teste" ||
     params.p === "prospector" ||
-    (params.de ?? "").includes("prospector")
+    (params.de ?? "").includes("prospector") ||
+    (params.de ?? "").includes("/assinar/teste")
   );
 }
 

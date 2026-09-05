@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
-import { podeUsar } from "@/lib/painel/permissoes";
+import { exigirProspeccao } from "@/lib/painel/permissoes";
 import { modoProspector } from "@/lib/painel/prospector";
 import Tutorial from "@/components/painel/Tutorial";
 import Robo from "@/components/painel/Robo";
@@ -30,7 +30,7 @@ function online(ultimo: string | null | undefined) {
 }
 
 export default async function ComecarPage() {
-  if (!(await podeUsar("prospeccao"))) notFound();
+  await exigirProspeccao();
   const org = await getMinhaOrg();
   if (!org) notFound();
 

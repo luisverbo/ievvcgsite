@@ -23,7 +23,7 @@ import { cardClass } from "@/components/painel/ui";
 // Painel do dono do sistema: ferramentas de IA, chaves e visão das contas.
 // Acesso restrito ao email em ADMIN_EMAIL (variável de ambiente).
 
-type Plano = "free" | "pro" | "agencia" | "prospector";
+type Plano = "free" | "pro" | "agencia" | "prospector" | "teste";
 type OrgRow = {
   id: string;
   nome: string;
@@ -456,7 +456,7 @@ export default async function AdminPage() {
                         {/* Um botão por plano: com três planos, alternar num
                             botão só vira adivinhação de para onde ele vai. */}
                         <div className="flex justify-end gap-1.5">
-                          {(["free", "prospector", "pro", "agencia"] as Plano[]).map((alvo) => (
+                          {(["free", "teste", "prospector", "pro", "agencia"] as Plano[]).map((alvo) => (
                             <form key={alvo} action={alterarPlano.bind(null, org.id, alvo)}>
                               <button
                                 type="submit"

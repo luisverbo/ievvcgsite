@@ -64,7 +64,10 @@ export function fonteIdDaUrl(url: string): string {
  * o filtro é apertado demais para aquele bairro.
  */
 const FATOR_FILTRO = 4;
-const TETO_FICHAS = 150;
+// 240 e não 150: a busca pede até 120 agora, e com filtro o agente abre até
+// 4x isso para completar. O Google Maps raramente lista mais que ~120 de
+// qualquer forma — o coletor para sozinho quando a lista acaba.
+const TETO_FICHAS = 240;
 
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

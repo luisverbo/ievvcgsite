@@ -1,5 +1,6 @@
 import "server-only";
 
+import { notFound, redirect } from "next/navigation";
 import { getMinhaOrg } from "./queries";
 import { ehAdmin } from "./admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -105,6 +106,18 @@ export const PLANOS: Record<
     cota: 0,
     sites: 0,
   },
+  /*
+   * O teste grátis do Prospector: os mesmos recursos, por 7 dias, com teto
+   * de 30 empresas e 30 envios por dia (lib/painel/teste.ts). Vence pela
+   * data em organizacoes.teste_ate — planoVigente devolve 'free' depois
+   * dela, e o painel passa a pedir a assinatura.
+   */
+  teste: {
+    rotulo: "Teste grátis",
+    recursos: ["prospeccao"],
+    cota: 0,
+    sites: 0,
+  },
   agencia: {
     rotulo: "Agência",
     recursos: [
@@ -174,6 +187,22 @@ export async function podeUsar(recurso: Recurso): Promise<boolean> {
 }
 
 /*
+ * A porta das telas de prospecção.
+ *
+ * Sem o recurso, antes era 404 — o que faz sentido para quem nunca teve
+ * prospecção, e é péssimo para quem teve e perdeu: o teste de 7 dias
+ * venceu, a pessoa clica em Prospecção e cai numa página inexistente. Aqui
+ * o teste vencido vai para a assinatura, com o motivo na URL, e o resto
+ * continua 404.
+ */
+export async function exigirProspeccao(): Promise<void> {
+  if (await podeUsar("prospeccao")) return;
+  const org = await getMinhaOrg();
+  if (org?.plano === "teste") redirect("/app/assinatura?teste=acabou");
+  notFound();
+}
+
+/*
  * A mesma pergunta, mas SEM usuário logado — por organização.
  *
  * Existe para o que roda fora de uma tela: o Fechador dispara a partir de uma
@@ -209,6 +238,21 @@ export async function planoVigente(orgId: string, planoContratado: string): Prom
   if (planoContratado === "free") return "free";
 
   const admin = createAdminClient();
+
+  /*
+   * Teste grátis: vale até a data, e só até ela. Sem data (coluna ausente,
+   * teste ligado sem prazo) conta como vencido — o erro seguro é pedir a
+   * assinatura, nunca dar prospecção sem fim de graça.
+   */
+  if (planoContratado === "teste") {
+    const { data } = await admin
+      .from("organizacoes")
+      .select("teste_ate")
+      .eq("id", orgId)
+      .maybeSingle();
+    const ate = (data as { teste_ate: string | null } | null)?.teste_ate;
+    return ate && new Date(ate).getTime() > Date.now() ? "teste" : "free";
+  }
   const { data } = await admin
     .from("assinaturas")
     .select("plano, pago_ate, status, falhou_em")

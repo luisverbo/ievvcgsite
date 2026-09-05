@@ -6,6 +6,7 @@ import { assinar, abrirPortal, pixDaMensalidade, subirDePlano } from "./actions"
 import CodigoPix from "./CodigoPix";
 import { situacaoDaAssinatura, periodoDe, type AssinaturaRow } from "@/lib/pagamentos/estado";
 import { PLANOS, sitesDoPlano } from "@/lib/painel/permissoes";
+import { situacaoDoTeste } from "@/lib/painel/teste";
 import { precoEmReais, planoVendidoValido, podeSubirPara } from "@/lib/pagamentos/planos";
 import { emDolar, PACOTES } from "@/lib/creditos/precos";
 
@@ -100,6 +101,9 @@ export default async function AssinaturaPage({
    */
   const podeSubir = s.liberado && !ehProspector && podeSubirPara(planoAtual, "agencia");
   const semAssinatura = s.status === "nova" || s.status === "cancelada";
+  // Teste grátis: em que pé está (para o card de assinar contar os dias).
+  const testeInfo = situacaoDoTeste(org as { plano: string; teste_ate?: string | null });
+  const testeAcabou = testeInfo?.acabou === true;
 
   /*
    * Cor e rótulo do estado, num lugar só.
@@ -166,7 +170,51 @@ export default async function AssinaturaPage({
         </p>
       )}
 
-      {semAssinatura && org.plano === "prospector" ? (
+      {semAssinatura && org.plano === "teste" ? (
+        /*
+         * Teste grátis: uma oferta só, a do Prospector. O card diz em que pé
+         * o teste está e o botão vai direto para a Stripe — sem vitrine de
+         * Pro/Agência, que é outro produto.
+         */
+        <div
+          className={`rounded-2xl border p-7 ${
+            testeAcabou ? "border-danger/40 bg-danger/5" : "border-warn/40 bg-warn/5"
+          }`}
+        >
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-bold ${
+              testeAcabou ? "bg-danger/15 text-danger" : "bg-warn/15 text-warn"
+            }`}
+          >
+            {testeAcabou
+              ? "⏰ Teste encerrado"
+              : `🎁 Teste grátis · ${testeInfo?.diasRestantes === 1 ? "último dia" : `${testeInfo?.diasRestantes} dias restantes`}`}
+          </span>
+          <p className="mt-3 font-display text-2xl font-extrabold">Prospector</p>
+          <p className="mt-1 font-display text-4xl font-extrabold">
+            R$ {precoEmReais("prospector")}
+            <span className="text-base font-bold text-paper-dim">/mês</span>
+          </p>
+          <p className="mt-3 max-w-xl text-sm text-paper-dim">
+            {testeAcabou
+              ? "Seu teste de 7 dias terminou. Sua lista, seu funil e suas conversas continuam guardados — assinando, o agente volta a buscar e enviar hoje mesmo, sem teto por dia."
+              : "Assinando agora, o teto de 30 empresas e 30 mensagens por dia some na hora, e nada do que você já fez se perde. Sem fidelidade: cancela quando quiser, aqui mesmo."}
+          </p>
+          <ul className="mt-5 flex flex-col gap-2 text-sm text-paper-dim">
+            <li>✓ Buscas de até 120 empresas, quantas quiser por dia</li>
+            <li>✓ Até 200 mensagens por dia, no ritmo que você definir</li>
+            <li>✓ Agente, gancho + apresentação, remarketing em 3 toques, funil</li>
+            <li>✓ Sem cobrança por lead e sem consumo de créditos</li>
+          </ul>
+          <Link
+            href="/assinar/prospector"
+            className="mt-6 inline-block rounded-xl bg-brand px-6 py-3 text-sm font-bold text-white transition hover:bg-brand-2"
+          >
+            Assinar o Prospector →
+          </Link>
+          <p className="mt-2 text-xs text-paper-dim">Cartão ou Pix, pela Stripe. Libera na hora.</p>
+        </div>
+      ) : semAssinatura && org.plano === "prospector" ? (
         /*
          * Prospector liberado na mão (cortesia, sem linha de assinatura):
          * mostrar a vitrine de Pro/Agência aqui seria vender criador de site

@@ -3,7 +3,7 @@ import Abas from "../Abas";
 import Vigia from "../Vigia";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
-import { podeUsar } from "@/lib/painel/permissoes";
+import { exigirProspeccao } from "@/lib/painel/permissoes";
 import type { ProspectoRow } from "@/lib/prospeccao/tipos";
 import Funil, { type LeadFunil } from "./Funil";
 
@@ -32,7 +32,7 @@ function hojeBrasilia() {
 }
 
 export default async function FunilPage() {
-  if (!(await podeUsar("prospeccao"))) notFound();
+  await exigirProspeccao();
   const org = await getMinhaOrg();
   if (!org) notFound();
 

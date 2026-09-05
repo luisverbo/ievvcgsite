@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
-import { podeUsar } from "@/lib/painel/permissoes";
+import { podeUsar, exigirProspeccao } from "@/lib/painel/permissoes";
 import { funcaoLigada } from "@/lib/painel/flags";
 import { type ProspectoRow } from "@/lib/prospeccao/tipos";
 import { acharNicho } from "@/lib/prospeccao/nichos";
@@ -54,7 +54,7 @@ export default async function LeadsPage({
 }: {
   searchParams: Promise<{ f?: string; b?: string; q?: string; tag?: string }>;
 }) {
-  if (!(await podeUsar("prospeccao"))) notFound();
+  await exigirProspeccao();
   const org = await getMinhaOrg();
   if (!org) notFound();
   const { f, b, q: qBruto, tag } = await searchParams;

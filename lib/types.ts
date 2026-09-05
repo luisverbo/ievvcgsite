@@ -19,7 +19,7 @@ export type Tema = {
   fonte_texto?: string;
 };
 
-export type Plano = "free" | "pro" | "agencia" | "prospector";
+export type Plano = "free" | "pro" | "agencia" | "prospector" | "teste";
 
 export type Organizacao = {
   id: string;

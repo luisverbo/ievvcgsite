@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Abas from "../Abas";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
-import { podeUsar } from "@/lib/painel/permissoes";
+import { exigirProspeccao } from "@/lib/painel/permissoes";
 import { apagarAgente, pedirAtualizacao } from "./actions";
 import NovoToken from "./NovoToken";
 import Tutorial from "@/components/painel/Tutorial";
@@ -49,7 +49,7 @@ function online(ultimo: string | null) {
 }
 
 export default async function MeuAgentePage() {
-  if (!(await podeUsar("prospeccao"))) notFound();
+  await exigirProspeccao();
   const org = await getMinhaOrg();
   if (!org) notFound();
 

@@ -86,8 +86,21 @@ export default async function PainelHome() {
    * Nada de páginas, visitas ou crédito de IA: quem comprou o Prospector
    * não tem (nem quer) nada disso na frente.
    */
-  if (!admin && plano === "prospector") {
-    return <HomeProspector orgId={org.id} nome={org.nome} avisoAssinatura={situacao.aviso} />;
+  /*
+   * O teste grátis também cai na home do Prospector — inclusive vencido:
+   * a tela que pede a assinatura tem que ser a do produto que a pessoa
+   * testou, com o botão de assinar em cima, não a de um criador de sites.
+   */
+  if (!admin && (plano === "prospector" || org.plano === "prospector" || org.plano === "teste")) {
+    const { situacaoDoTeste } = await import("@/lib/painel/teste");
+    return (
+      <HomeProspector
+        orgId={org.id}
+        nome={org.nome}
+        avisoAssinatura={situacao.aviso}
+        teste={situacaoDoTeste(org as { plano: string; teste_ate?: string | null })}
+      />
+    );
   }
 
   const paginas = (paginasRes.data as PaginaIA[] | null) ?? [];
@@ -471,10 +484,13 @@ async function HomeProspector({
   orgId,
   nome,
   avisoAssinatura,
+  teste = null,
 }: {
   orgId: string;
   nome: string;
   avisoAssinatura: string | null;
+  /* Em teste grátis (ativo ou vencido); null para assinante. */
+  teste?: import("@/lib/painel/teste").SituacaoTeste | null;
 }) {
   const supabase = await createClient();
   const desde = desde30Dias();
@@ -529,18 +545,83 @@ async function HomeProspector({
           <h1 className="mt-0.5 font-display text-3xl font-extrabold">{nome}</h1>
           <p className="mt-1.5 text-sm text-paper-dim">
             Plano{" "}
-            <span className="rounded-full bg-brand/15 px-2 py-0.5 text-xs font-bold text-brand-2">
-              Prospector · ativo
-            </span>
+            {teste ? (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                  teste.acabou ? "bg-danger/15 text-danger" : "bg-warn/15 text-warn"
+                }`}
+              >
+                {teste.acabou
+                  ? "Teste grátis · encerrado"
+                  : `Teste grátis · ${teste.diasRestantes === 1 ? "último dia" : `${teste.diasRestantes} dias restantes`}`}
+              </span>
+            ) : (
+              <span className="rounded-full bg-brand/15 px-2 py-0.5 text-xs font-bold text-brand-2">
+                Prospector · ativo
+              </span>
+            )}
           </p>
         </div>
-        <Link
-          href="/app/prospeccao"
-          className="rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-brand-2"
-        >
-          🎯 Abrir a prospecção
-        </Link>
+        {teste?.acabou ? (
+          <Link
+            href="/app/assinatura?teste=acabou"
+            className="rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-brand-2"
+          >
+            Assinar o Prospector →
+          </Link>
+        ) : (
+          <Link
+            href="/app/prospeccao"
+            className="rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-brand-2"
+          >
+            🎯 Abrir a prospecção
+          </Link>
+        )}
       </div>
+
+      {/*
+        O teste, em cima de tudo. Enquanto vale: quantos dias e os tetos, com
+        o botão de assinar já ali — quem gostou não deveria ter que procurar
+        onde paga. Vencido: o que acontece agora, e o mesmo botão.
+      */}
+      {teste && (
+        <div
+          className={`anim-entrada d1 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3.5 text-sm ${
+            teste.acabou ? "border-danger/40 bg-danger/10" : "border-warn/40 bg-warn/10"
+          }`}
+        >
+          <div className="min-w-0">
+            {teste.acabou ? (
+              <>
+                <p className="font-bold text-danger">⏰ Seu teste grátis de 7 dias terminou.</p>
+                <p className="mt-0.5 text-paper-dim">
+                  Sua lista, seu funil e suas conversas continuam guardados. Assinando, o agente
+                  volta a buscar e enviar hoje mesmo — sem teto por dia.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-bold text-warn">
+                  🎁 Teste grátis:{" "}
+                  {teste.diasRestantes === 1 ? "hoje é o último dia" : `${teste.diasRestantes} dias restantes`}
+                </p>
+                <p className="mt-0.5 text-paper-dim">
+                  Até 30 empresas encontradas e 30 mensagens por dia. Assinando, o teto some e
+                  nada do que você fez se perde.
+                </p>
+              </>
+            )}
+          </div>
+          <Link
+            href="/app/assinatura"
+            className={`flex-none rounded-lg px-4 py-2 text-sm font-bold text-white transition ${
+              teste.acabou ? "bg-danger hover:brightness-110" : "bg-brand hover:bg-brand-2"
+            }`}
+          >
+            {teste.acabou ? "Assinar agora" : "Assinar o Prospector"}
+          </Link>
+        </div>
+      )}
 
       {avisoAssinatura && (
         <div className="anim-entrada d1 rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">

@@ -2,7 +2,6 @@ import "server-only";
 
 import { ehAdmin } from "./admin";
 import { getMinhaOrg } from "./queries";
-import { planoVigente } from "./permissoes";
 
 /*
  * "Estou dentro do Prospector?" — a pergunta que muda a CARA do painel.
@@ -19,5 +18,11 @@ export async function modoProspector(): Promise<boolean> {
   if (await ehAdmin()) return false;
   const org = await getMinhaOrg();
   if (!org) return false;
-  return (await planoVigente(org.id, org.plano)) === "prospector";
+  /*
+   * Pelo plano CONTRATADO, não pelo vigente: quem entrou pelo Prospector (pago
+   * ou em teste) continua vendo o Prospector mesmo com o teste vencido ou o
+   * pagamento atrasado — a tela que pede a assinatura tem que ser a do
+   * produto que ele conhece, não a de um criador de sites que nunca viu.
+   */
+  return org.plano === "prospector" || org.plano === "teste";
 }

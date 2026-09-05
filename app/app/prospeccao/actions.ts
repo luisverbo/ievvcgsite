@@ -34,7 +34,29 @@ export async function enfileirarBuscaGoogle(
   // então qualquer ramo serve — a validação só barra o que não é um ramo.
   const nicho = escolhido === "__outro__" ? livre : escolhido;
   const local = String(formData.get("local") ?? "").trim();
-  const limite = Math.min(60, Math.max(5, Number(formData.get("limite")) || 20));
+  // 120 é o que o Google Maps lista de verdade numa busca; pedir mais só
+  // faria o agente rolar uma lista que acabou.
+  let limite = Math.min(120, Math.max(5, Number(formData.get("limite")) || 20));
+
+  /*
+   * Teste grátis: 30 empresas por dia, contando o que já foi gravado hoje e
+   * o que está na fila. O freio mora aqui, no servidor — a tela pode pedir
+   * 120; sai o que o teste permite, e a mensagem diz quanto foi.
+   */
+  const { empresasDisponiveisHoje, TESTE } = await import("@/lib/painel/teste");
+  const disponiveis = await empresasDisponiveisHoje(org.id);
+  let avisoTeste = "";
+  if (disponiveis !== null) {
+    if (disponiveis <= 0) {
+      return {
+        error: `Seu teste grátis permite ${TESTE.empresasPorDia} empresas por dia, e as de hoje já foram. Amanhã libera de novo — ou assine o Prospector para buscar sem esse teto.`,
+      };
+    }
+    if (limite > disponiveis) {
+      avisoTeste = ` No teste grátis saem ${disponiveis} agora (o teto é ${TESTE.empresasPorDia} por dia; assinando, não há teto).`;
+      limite = disponiveis;
+    }
+  }
   if (escolhido === "__outro__") {
     if (!nichoLivreValido(livre)) {
       return { error: "Digite o ramo com 3 a 60 letras — ex.: “loja de aquário”." };
@@ -90,9 +112,10 @@ export async function enfileirarBuscaGoogle(
 
   revalidatePath("/app/prospeccao", "layout");
   return {
-    ok: comFiltro
-      ? `Busca na fila, filtrando por ${resumoFiltros(filtros).join(" · ")}. O agente abre mais empresas do que o pedido até completar ${limite} que passem.`
-      : "Busca na fila. O agente vai executar em instantes — acompanhe aqui embaixo.",
+    ok:
+      (comFiltro
+        ? `Busca na fila, filtrando por ${resumoFiltros(filtros).join(" · ")}. O agente abre mais empresas do que o pedido até completar ${limite} que passem.`
+        : "Busca na fila. O agente vai executar em instantes — acompanhe aqui embaixo.") + avisoTeste,
   };
 }
 

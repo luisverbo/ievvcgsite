@@ -5,6 +5,56 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { planoVendidoValido, priceIdDaStripe } from "@/lib/pagamentos/planos";
 import { checkoutAssinatura } from "@/lib/pagamentos/stripe";
 import { registrarFunil, landingDoPlano } from "@/lib/vendas-funil";
+import { fimDoTeste } from "@/lib/painel/teste";
+
+/*
+ * Ativa o teste grátis de 7 dias do Prospector — o /assinar sem Stripe.
+ *
+ *   visitante          → cadastro (o plano "teste" viaja junto e ele volta aqui)
+ *   logado, sem org    → onboarding, idem
+ *   org no grátis      → vira 'teste' com teste_ate daqui a 7 dias → tutorial
+ *   org com plano pago → nada a ativar, vai para o painel
+ *   já testou          → sem segundo teste: painel (que pede a assinatura)
+ */
+async function ativarTeste(req: Request): Promise<NextResponse> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.redirect(new URL("/cadastro?plano=teste", req.url));
+
+  const org = await getMinhaOrg();
+  if (!org) return NextResponse.redirect(new URL("/app/onboarding?plano=teste", req.url));
+
+  const admin = createAdminClient();
+  const { data: atualRaw } = await admin
+    .from("organizacoes")
+    .select("plano, teste_ate")
+    .eq("id", org.id)
+    .maybeSingle();
+  const atual = atualRaw as { plano: string; teste_ate: string | null } | null;
+
+  // Plano pago, ou teste já usado (a data fica gravada para sempre): não há
+  // o que ativar. O painel explica a situação e oferece a assinatura.
+  if (!atual || atual.plano !== "free" || atual.teste_ate) {
+    return NextResponse.redirect(new URL("/app", req.url));
+  }
+
+  const { error } = await admin
+    .from("organizacoes")
+    .update({ plano: "teste", teste_ate: fimDoTeste() })
+    .eq("id", org.id)
+    .eq("plano", "free");
+  if (error) {
+    // Migração pendente (o CHECK não conhece 'teste'): melhor a assinatura
+    // paga na frente do que um erro cru na cara de quem ia experimentar.
+    console.error("[assinar/teste]", error.message);
+    return NextResponse.redirect(new URL("/app/assinatura", req.url));
+  }
+
+  await registrarFunil("prospector", "Começou o teste", "/assinar/teste");
+  return NextResponse.redirect(new URL("/app/comecar", req.url));
+}
 
 /*
  * O atalho da landing: /assinar/pro e /assinar/agencia.
@@ -26,6 +76,17 @@ import { registrarFunil, landingDoPlano } from "@/lib/vendas-funil";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ plano: string }> }) {
   const { plano: bruto } = await ctx.params;
+
+  /*
+   * /assinar/teste: o mesmo caminho do preço, sem cobrança no fim.
+   *
+   * Reaproveita o funil inteiro (cadastro → onboarding → volta para cá) e,
+   * com a organização na mão, ATIVA o teste em vez de abrir a Stripe. Uma
+   * vez só por conta: teste_ate gravado é teste usado, e quem já tem plano
+   * pago não precisa de degustação.
+   */
+  if (bruto === "teste") return ativarTeste(_req);
+
   const plano = planoVendidoValido(bruto);
   if (!plano) return NextResponse.redirect(new URL("/#preco", _req.url));
 

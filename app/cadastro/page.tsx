@@ -21,9 +21,12 @@ async function contexto(searchParams: Busca) {
    * a pessoa criaria a conta e cairia num painel que não é o que comprou.
    */
   const noHostProspector = ehHostProspector((await headers()).get("host"));
-  const plano = planoVendidoValido(bruto ?? (noHostProspector ? "prospector" : ""));
+  // ?plano=teste: o teste grátis de 7 dias do Prospector. Não é plano vendido
+  // (não passa pela Stripe), então anda numa variável própria.
+  const teste = bruto === "teste";
+  const plano = teste ? null : planoVendidoValido(bruto ?? (noHostProspector ? "prospector" : ""));
   const prospector = ehFunilProspector({ plano: bruto }) || noHostProspector;
-  return { plano, prospector };
+  return { plano, prospector, teste };
 }
 
 /*
@@ -39,8 +42,10 @@ export async function generateMetadata({ searchParams }: { searchParams: Busca }
 }
 
 export default async function CadastroPage({ searchParams }: { searchParams: Busca }) {
-  const { plano, prospector } = await contexto(searchParams);
+  const { plano, prospector, teste } = await contexto(searchParams);
   const preco = plano ? precoEmReais(plano) : null;
+  // Para onde a conta vai depois de criada: pagar, ativar o teste, ou o painel.
+  const destino = teste ? "/assinar/teste" : plano ? `/assinar/${plano}` : undefined;
   const suporte = (process.env.NEXT_PUBLIC_WHATSAPP_VENDAS ?? "").replace(/\D/g, "");
 
   return (
@@ -72,20 +77,24 @@ export default async function CadastroPage({ searchParams }: { searchParams: Bus
           )}
 
           <h1 className="mt-4 font-display text-2xl font-extrabold">
-            {plano ? "Crie sua conta" : "Crie sua conta grátis"}
+            {teste ? "Comece seu teste grátis" : plano ? "Crie sua conta" : "Crie sua conta grátis"}
           </h1>
           <p className="mb-6 mt-1.5 text-sm text-paper-dim">
-            {prospector
-              ? "Leva vinte segundos. Na próxima etapa você escolhe a forma de pagamento e o Prospector já fica ativo."
-              : plano
-                ? `Na próxima etapa você paga o plano ${ROTULO[plano]} e o painel já fica liberado.`
-                : "Publique sua primeira página em minutos."}
+            {teste
+              ? "Sete dias com o Prospector inteiro, sem cartão. Leva vinte segundos: crie a conta e o painel já abre no passo a passo."
+              : prospector
+                ? "Leva vinte segundos. Na próxima etapa você escolhe a forma de pagamento e o Prospector já fica ativo."
+                : plano
+                  ? `Na próxima etapa você paga o plano ${ROTULO[plano]} e o painel já fica liberado.`
+                  : "Publique sua primeira página em minutos."}
           </p>
 
           <AuthForm
             action={cadastrar}
-            submitLabel={plano ? "Continuar para o pagamento →" : "Criar conta grátis"}
-            de={plano ? `/assinar/${plano}` : undefined}
+            submitLabel={
+              teste ? "Começar meu teste grátis →" : plano ? "Continuar para o pagamento →" : "Criar conta grátis"
+            }
+            de={destino}
           />
 
           {plano && (
@@ -93,11 +102,17 @@ export default async function CadastroPage({ searchParams }: { searchParams: Bus
               A senha é para você entrar no painel depois — o pagamento é na próxima tela, não aqui.
             </p>
           )}
+          {teste && (
+            <p className="mt-3 text-xs text-paper-dim">
+              Não pedimos cartão. Quando os 7 dias acabarem, você decide se assina — nada é cobrado
+              sozinho.
+            </p>
+          )}
 
           <p className="mt-6 text-sm text-paper-dim">
             Já tem conta?{" "}
             <Link
-              href={plano ? `/login?de=${encodeURIComponent(`/assinar/${plano}`)}` : "/login"}
+              href={destino ? `/login?de=${encodeURIComponent(destino)}` : "/login"}
               className="font-semibold text-brand-2 hover:underline"
             >
               Entrar
@@ -112,6 +127,31 @@ export default async function CadastroPage({ searchParams }: { searchParams: Bus
           "quanto era mesmo?" que faz a pessoa voltar — e voltar é onde a
           venda se perde.
         */}
+        {/* O resumo do teste: o que ganha, o que limita, o que NÃO acontece (cobrança). */}
+        {teste && (
+          <aside className="flex flex-col gap-4 rounded-2xl border border-warn/30 bg-ink-2 p-6 text-sm">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-paper-dim">Seu teste</p>
+              <p className="mt-1 font-display text-xl font-extrabold text-paper">Prospector · 7 dias</p>
+              <p className="mt-1 font-display text-3xl font-extrabold text-paper">
+                R$ 0<span className="text-sm font-bold text-paper-dim"> por 7 dias</span>
+              </p>
+            </div>
+            <ul className="flex flex-col gap-2 text-paper-dim">
+              <li className="flex gap-2"><span className="text-ok">✓</span> Agente, WhatsApp, funil e remarketing</li>
+              <li className="flex gap-2"><span className="text-ok">✓</span> Até 30 empresas encontradas por dia</li>
+              <li className="flex gap-2"><span className="text-ok">✓</span> Até 30 mensagens por dia</li>
+              <li className="flex gap-2"><span className="text-ok">✓</span> Sem cartão, sem cobrança automática</li>
+            </ul>
+            <div className="border-t border-white/10 pt-4 text-xs text-paper-dim">
+              <p>
+                Gostou? Assina por R$ {precoEmReais("prospector")}/mês pelo painel e o teto some na
+                hora. Não gostou? A conta simplesmente para de prospectar.
+              </p>
+            </div>
+          </aside>
+        )}
+
         {plano && preco && (
           <aside className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-ink-2 p-6 text-sm">
             <div>

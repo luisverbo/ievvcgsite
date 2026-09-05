@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
-import { podeUsar } from "@/lib/painel/permissoes";
+import { podeUsar, exigirProspeccao } from "@/lib/painel/permissoes";
 import Abas from "./Abas";
 import Busca from "./Busca";
 import Importar from "./Importar";
@@ -35,7 +35,7 @@ function temCelular(telefone: string | null) {
 }
 
 export default async function ProspeccaoPage() {
-  if (!(await podeUsar("prospeccao"))) notFound();
+  await exigirProspeccao();
   const org = await getMinhaOrg();
   if (!org) notFound();
   const podeSites = await podeUsar("construtor");

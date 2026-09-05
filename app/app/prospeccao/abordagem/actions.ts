@@ -115,7 +115,16 @@ export async function salvarConfig(
     }
   }
 
-  const limite = Math.min(200, Math.max(1, Number(formData.get("limite_diario")) || 20));
+  let limite = Math.min(200, Math.max(1, Number(formData.get("limite_diario")) || 20));
+  // Teste grátis: o teto de envios por dia é do plano, não do cliente. O
+  // servidor do agente também aplica — aqui é só para a tela não prometer.
+  const { tetoEnviosDaOrg } = await import("@/lib/painel/teste");
+  const tetoTeste = await tetoEnviosDaOrg(org.id);
+  let avisoTeto = "";
+  if (tetoTeste !== null && limite > tetoTeste) {
+    limite = tetoTeste;
+    avisoTeto = ` No teste grátis o máximo é ${tetoTeste} por dia — salvei ${tetoTeste}. Assinando, você escolhe até 200.`;
+  }
   const min = Math.max(20, Number(formData.get("intervalo_min_s")) || 45);
   const max = Math.max(min + 5, Number(formData.get("intervalo_max_s")) || 150);
 
@@ -150,9 +159,10 @@ export async function salvarConfig(
 
   revalidatePath("/app/prospeccao/abordagem");
   return {
-    ok: modoGancho
-      ? "Salvo! As próximas abordagens saem em dois passos: gancho e, para quem responder, a apresentação."
-      : "Configuração salva.",
+    ok:
+      (modoGancho
+        ? "Salvo! As próximas abordagens saem em dois passos: gancho e, para quem responder, a apresentação."
+        : "Configuração salva.") + avisoTeto,
   };
 }
 

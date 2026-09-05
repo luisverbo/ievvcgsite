@@ -240,8 +240,10 @@ export async function POST(req: Request) {
          * virar erro para a Stripe, ou ela reenvia o evento e o cliente
          * termina com o mês pago duas vezes. O motivo vai para o log.
          */
-        // planoPago é sempre um plano vendido — só o lado de cá pode ser free.
-        if (planoAntigo === "free") {
+        // planoPago é sempre um plano vendido — só o lado de cá pode ser free
+        // ou teste. Quem vem do teste grátis está COMPRANDO agora: boas-vindas,
+        // conversão e degrau do funil valem igual.
+        if (planoAntigo === "free" || planoAntigo === "teste") {
           const r = await mandarBoasVindas(orgId, planoPago).catch((e) => ({
             ok: false,
             motivo: (e as Error).message,

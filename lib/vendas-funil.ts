@@ -21,7 +21,7 @@ import { ORG_VENDAS, PAGINA_VENDAS, type QualLanding } from "@/lib/vendas-metric
  * webhook que ela mede.
  */
 
-export type EtapaFunil = "Criou conta" | "Chegou ao pagamento" | "Comprou";
+export type EtapaFunil = "Criou conta" | "Chegou ao pagamento" | "Começou o teste" | "Comprou";
 
 export async function registrarFunil(
   qual: QualLanding,
@@ -45,5 +45,5 @@ export async function registrarFunil(
 
 /* De qual landing é este plano — o Prospector tem funil próprio. */
 export function landingDoPlano(plano: string | null | undefined): QualLanding {
-  return plano === "prospector" ? "prospector" : "principal";
+  return plano === "prospector" || plano === "teste" ? "prospector" : "principal";
 }

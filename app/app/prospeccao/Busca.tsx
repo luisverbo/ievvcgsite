@@ -129,7 +129,7 @@ export default function Busca({
             name="limite"
             type="number"
             min={5}
-            max={60}
+            max={120}
             defaultValue={20}
             className={`${inputClass} w-24`}
           />

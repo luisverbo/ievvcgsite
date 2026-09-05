@@ -8,6 +8,8 @@ import { enfileirarApresentacao, TIPO_APRESENTACAO } from "@/lib/prospeccao/ganc
 import { montarResumoDoDia, resumoDevido, resumoFalhou } from "@/lib/prospeccao/resumo";
 import { prepararFollowups } from "@/lib/prospeccao/followup";
 import { funcaoLigada } from "@/lib/painel/flags";
+import { orgPodeUsar } from "@/lib/painel/permissoes";
+import { tetoEnviosDaOrg } from "@/lib/painel/teste";
 import { ARQUIVOS_DO_AGENTE, VERSAO_AGENTE } from "@/lib/agente/pacote";
 import type { EmpresaEncontrada } from "@/lib/prospeccao/tipos";
 
@@ -130,6 +132,14 @@ export async function POST(req: Request) {
 
       /* --------------------------- fila de buscas ------------------------- */
       case "proxima_tarefa": {
+        /*
+         * Conta sem prospecção (teste vencido, assinatura suspensa) não
+         * recebe trabalho: o agente continua ligado e inofensivo, e a fila
+         * espera a assinatura. A trava é aqui, no servidor — o agente não
+         * sabe de plano nenhum.
+         */
+        if (!(await orgPodeUsar(org, "prospeccao"))) return j({ tarefa: null });
+
         // O filtro status='pendente' no UPDATE é o que impede dois agentes da
         // mesma organização de pegarem a mesma tarefa.
         const { data: fila } = await admin
@@ -478,7 +488,12 @@ export async function POST(req: Request) {
         // O freio de mão. Em select próprio e tolerante: a coluna é de
         // migração nova, e pedi-la junto derrubaria o estado inteiro em quem
         // ainda não rodou o SQL — parando o envio de quem nem pausou nada.
-        const pausado = await envioPausado(org);
+        // Sem prospecção no plano (teste vencido, suspenso), vale como pausado.
+        const pausado = (await envioPausado(org)) || !(await orgPodeUsar(org, "prospeccao"));
+
+        // Teste grátis: o teto de envios é do plano, por cima do que o
+        // cliente configurou. O agente recebe o menor dos dois.
+        const tetoPlano = await tetoEnviosDaOrg(org);
 
         const inicioDia = new Date();
         inicioDia.setHours(0, 0, 0, 0);
@@ -528,16 +543,21 @@ export async function POST(req: Request) {
           aguardando = c ?? 0;
         }
 
+        const cfgBase = (cfgRaw as { limite_diario: number } | null) ?? {
+          org_id: org,
+          limite_diario: 20,
+          intervalo_min_s: 45,
+          intervalo_max_s: 150,
+          whatsapp_status: "desconectado",
+          desconectar_pedido: false,
+        };
         return j({
           // Hora do resumo diário? O agente abre o WhatsApp também por isso.
           resumoDevido: await resumoDevido(org),
-          config: cfgRaw ?? {
-            org_id: org,
-            limite_diario: 20,
-            intervalo_min_s: 45,
-            intervalo_max_s: 150,
-            whatsapp_status: "desconectado",
-            desconectar_pedido: false,
+          config: {
+            ...cfgBase,
+            limite_diario:
+              tetoPlano === null ? cfgBase.limite_diario : Math.min(cfgBase.limite_diario, tetoPlano),
           },
           enviadasHoje: count ?? 0,
           // Pausado, a fila some do ponto de vista do agente: ele não abre o
@@ -720,6 +740,7 @@ export async function POST(req: Request) {
          * programa no computador. Sem mensagem entregue, não há o que enviar.
          */
         if (await envioPausado(org)) return j({ mensagem: null });
+        if (!(await orgPodeUsar(org, "prospeccao"))) return j({ mensagem: null });
 
         /*
          * Apresentação primeiro: o lead respondeu ao gancho e está com o
@@ -747,7 +768,10 @@ export async function POST(req: Request) {
           .select("limite_diario")
           .eq("org_id", org)
           .maybeSingle();
-        const limite = (cfgLim as { limite_diario: number } | null)?.limite_diario ?? 20;
+        const limiteCfg = (cfgLim as { limite_diario: number } | null)?.limite_diario ?? 20;
+        // Teste grátis: o teto do plano vale por cima do configurado.
+        const tetoDoPlano = await tetoEnviosDaOrg(org);
+        const limite = tetoDoPlano === null ? limiteCfg : Math.min(limiteCfg, tetoDoPlano);
         const inicio = new Date();
         inicio.setHours(0, 0, 0, 0);
         const { count: contatosHoje } = await admin

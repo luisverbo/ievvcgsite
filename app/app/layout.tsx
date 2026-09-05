@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { ehAdmin } from "@/lib/painel/admin";
 import { podeUsar } from "@/lib/painel/permissoes";
 import { modoProspector } from "@/lib/painel/prospector";
+import { getMinhaOrg } from "@/lib/painel/queries";
+import { situacaoDoTeste } from "@/lib/painel/teste";
 import { alternarTema, sair } from "./actions";
 
 /*
@@ -26,13 +28,16 @@ export default async function PainelLayout({ children }: { children: React.React
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [admin, temProspeccao, temConstrutor, prospector, jar] = await Promise.all([
+  const [admin, temProspeccao, temConstrutor, prospector, jar, org] = await Promise.all([
     ehAdmin(),
     podeUsar("prospeccao"),
     podeUsar("construtor"),
     modoProspector(),
     cookies(),
+    getMinhaOrg(),
   ]);
+  // Teste grátis: o menu conta os dias e leva para a assinatura.
+  const teste = org ? situacaoDoTeste(org as { plano: string; teste_ate?: string | null }) : null;
   // Lido no servidor: a página já sai na cor certa, sem piscar branco antes.
   const escuro = jar.get("pp_tema")?.value === "escuro";
 
@@ -99,9 +104,29 @@ export default async function PainelLayout({ children }: { children: React.React
                 Créditos
               </Link>
             )}
-            <Link href="/app/assinatura" className={linkClass}>
-              Assinatura
-            </Link>
+            {/*
+              Em teste grátis, "Assinatura" vira um botão que conta os dias.
+              É o lembrete que acompanha a pessoa em toda tela — e o caminho
+              de um clique para pagar quando ela decidir.
+            */}
+            {teste ? (
+              <Link
+                href="/app/assinatura"
+                className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                  teste.acabou
+                    ? "bg-danger text-white hover:brightness-110"
+                    : "bg-warn/20 text-warn hover:bg-warn/30"
+                }`}
+              >
+                {teste.acabou
+                  ? "Teste encerrado · Assinar"
+                  : `🎁 ${teste.diasRestantes === 1 ? "Último dia" : `${teste.diasRestantes} dias`} · Assinar`}
+              </Link>
+            ) : (
+              <Link href="/app/assinatura" className={linkClass}>
+                Assinatura
+              </Link>
+            )}
             {/*
               "Minha conta" escrito por extenso no menu. O avatar com e-mail no
               canto direito parecia enfeite: ninguém adivinha que aquilo é

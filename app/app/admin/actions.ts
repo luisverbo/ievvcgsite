@@ -17,7 +17,10 @@ export async function ehAdmin(): Promise<boolean> {
   return checarAdmin();
 }
 
-export async function alterarPlano(orgId: string, novoPlano: "free" | "pro" | "agencia" | "prospector") {
+export async function alterarPlano(
+  orgId: string,
+  novoPlano: "free" | "pro" | "agencia" | "prospector" | "teste",
+) {
   if (!(await ehAdmin())) return;
   const admin = createAdminClient();
 
@@ -32,7 +35,15 @@ export async function alterarPlano(orgId: string, novoPlano: "free" | "pro" | "a
   // pagando o plano cheio e recebendo o crédito do plano velho.
   const { error } = await admin
     .from("organizacoes")
-    .update({ plano: novoPlano, cota_mensal: cotaDoPlano(novoPlano) })
+    .update({
+      plano: novoPlano,
+      cota_mensal: cotaDoPlano(novoPlano),
+      // Teste ligado na mão pelo Admin: começa a contar agora. Sem data o
+      // teste nasceria vencido (planoVigente trata nulo como passado).
+      ...(novoPlano === "teste"
+        ? { teste_ate: new Date(Date.now() + 7 * 86_400_000).toISOString() }
+        : {}),
+    })
     .eq("id", orgId);
   /*
    * Erro engolido aqui já custou uma tarde: o CHECK antigo da coluna não

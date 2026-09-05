@@ -849,6 +849,18 @@ export default async function ProspectorPage() {
                 <p className="mt-3 text-xs text-[#5f6672]">
                   Sem fidelidade · cancele direto pelo painel · pagamento seguro
                 </p>
+                {/* O degrau de entrada: sem cartão, com teto por dia. */}
+                <Link
+                  data-track="Preço · Teste grátis"
+                  href="/assinar/teste"
+                  className="mt-4 block rounded-full border-2 border-[#1a1c22]/15 px-8 py-3 text-base font-bold text-[#1a1c22] transition hover:border-[#25D366] hover:text-[#1f9d55]"
+                >
+                  Ou teste grátis por 7 dias, sem cartão →
+                </Link>
+                <p className="mt-2 text-xs text-[#5f6672]">
+                  No teste: até 30 empresas e 30 mensagens por dia. Gostou, assina; não gostou,
+                  não paga nada.
+                </p>
               </div>
             </div>
 
@@ -881,27 +893,27 @@ export default async function ProspectorPage() {
         {/* ========================== GARANTIA ============================= */}
         <section className="px-5 pb-20">
           <div className="pv-rev mx-auto max-w-lg rounded-3xl border-2 border-dashed border-[#34A853]/50 bg-[#34A853]/[0.06] p-8 text-center">
-            <span className="text-4xl">🛡️</span>
+            <span className="text-4xl">🎁</span>
             <h2 className="mt-2 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
-              Teste durante sete dias
+              Sete dias grátis, sem cartão
             </h2>
             {/*
-              Verificável de propósito: a promessa é sobre o que o sistema
-              ENTREGA (empresas com telefone), não sobre quanto o cliente vai
-              vender, que não depende de nós.
+              A degustação de verdade: a conta nasce sem pagar, o agente roda
+              com teto por dia, e só quem gostou assina. Verificável — e o
+              risco é zero dos dois lados: o Prospector não gasta IA.
             */}
             <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-[#3c4048]">
-              Se o Prospector não encontrar{" "}
-              <b>pelo menos 100 empresas do seu ramo e da sua região, com telefone</b>, nos
-              primeiros sete dias, peça o reembolso pelo WhatsApp do suporte. Você recebe{" "}
-              <b>100% do valor</b> de volta. Sem formulário complicado, sem fidelidade.
+              Crie a conta, instale o Agente e prospecte de verdade por uma semana:{" "}
+              <b>até 30 empresas encontradas e 30 mensagens por dia</b>, com o funil e o
+              remarketing inteiros. Gostou? Assina e o teto some. Não gostou? Não paga nada —
+              nem pedimos cartão.
             </p>
             <Link
               data-track="Garantia · Testar"
-              href="/assinar/prospector"
+              href="/assinar/teste"
               className="mt-6 inline-block rounded-full bg-[#34A853] px-7 py-3 text-base font-bold text-white shadow-[0_12px_32px_-10px_rgba(52,168,83,.8)] transition hover:-translate-y-0.5 hover:brightness-105"
             >
-              Quero testar o Prospector →
+              Começar meu teste grátis →
             </Link>
           </div>
         </section>
@@ -997,6 +1009,15 @@ export default async function ProspectorPage() {
             >
               Começar por R$ {preco}/mês →
             </Link>
+            <div className="mt-3">
+              <Link
+                data-track="Rodapé · Teste grátis"
+                href="/assinar/teste"
+                className="text-sm font-bold text-white/85 underline underline-offset-4 transition hover:text-white"
+              >
+                ou testar grátis por 7 dias, sem cartão
+              </Link>
+            </div>
             <p className="mt-3 text-sm font-bold text-white">
               🛡️ 7 dias de garantia · sem fidelidade · cancele quando quiser
             </p>

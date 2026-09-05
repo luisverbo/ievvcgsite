@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Abas from "../Abas";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
-import { podeUsar } from "@/lib/painel/permissoes";
+import { podeUsar, exigirProspeccao } from "@/lib/painel/permissoes";
 import { funcaoLigada } from "@/lib/painel/flags";
 import Painel from "./Painel";
 import type { ConfigAbordagem, MensagemRow } from "./actions";
@@ -10,7 +10,7 @@ import { telefoneWhatsapp } from "@/lib/prospeccao/mensagem";
 import type { ProspectoRow } from "@/lib/prospeccao/tipos";
 
 export default async function AbordagemPage() {
-  if (!(await podeUsar("prospeccao"))) notFound();
+  await exigirProspeccao();
   const org = await getMinhaOrg();
   if (!org) notFound();
   // Modo Prospector: os textos falam do produto DELE, nunca de site.
