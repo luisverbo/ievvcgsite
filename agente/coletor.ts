@@ -220,6 +220,34 @@ async function extrair(page: Page, url: string): Promise<EmpresaEncontrada | nul
   };
 }
 
+/*
+ * As formas de escrever a mesma busca.
+ *
+ * O Maps devolve listas parcialmente diferentes para "dentista Campinas",
+ * "dentista em Campinas", "dentista perto de Campinas", "melhores dentista
+ * em Campinas" e para as zonas da cidade. Juntas, elas passam de longe as
+ * ~120 de uma consulta só — e é isso que permite completar 100 com filtro.
+ *
+ * A primeira é a de sempre (o comportamento de quem não precisa de mais);
+ * as outras só entram quando ela acaba antes do pedido. Nicho fora do
+ * catálogo NÃO é erro: é o ramo que o dono digitou à mão ("loja de
+ * aquário") — o Maps busca por texto e acha do mesmo jeito.
+ */
+function variacoesDaConsulta(termo: string, local: string): string[] {
+  const l = local.trim();
+  return [
+    `${termo} ${l}`,
+    `${termo} em ${l}`,
+    `${termo} perto de ${l}`,
+    `melhores ${termo} em ${l}`,
+    `${termo} ${l} centro`,
+    `${termo} ${l} zona sul`,
+    `${termo} ${l} zona norte`,
+    `${termo} ${l} zona oeste`,
+    `${termo} ${l} zona leste`,
+  ];
+}
+
 /* ---------------------------------- coleta -------------------------------- */
 export async function coletarDoGoogle(
   nichoChave: string,
@@ -232,16 +260,6 @@ export async function coletarDoGoogle(
   const filtros = op.filtros ?? FILTROS_VAZIOS;
   const filtrando = temFiltro(filtros);
   const pulandoRepetidas = Boolean(filtros.evitarRepetidas && op.jaExistem);
-  // Com filtro ou pulando repetidas, junta mais links do que o alvo — muitos
-  // vão ser descartados antes ou depois de abrir.
-  const alvoLinks =
-    filtrando || pulandoRepetidas ? Math.min(TETO_FICHAS, limite * FATOR_FILTRO) : limite;
-  /*
-   * Nicho fora do catálogo NÃO é erro: é o ramo que o dono digitou à mão
-   * ("loja de aquário") — o Maps busca por texto e acha do mesmo jeito. O
-   * catálogo só serve para trocar a chave pelo rótulo bonito.
-   */
-  const termo = `${termoDeBusca(nichoChave)} ${local}`;
   let ctx: BrowserContext | undefined;
 
   try {
@@ -256,95 +274,137 @@ export async function coletarDoGoogle(
     });
     const page = ctx.pages()[0] ?? (await ctx.newPage());
 
-    // gl=BR força resultados do Brasil mesmo com a VPS fora do país.
-    await page.goto(
-      `https://www.google.com/maps/search/${encodeURIComponent(termo)}?hl=pt-BR&gl=BR`,
-      { waitUntil: "domcontentloaded", timeout: 60_000 },
-    );
-    await aceitarConsentimento(page, log);
-
-    const bloqueio = await estaBloqueado(page);
-    if (bloqueio) return { empresas: [], falhas: 0, bloqueio, descartadas: 0, repetidas: 0 };
-
-    let links = await coletarLinks(page, alvoLinks, log);
-
     /*
-     * Pula o que o cliente já tem — sem abrir ficha nenhuma.
+     * UMA consulta no Maps lista no máximo ~120 empresas. Sem filtro isso
+     * basta; com "só WhatsApp" (que costuma deixar passar 1 em 4), pedir 100
+     * de uma consulta só devolvia 25 — e a região tinha as 100.
      *
-     * Pergunta ao painel quais destes ids já existem na lista (de QUALQUER
-     * busca anterior) e tira da fila. Falhou a pergunta? Segue com todos:
-     * uma repetida gravada de novo só atualiza a linha; um "erro de rede"
-     * que cancela a busca inteira é bem pior.
+     * Então a busca não é uma consulta: é uma SEQUÊNCIA delas, com a mesma
+     * intenção escrita de jeitos que o Maps responde com listas diferentes
+     * ("em", "perto de", "melhores", por zona). Cada variação só entra se a
+     * anterior acabou sem completar o pedido, e link já visto não abre de
+     * novo. Para quando completa, quando as variações acabam, ou quando o
+     * teto de fichas abertas (o custo em tempo e em exposição) estoura.
      */
-    let repetidas = 0;
-    if (pulandoRepetidas) {
-      try {
-        const existentes = new Set(await op.jaExistem!(links.map(fonteIdDaUrl)));
-        const antes = links.length;
-        links = links.filter((l) => !existentes.has(fonteIdDaUrl(l)));
-        repetidas = antes - links.length;
-        if (repetidas > 0) log(`${repetidas} já estavam na sua lista — pulei sem abrir`);
-      } catch (e) {
-        log(`não consegui conferir repetidas (${(e as Error).message.slice(0, 60)}); sigo com todas`);
-      }
-    }
-    log(
-      filtrando
-        ? `${links.length} empresas na lista; abrindo até completar ${limite} que passem no filtro`
-        : `${links.length} empresas na lista; abrindo uma a uma`,
-    );
-    // O progresso é contado sobre o ALVO quando há filtro: a barra tem que
-    // medir o que o cliente pediu, não quantas fichas foram descartadas.
-    const totalBarra = filtrando ? limite : links.length;
-    await op.aoProgredir?.(0, totalBarra);
+    const consultas = variacoesDaConsulta(termoDeBusca(nichoChave), local);
+    const tetoFichas = filtrando || pulandoRepetidas ? Math.min(600, limite * FATOR_FILTRO) : limite;
 
     const empresas: EmpresaEncontrada[] = [];
+    const vistos = new Set<string>();
     let falhas = 0;
     let descartadas = 0;
+    let repetidas = 0;
+    let abertas = 0;
+    let listadas = 0;
+    // O progresso é contado sobre o ALVO quando há filtro: a barra tem que
+    // medir o que o cliente pediu, não quantas fichas foram descartadas.
+    const totalBarra = limite;
+    await op.aoProgredir?.(0, totalBarra);
 
-    for (const [i, link] of links.entries()) {
-      // Alvo atingido: nem abre o resto — é tempo e é exposição ao Google.
-      if (empresas.length >= limite) break;
-      try {
-        const e = await extrair(page, link);
-        if (!e) {
-          falhas++;
-          log(`${i + 1}/${links.length} não consegui ler os dados`);
-        } else if (!passaNosFiltros(e, filtros)) {
-          descartadas++;
-          log(`${i + 1}/${links.length} ${e.nome} — fora do filtro, pulei`);
-        } else {
-          empresas.push(e);
-          log(
-            `${empresas.length}/${limite} ${e.nome} — ${e.website ? "tem site" : "SEM SITE"}` +
-              (e.avaliacoes ? ` · ${e.avaliacoes} avaliações` : ""),
-          );
-        }
-      } catch (err) {
-        falhas++;
-        log(`${i + 1}/${links.length} falhou: ${(err as Error).message.slice(0, 90)}`);
-        if (op.debug) {
-          fs.mkdirSync(DIAGNOSTICO, { recursive: true });
-          await page
-            .screenshot({ path: path.join(DIAGNOSTICO, `erro-${i + 1}.png`) })
-            .catch(() => {});
-          fs.writeFileSync(
-            path.join(DIAGNOSTICO, `erro-${i + 1}.html`),
-            await page.content().catch(() => ""),
-          );
-        }
+    for (const [c, consulta] of consultas.entries()) {
+      if (empresas.length >= limite || abertas >= tetoFichas) break;
+      if (c > 0) {
+        log(
+          `a lista do Google acabou com ${empresas.length}/${limite} — tentando outra forma de buscar (${c + 1}/${consultas.length}): "${consulta}"`,
+        );
       }
 
-      await op.aoProgredir?.(filtrando ? empresas.length : i + 1, totalBarra);
+      // gl=BR força resultados do Brasil mesmo com a VPS fora do país.
+      await page.goto(
+        `https://www.google.com/maps/search/${encodeURIComponent(consulta)}?hl=pt-BR&gl=BR`,
+        { waitUntil: "domcontentloaded", timeout: 60_000 },
+      );
+      if (c === 0) await aceitarConsentimento(page, log);
 
-      const b = await estaBloqueado(page);
-      if (b) return { empresas, falhas, bloqueio: b, descartadas, repetidas };
-      await espera(pausa);
+      const bloqueio = await estaBloqueado(page);
+      if (bloqueio) return { empresas, falhas, bloqueio, descartadas, repetidas };
+
+      const faltam = limite - empresas.length;
+      const alvoDestaConsulta =
+        filtrando || pulandoRepetidas ? Math.min(TETO_FICHAS, faltam * FATOR_FILTRO) : faltam;
+      let links = (await coletarLinks(page, alvoDestaConsulta + vistos.size, log)).filter(
+        (l) => !vistos.has(l),
+      );
+      // Consulta que só repetiu a anterior não vale o tempo de abrir nada.
+      if (links.length === 0) {
+        log("esta forma de buscar não trouxe empresa nova");
+        continue;
+      }
+      listadas += links.length;
+
+      /*
+       * Pula o que o cliente já tem — sem abrir ficha nenhuma.
+       *
+       * Pergunta ao painel quais destes ids já existem na lista (de QUALQUER
+       * busca anterior) e tira da fila. Falhou a pergunta? Segue com todos:
+       * uma repetida gravada de novo só atualiza a linha; um "erro de rede"
+       * que cancela a busca inteira é bem pior.
+       */
+      if (pulandoRepetidas) {
+        try {
+          const existentes = new Set(await op.jaExistem!(links.map(fonteIdDaUrl)));
+          const antes = links.length;
+          links = links.filter((l) => !existentes.has(fonteIdDaUrl(l)));
+          repetidas += antes - links.length;
+          if (antes - links.length > 0) log(`${antes - links.length} já estavam na sua lista — pulei sem abrir`);
+        } catch (e) {
+          log(`não consegui conferir repetidas (${(e as Error).message.slice(0, 60)}); sigo com todas`);
+        }
+      }
+      log(
+        filtrando
+          ? `${links.length} empresas novas na lista; abrindo até completar ${limite} que passem no filtro`
+          : `${links.length} empresas na lista; abrindo uma a uma`,
+      );
+
+      for (const [i, link] of links.entries()) {
+        // Alvo atingido: nem abre o resto — é tempo e é exposição ao Google.
+        if (empresas.length >= limite || abertas >= tetoFichas) break;
+        vistos.add(link);
+        abertas++;
+        try {
+          const e = await extrair(page, link);
+          if (!e) {
+            falhas++;
+            log(`${i + 1}/${links.length} não consegui ler os dados`);
+          } else if (!passaNosFiltros(e, filtros)) {
+            descartadas++;
+            log(`${i + 1}/${links.length} ${e.nome} — fora do filtro, pulei`);
+          } else {
+            empresas.push(e);
+            log(
+              `${empresas.length}/${limite} ${e.nome} — ${e.website ? "tem site" : "SEM SITE"}` +
+                (e.avaliacoes ? ` · ${e.avaliacoes} avaliações` : ""),
+            );
+          }
+        } catch (err) {
+          falhas++;
+          log(`${i + 1}/${links.length} falhou: ${(err as Error).message.slice(0, 90)}`);
+          if (op.debug) {
+            fs.mkdirSync(DIAGNOSTICO, { recursive: true });
+            await page
+              .screenshot({ path: path.join(DIAGNOSTICO, `erro-${abertas}.png`) })
+              .catch(() => {});
+            fs.writeFileSync(
+              path.join(DIAGNOSTICO, `erro-${abertas}.html`),
+              await page.content().catch(() => ""),
+            );
+          }
+        }
+
+        await op.aoProgredir?.(filtrando ? empresas.length : Math.min(abertas, totalBarra), totalBarra);
+
+        const b = await estaBloqueado(page);
+        if (b) return { empresas, falhas, bloqueio: b, descartadas, repetidas };
+        await espera(pausa);
+      }
     }
 
     if (filtrando && empresas.length < limite) {
       log(
-        `o filtro é apertado para esta região: ${empresas.length} passaram de ${links.length} abertas`,
+        abertas >= tetoFichas
+          ? `parei no teto de ${tetoFichas} fichas abertas: ${empresas.length} passaram no filtro`
+          : `o Google não tem mais desse ramo nesta região: ${empresas.length} passaram de ${listadas} listadas`,
       );
     }
 
