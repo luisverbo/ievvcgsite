@@ -69,7 +69,8 @@ export type MensagemRow = {
   prospecto_id: string;
   telefone: string;
   texto: string;
-  tipo?: "abordagem" | "fechamento" | "followup" | "gancho" | "apresentacao";
+  tipo?: "abordagem" | "fechamento" | "followup" | "gancho" | "apresentacao" | "reenvio";
+  linha_id?: string | null;
   modo: "semi" | "auto";
   status: "pendente" | "enviada" | "erro" | "cancelada" | "sem_whatsapp";
   erro: string | null;
@@ -488,6 +489,13 @@ export async function prepararAbordagem(
 
   const modo = String(formData.get("modo")) === "semi" ? "semi" : "auto";
   /*
+   * REENVIO: falar de novo com quem já foi abordado. O texto vem da tela
+   * (o dono ajusta para este lote), e ele pode escolher por qual número sai.
+   */
+  const reenvio = String(formData.get("reenvio")) === "1";
+  const textoReenvio = String(formData.get("texto_reenvio") ?? "").trim().slice(0, 1500);
+  const linhaEscolhida = String(formData.get("linha") ?? "").trim();
+  /*
    * A IA só entra se o interruptor do Admin permitir E o plano vender essa
    * camada. No Prospector ela não existe: a opção nem aparece na tela, e um
    * formulário reenviado com estrategia=ia cai no modelo em vez de gastar.
@@ -529,10 +537,15 @@ export async function prepararAbordagem(
    * nasce quando o lead responde (lib/prospeccao/gancho.ts). A IA não entra
    * aqui — gancho é uma linha, não tem o que escrever.
    */
-  const modoGancho = cfg?.abordagem_modo === "gancho";
-  const modelo = modoGancho
-    ? cfg?.gancho_msg_modelo?.trim() || MODELO_GANCHO
-    : cfg?.modelo_mensagem || (oferta.tipo === "propria" ? MODELO_PADRAO_PROPRIA : MODELO_PADRAO);
+  const modoGancho = !reenvio && cfg?.abordagem_modo === "gancho";
+  const modelo = reenvio
+    ? textoReenvio
+    : modoGancho
+      ? cfg?.gancho_msg_modelo?.trim() || MODELO_GANCHO
+      : cfg?.modelo_mensagem || (oferta.tipo === "propria" ? MODELO_PADRAO_PROPRIA : MODELO_PADRAO);
+  if (reenvio && modelo.length < 20) {
+    return { error: "Escreva a mensagem do reenvio — pelo menos umas duas linhas." };
+  }
   const remetente = (cfg?.remetente_nome ?? "").trim();
   const extras = { oferta: oferta.resumo || "o meu trabalho" };
   const apresentacaoUsaOferta =
@@ -602,6 +615,13 @@ export async function prepararAbordagem(
       modo,
       status: "pendente",
       ...(modoGancho ? { tipo: "gancho" } : {}),
+      ...(reenvio ? { tipo: "reenvio" } : {}),
+      /*
+       * Número escolhido para este lote: a mensagem fica reservada para
+       * aquela linha, e o escalonador não deixa outra pegá-la. Sem escolha,
+       * vale o revezamento normal.
+       */
+      ...(linhaEscolhida ? { linha_id: linhaEscolhida } : {}),
     });
   }
 
@@ -621,19 +641,32 @@ export async function prepararAbordagem(
    * índice parcial sem o predicado. Filtrar antes resolve, e o índice
    * continua lá como rede de segurança contra corrida.
    */
-  // Abordado é abordado, foi direto ou por gancho: ninguém recebe as duas.
-  const { data: jaExistem } = await supabase
+  /*
+   * Quem não entra:
+   *   abordagem  — quem JÁ foi abordado (direto ou por gancho): ninguém
+   *                recebe as duas, e o índice único no banco é a rede;
+   *   reenvio    — quem já tem mensagem ESPERANDO na fila. Já ter sido
+   *                abordado é o pré-requisito aqui, não o impedimento; o que
+   *                não pode é a mesma empresa entrar duas vezes no mesmo lote.
+   */
+  const consulta = supabase
     .from("prospeccao_mensagens")
     .select("prospecto_id")
     .eq("org_id", org.id)
-    .in("tipo", ["abordagem", "gancho"])
     .in("prospecto_id", linhas.map((l) => l.prospecto_id as string));
-  const abordados = new Set(
+  const { data: jaExistem } = await (reenvio
+    ? consulta.eq("status", "pendente")
+    : consulta.in("tipo", ["abordagem", "gancho"]));
+  const bloqueados = new Set(
     ((jaExistem as { prospecto_id: string }[] | null) ?? []).map((l) => l.prospecto_id),
   );
-  const novas = linhas.filter((l) => !abordados.has(l.prospecto_id as string));
+  const novas = linhas.filter((l) => !bloqueados.has(l.prospecto_id as string));
   if (novas.length === 0) {
-    return { error: "Todas as escolhidas já estão na fila ou já foram abordadas." };
+    return {
+      error: reenvio
+        ? "As escolhidas já têm mensagem esperando na fila."
+        : "Todas as escolhidas já estão na fila ou já foram abordadas.",
+    };
   }
 
   /*
@@ -685,7 +718,7 @@ export async function prepararAbordagem(
         ? " 🧠 Todas escritas pela IA, uma diferente para cada."
         : ` 🧠 ${escritas} escritas pela IA; ${novas.length - escritas} saíram do seu modelo.`
       : "";
-  const oQue = modoGancho ? "ganchos" : "mensagens";
+  const oQue = modoGancho ? "ganchos" : reenvio ? "reenvios" : "mensagens";
   const complemento = modoGancho
     ? " Quem responder recebe a apresentação sozinho, minutos depois."
     : "";
@@ -732,6 +765,42 @@ export async function cancelarMensagem(id: string) {
     .eq("id", id)
     .eq("status", "pendente");
   revalidatePath("/app/prospeccao/abordagem");
+}
+
+/*
+ * Cancela a fila inteira — as mensagens que ainda não saíram.
+ *
+ * APAGA em vez de marcar como cancelada, e é de propósito: a trava "nunca
+ * abordar duas vezes" é um índice único por prospecto, e uma linha cancelada
+ * continuaria ocupando o lugar. Apagando, as empresas voltam para "Quem
+ * abordar" e o dono pode montar a lista de novo — que é o que ele quer
+ * quando cancela.
+ *
+ * Só mexe no que está PENDENTE: o que já foi enviado é história e fica.
+ */
+export async function cancelarFila(): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("prospeccao_mensagens")
+    .delete()
+    .eq("org_id", org.id)
+    .eq("status", "pendente")
+    .select("id");
+  if (error) return { error: error.message };
+
+  const total = data?.length ?? 0;
+  revalidatePath("/app/prospeccao/abordagem");
+  revalidatePath("/app/prospeccao", "layout");
+  return {
+    ok:
+      total === 0
+        ? "A fila já estava vazia."
+        : `${total} ${total === 1 ? "mensagem cancelada" : "mensagens canceladas"}. As empresas voltaram para “Quem abordar”.`,
+  };
 }
 
 export async function limparEnviadas() {

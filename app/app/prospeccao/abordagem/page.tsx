@@ -6,6 +6,17 @@ import { podeUsar, exigirProspeccao } from "@/lib/painel/permissoes";
 import { funcaoLigada } from "@/lib/painel/flags";
 import Painel from "./Painel";
 import type { LinhaTela } from "./Linhas";
+import type { JaAbordado } from "./JaAbordei";
+
+type JaAbordadoRow = {
+  id: string;
+  nome: string;
+  telefone: string | null;
+  status: JaAbordado["status"];
+  nicho_busca: string | null;
+  local_busca: string | null;
+  nao_perturbar: boolean | null;
+};
 import { linhasDaOrg, MAX_LINHAS } from "@/lib/prospeccao/linhas";
 import { inicioDoDiaBr } from "@/lib/prospeccao/dia";
 import type { ConfigAbordagem, MensagemRow } from "./actions";
@@ -124,6 +135,55 @@ export default async function AbordagemPage() {
   );
 
   /*
+   * JÁ ABORDEI: quem recebeu mensagem, com a data do último envio.
+   *
+   * Antes esta gente simplesmente sumia da tela — abordado era abordado, e
+   * não havia como falar de novo fora da cadência automática. Agora eles
+   * ficam aqui, e daqui sai o reenvio (outro texto, outro número).
+   *
+   * A consulta é própria e não reaproveita `mensagens` (que traz só as 200
+   * últimas de todos os tipos): quem abordou 500 empresas precisa ver as 500.
+   */
+  const { data: enviadasRaw } = await supabase
+    .from("prospeccao_mensagens")
+    .select("prospecto_id, enviada_em, tipo")
+    .eq("org_id", org.id)
+    .eq("status", "enviada")
+    .in("tipo", ["abordagem", "gancho", "reenvio"])
+    .order("enviada_em", { ascending: false })
+    .limit(1000);
+  const ultimoEnvio = new Map<string, { em: string | null; total: number }>();
+  for (const m of (enviadasRaw as { prospecto_id: string; enviada_em: string | null }[] | null) ?? []) {
+    const atual = ultimoEnvio.get(m.prospecto_id);
+    if (atual) atual.total++;
+    else ultimoEnvio.set(m.prospecto_id, { em: m.enviada_em, total: 1 });
+  }
+
+  let jaAbordados: JaAbordado[] = [];
+  if (ultimoEnvio.size > 0) {
+    const { data: abordadosRaw } = await supabase
+      .from("prospeccao")
+      .select("id, nome, telefone, status, nicho_busca, local_busca, nao_perturbar")
+      .eq("org_id", org.id)
+      .in("id", [...ultimoEnvio.keys()]);
+    jaAbordados = ((abordadosRaw as JaAbordadoRow[] | null) ?? [])
+      // Opt-out não entra nem na lista: quem pediu para parar, parou.
+      .filter((p) => !p.nao_perturbar && telefoneWhatsapp(p.telefone))
+      .map((p) => ({
+        id: p.id,
+        nome: p.nome,
+        telefone: p.telefone,
+        status: p.status,
+        nicho: p.nicho_busca,
+        local: p.local_busca,
+        enviadaEm: ultimoEnvio.get(p.id)?.em ?? null,
+        toques: ultimoEnvio.get(p.id)?.total ?? 1,
+        naFila: jaNaFila.has(p.id) && mensagens.some((m) => m.prospecto_id === p.id && m.status === "pendente"),
+      }))
+      .sort((a, b) => (b.enviadaEm ?? "").localeCompare(a.enviadaEm ?? ""));
+  }
+
+  /*
    * Nome de TODO mundo que aparece na tela — não só dos "novos".
    *
    * A lista de prospectos acima filtra status "novo" (é a de quem ainda dá
@@ -187,6 +247,7 @@ export default async function AbordagemPage() {
         nomePorProspecto={nomePorProspecto}
         linhas={linhasTela}
         maxLinhas={MAX_LINHAS}
+        jaAbordados={jaAbordados}
         fechadorLigado={(await funcaoLigada("fechador")) && podeSites}
         resumoLigado={(await funcaoLigada("resumo_diario")) && (await podeUsar("prospeccao_resumo"))}
         cerebroLigado={(await funcaoLigada("mensagens_ia")) && (await podeUsar("prospeccao_ia"))}

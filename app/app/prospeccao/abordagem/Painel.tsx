@@ -36,6 +36,8 @@ import ModelosProntos from "./ModelosProntos";
 import PausarEnvio from "./PausarEnvio";
 import Linhas, { type LinhaTela } from "./Linhas";
 import SeletorNicho from "./SeletorNicho";
+import JaAbordei, { type JaAbordado } from "./JaAbordei";
+import CancelarFila from "./CancelarFila";
 
 // A primeira mensagem não precisa de etiqueta; as outras, sim — o usuário
 // tem que saber que está olhando a SEGUNDA conversa com aquele lead.
@@ -75,6 +77,7 @@ export default function Painel({
   somenteOfertaPropria = false,
   linhas = [],
   maxLinhas = 5,
+  jaAbordados = [],
 }: {
   config: ConfigAbordagem;
   candidatos: ProspectoRow[];
@@ -83,6 +86,8 @@ export default function Painel({
   /* As linhas de WhatsApp (vazio = migração pendente: vale a linha das colunas antigas). */
   linhas?: LinhaTela[];
   maxLinhas?: number;
+  /* Quem já recebeu mensagem — a lista de onde sai o reenvio. */
+  jaAbordados?: JaAbordado[];
   /* Interruptores do Admin: desligado, o card correspondente nem aparece. */
   fechadorLigado?: boolean;
   resumoLigado?: boolean;
@@ -237,7 +242,23 @@ export default function Painel({
   return (
     <div className="flex flex-col gap-6">
       {/* Pausado, o aviso vem antes de tudo: é o estado que explica o silêncio. */}
-      {pausado && <PausarEnvio pausado naFila={naFilaAuto} desde={config.envio_pausado_em} />}
+      {pausado && (
+        <div className="flex flex-col gap-2">
+          <PausarEnvio pausado naFila={naFilaAuto} desde={config.envio_pausado_em} />
+          {/*
+            Pausado com fila parada, a pergunta seguinte é sempre a mesma:
+            "e se eu não quiser mais mandar essas?". O botão fica aqui.
+          */}
+          {pendentes.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-ink-2 px-4 py-3 text-sm">
+              <span className="text-paper-dim">
+                Não quer mais mandar estas? Cancele e as empresas voltam para a lista.
+              </span>
+              <CancelarFila quantas={pendentes.length} />
+            </div>
+          )}
+        </div>
+      )}
 
       {/*
         O agente conversando é o produto acontecendo — merece o palco de cima.
@@ -257,11 +278,13 @@ export default function Painel({
                 </span>
               </h2>
               <p className="mt-0.5 text-sm text-paper-dim">
-                <b className="text-paper">{pendentes.filter((m) => m.modo === "auto").length}</b> na
-                fila · <b className="text-paper">{enviadasHoje}</b> de {config.limite_diario}{" "}
-                enviadas hoje — no ritmo humano que você definiu. Pode fechar esta tela: ele segue
-                sozinho.
+                <b className="text-paper">{naFilaAuto}</b> na fila ·{" "}
+                <b className="text-paper">{enviadasHoje}</b> de {config.limite_diario} enviadas hoje
+                — no ritmo humano que você definiu. Pode fechar esta tela: ele segue sozinho.
               </p>
+              <div className="mt-2">
+                <CancelarFila quantas={pendentes.length} />
+              </div>
               <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/10">
                 <div
                   className="h-full rounded-full transition-all"
@@ -444,6 +467,20 @@ export default function Painel({
         {filaEstado?.error && <p className="mt-2 text-sm text-danger">{filaEstado.error}</p>}
         {filaEstado?.ok && <p className="mt-2 text-sm text-ok">✅ {filaEstado.ok}</p>}
       </form>
+
+      {/* ---------------------- já abordei / reenvio ---------------------- */}
+      <JaAbordei
+        leads={jaAbordados}
+        modeloPadrao={
+          config.followup_msg_modelo?.trim() ||
+          (ofertaPropria ? MODELO_FOLLOWUP_PROPRIA : MODELO_FOLLOWUP_PADRAO)
+        }
+        linhas={linhasTela.map((l) => ({
+          id: l.id,
+          nome: l.nome,
+          conectada: l.status === "conectado",
+        }))}
+      />
 
       {/* ------------------------- semi: enviar ------------------------- */}
       {semi.length > 0 && (

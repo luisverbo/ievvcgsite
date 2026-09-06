@@ -921,14 +921,18 @@ export async function POST(req: Request) {
           if ((contatosHoje ?? 0) >= limite) return j({ mensagem: null, motivo: "limite do dia" });
         }
 
-        const { data } = await admin
+        /*
+         * Mensagem com linha reservada (o dono escolheu o número no reenvio)
+         * só sai por ELA; as sem reserva, por qualquer linha da vez.
+         */
+        let fila = admin
           .from("prospeccao_mensagens")
           .select("id, prospecto_id, telefone, texto")
           .eq("org_id", org)
           .eq("status", "pendente")
-          .eq("modo", "auto")
-          .order("created_at")
-          .limit(1);
+          .eq("modo", "auto");
+        if (linha) fila = fila.or(`linha_id.is.null,linha_id.eq.${linha.id}`);
+        const { data } = await fila.order("created_at").limit(1);
         const proxima = (data as MensagemFila[] | null)?.[0];
         if (!proxima) return j({ mensagem: null, motivo: "fila vazia" });
 
