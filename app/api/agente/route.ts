@@ -993,7 +993,10 @@ export async function POST(req: Request) {
           .eq("status", "pendente")
           .eq("modo", "auto");
         if (linha) fila = fila.or(`linha_id.is.null,linha_id.eq.${linha.id}`);
-        const { data } = await fila.order("created_at").limit(1);
+        const { data, error: erroFila } = await fila.order("created_at").limit(1);
+        // Consulta que falha (coluna de migração pendente, por exemplo) não
+        // pode se disfarçar de "fila vazia": o motivo diz o que quebrou.
+        if (erroFila) return recusar(`falha ao ler a fila: ${erroFila.message.slice(0, 140)}`);
         const proxima = (data as MensagemFila[] | null)?.[0];
         if (!proxima) return recusar("não há mensagem esperando na fila");
 

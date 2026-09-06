@@ -60,6 +60,15 @@ const proximaEscutaEm = new Map<string, number>();
 // O aviso de "pausado" sai uma vez por pausa, não a cada 20 segundos.
 let pausadoAvisado = false;
 
+/*
+ * A última mensagem que derrubou o navegador. A primeira falha devolve a
+ * mensagem à fila (a sessão pode ter caído por azar); se a MESMA mensagem
+ * derruba de novo, o problema é ela — e ela é marcada com erro para a fila
+ * andar. Sem isto, uma única mensagem envenenada (sempre a primeira da
+ * fila) travaria todas as outras para sempre.
+ */
+let ultimaFalha: { id: string; vezes: number } | null = null;
+
 // Sessões vivas entre uma volta e outra, por linha: reabrir o navegador a
 // cada mensagem seria lento e chamaria atenção.
 const sessoes = new Map<string, Sessao>();
@@ -354,14 +363,25 @@ async function atenderLinha(linha: Linha, c: Comum): Promise<{ mandouResumo: boo
     r = await enviarMensagem(sessao.page, msg.telefone, msg.texto);
   } catch (e) {
     const motivoErro = `falha no navegador: ${(e as Error).message.slice(0, 160)}`;
-    await api
-      .fimMensagem({ id: msg.id, ok: false, erro: motivoErro, linha_id: linha.id, pararTudo: true })
-      .catch(() => {});
-    log(`⚠️  ${rotulo}: ${motivoErro} — reabrindo a sessão`);
+    const repetida = ultimaFalha?.id === msg.id;
+    ultimaFalha = { id: msg.id, vezes: (repetida ? ultimaFalha!.vezes : 0) + 1 };
+    if (repetida) {
+      // Segunda vez com a mesma mensagem: ela fica com erro e a fila anda.
+      await api
+        .fimMensagem({ id: msg.id, ok: false, erro: motivoErro, linha_id: linha.id })
+        .catch(() => {});
+      log(`⚠️  ${rotulo}: ${motivoErro} — ${msg.telefone} marcado com erro; a fila segue`);
+    } else {
+      await api
+        .fimMensagem({ id: msg.id, ok: false, erro: motivoErro, linha_id: linha.id, pararTudo: true })
+        .catch(() => {});
+      log(`⚠️  ${rotulo}: ${motivoErro} — reabrindo a sessão e tentando de novo`);
+    }
     await api.zapEstado("desconectado", motivoErro, null, linha.id).catch(() => {});
     await fecharSessao(chave);
     return { mandouResumo };
   }
+  ultimaFalha = null;
 
   if (r.ok) {
     await api.fimMensagem({ id: msg.id, prospecto_id: msg.prospecto_id, ok: true, linha_id: linha.id });
