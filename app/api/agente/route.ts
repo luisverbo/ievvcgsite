@@ -104,6 +104,25 @@ async function envioPausado(orgId: string): Promise<boolean> {
   }
 }
 
+/*
+ * Guarda a última resposta dada ao agente sobre o envio.
+ *
+ * É o que transforma "não sai e não sei por quê" em uma frase na tela. Falha
+ * em silêncio e é tolerante à coluna nova: diagnóstico não pode atrapalhar o
+ * envio de quem não rodou a migração.
+ */
+async function anotarMotivo(orgId: string, motivo: string): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    await admin
+      .from("prospeccao_config")
+      .update({ ultimo_motivo: motivo.slice(0, 200), ultimo_motivo_em: agora() })
+      .eq("org_id", orgId);
+  } catch {
+    /* sem drama */
+  }
+}
+
 export async function POST(req: Request) {
   const agente = await agenteDaRequisicao(req);
   if (!agente) return j({ erro: "Token inválido ou desativado." }, 401);
@@ -552,14 +571,18 @@ export async function POST(req: Request) {
           .eq("status", "pendente")
           .eq("modo", "auto");
 
-        // Apresentações esperando: o agente as manda mesmo com a cota cheia.
+        /*
+         * Apresentações e TESTES esperando: o agente os manda mesmo com a
+         * cota cheia — e, no caso do teste, mesmo com o envio pausado. É o
+         * que faz o diagnóstico funcionar justamente quando tudo está parado.
+         */
         const { count: continuacoes } = await admin
           .from("prospeccao_mensagens")
           .select("id", { count: "exact", head: true })
           .eq("org_id", org)
           .eq("status", "pendente")
           .eq("modo", "auto")
-          .eq("tipo", TIPO_APRESENTACAO);
+          .in("tipo", [TIPO_APRESENTACAO, "teste"]);
 
         /*
          * `aguardando` = de quantos números esperamos resposta. É o que faz o
@@ -599,9 +622,11 @@ export async function POST(req: Request) {
           enviadasHoje: count ?? 0,
           // Pausado, a fila some do ponto de vista do agente: ele não abre o
           // WhatsApp só para enviar, mas continua escutando e conectando.
-          pendentes: pausado ? 0 : (pendentes ?? 0),
+          // Pausado, a fila some do ponto de vista do agente — menos o que
+          // fura a pausa (o teste), senão ele nem pergunta.
+          pendentes: pausado ? (continuacoes ?? 0) : (pendentes ?? 0),
           aguardando,
-          continuacoes: pausado ? 0 : (continuacoes ?? 0),
+          continuacoes: continuacoes ?? 0,
           pausado,
           /*
            * As linhas de WhatsApp da conta, para o agente saber quais sessões
@@ -879,8 +904,14 @@ export async function POST(req: Request) {
          * "Parar" para o envio na hora mesmo em quem ainda não atualizou o
          * programa no computador. Sem mensagem entregue, não há o que enviar.
          */
-        if (await envioPausado(org)) return j({ mensagem: null, motivo: "pausado" });
-        if (!(await orgPodeUsar(org, "prospeccao"))) return j({ mensagem: null, motivo: "sem prospecção no plano" });
+        const recusar = async (motivo: string) => {
+          await anotarMotivo(org, motivo);
+          return j({ mensagem: null, motivo });
+        };
+        const pausadoAgora = await envioPausado(org);
+        if (!(await orgPodeUsar(org, "prospeccao"))) {
+          return recusar("o plano desta conta não inclui prospecção");
+        }
 
         /*
          * Qual linha está pedindo. Com a migração das linhas, o servidor é o
@@ -918,14 +949,22 @@ export async function POST(req: Request) {
         if (apresentacao) {
           if (linha) {
             const v = await podeEnviarPor(org, linha, cadencia, limite, true);
-            if (!v.pode) return j({ mensagem: null, motivo: v.motivo });
+            if (!v.pode) return recusar(v.motivo);
           }
+          await anotarMotivo(org, "entregue (teste/apresentação)");
           return j({ mensagem: { ...apresentacao, linha_id: linha?.id ?? null } });
         }
 
+        /*
+         * A pausa vale para a fila de verdade — mas não para o teste, que já
+         * saiu acima. Um diagnóstico que não roda justamente quando o envio
+         * está parado não serviria para nada.
+         */
+        if (pausadoAgora) return recusar("envio pausado no painel");
+
         if (linha) {
           const v = await podeEnviarPor(org, linha, cadencia, limite, false);
-          if (!v.pode) return j({ mensagem: null, motivo: v.motivo });
+          if (!v.pode) return recusar(v.motivo);
         } else {
           /*
            * Sem linhas (migração pendente): a cota é da conta inteira, como
@@ -940,7 +979,7 @@ export async function POST(req: Request) {
             .eq("status", "enviada")
             .not("tipo", "in", `(${TIPO_APRESENTACAO},teste)`)
             .gte("enviada_em", inicioDoDiaBr());
-          if ((contatosHoje ?? 0) >= limite) return j({ mensagem: null, motivo: "limite do dia" });
+          if ((contatosHoje ?? 0) >= limite) return recusar("limite do dia atingido");
         }
 
         /*
@@ -956,10 +995,11 @@ export async function POST(req: Request) {
         if (linha) fila = fila.or(`linha_id.is.null,linha_id.eq.${linha.id}`);
         const { data } = await fila.order("created_at").limit(1);
         const proxima = (data as MensagemFila[] | null)?.[0];
-        if (!proxima) return j({ mensagem: null, motivo: "fila vazia" });
+        if (!proxima) return recusar("não há mensagem esperando na fila");
 
         // Entregue: a vez é desta linha, e a conta espera o intervalo até a próxima.
         if (linha) await registrarEntrega(org, linha, cadencia);
+        await anotarMotivo(org, `mensagem entregue${linha ? ` à ${linha.nome}` : ""}`);
         return j({ mensagem: { ...proxima, linha_id: linha?.id ?? null } });
       }
 

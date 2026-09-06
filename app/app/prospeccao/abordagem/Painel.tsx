@@ -321,6 +321,8 @@ export default function Painel({
         pausado={pausado}
         naFila={naFilaAuto}
         maxLinhas={maxLinhas}
+        motivo={config.ultimo_motivo}
+        motivoEm={config.ultimo_motivo_em}
       />
 
       {/*

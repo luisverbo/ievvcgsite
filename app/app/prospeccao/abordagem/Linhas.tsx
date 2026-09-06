@@ -55,6 +55,8 @@ export default function Linhas({
   pausado,
   naFila,
   maxLinhas,
+  motivo,
+  motivoEm,
 }: {
   linhas: LinhaTela[];
   /* Migração pendente: só a linha principal, pelas colunas antigas. */
@@ -64,6 +66,9 @@ export default function Linhas({
   pausado: boolean;
   naFila: number;
   maxLinhas: number;
+  /* A última resposta do servidor ao agente sobre o envio, e quando foi. */
+  motivo?: string | null;
+  motivoEm?: string | null;
 }) {
   const router = useRouter();
   const [, iniciar] = useTransition();
@@ -278,6 +283,29 @@ export default function Linhas({
           {simEstado?.error && <p className="mt-2 text-sm text-danger">{simEstado.error}</p>}
           {simEstado?.ok && <p className="mt-2 text-sm text-ok">✅ {simEstado.ok}</p>}
         </div>
+      )}
+
+      {/*
+        O diagnóstico: a última coisa que o servidor respondeu ao agente
+        quando ele pediu mensagem. É o que responde "está conectado e não
+        sai nada" sem precisar abrir o log da VPS.
+      */}
+      {motivo && (
+        <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] text-paper-dim">
+          <b className="text-paper">Último pedido do agente:</b> {motivo}
+          {motivoEm && (
+            <span className="text-paper-dim/70">
+              {" "}
+              · {new Date(motivoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+          {!/entregue/.test(motivo) && (
+            <span className="mt-1 block">
+              Enquanto isto não virar “mensagem entregue”, nada sai. Se disser que a linha está fora
+              do ar, reconecte; se falar em intervalo ou vez, é só esperar o ritmo que você definiu.
+            </span>
+          )}
+        </p>
       )}
 
       {!legado && linhas.length > 1 && (

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { slugify } from "@/lib/format";
 import { podeUsar } from "@/lib/painel/permissoes";
@@ -179,8 +180,13 @@ export async function apagarLista(
     };
   }
 
-  // O delete repete os mesmos filtros: a contagem acima é só a conferência.
-  let d = supabase.from("prospeccao").delete().eq("org_id", org.id);
+  /*
+   * O delete repete os mesmos filtros: a contagem acima é só a conferência.
+   * Pelo cliente de servidor, com o org_id escrito à mão — apagar em lote
+   * pela sessão depende de a RLS cobrir DELETE, e quando não cobre o banco
+   * não apaga nada e não reclama.
+   */
+  let d = createAdminClient().from("prospeccao").delete().eq("org_id", org.id);
   if (["novo", "contactado", "respondeu", "fechou", "descartado"].includes(filtro)) {
     d = d.eq("status", filtro);
   }

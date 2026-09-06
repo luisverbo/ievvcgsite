@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar } from "@/lib/painel/permissoes";
 import {
@@ -62,6 +63,10 @@ export type ConfigAbordagem = {
   // Quantas linhas de WhatsApp enviam ao mesmo tempo (1 = uma por vez, com
   // as outras de reserva; 2+ = revezando).
   linhas_simultaneas?: number | null;
+  // A última resposta que o servidor deu ao agente sobre o envio — é o que a
+  // tela mostra quando "está conectado e não sai nada".
+  ultimo_motivo?: string | null;
+  ultimo_motivo_em?: string | null;
 };
 
 export type MensagemRow = {
@@ -797,7 +802,7 @@ export async function enviarTesteZap(
 
   const supabase = await createClient();
   // Um teste por vez: o anterior que não saiu vira lixo na fila.
-  await supabase
+  await createAdminClient()
     .from("prospeccao_mensagens")
     .delete()
     .eq("org_id", org.id)
@@ -842,8 +847,15 @@ export async function cancelarFila(): Promise<EstadoAbordagem> {
   const org = await getMinhaOrg();
   if (!org) return { error: "Organização não encontrada." };
 
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  /*
+   * Cliente de servidor (service_role) com o filtro de organização escrito à
+   * mão. É o mesmo padrão de apagarAgente: apagar em lote pela sessão do
+   * usuário depende de a política de RLS cobrir DELETE, e quando não cobre o
+   * banco não apaga nada E NÃO RECLAMA — o botão parecia não funcionar. Aqui
+   * o escopo é explícito e o resultado é o número de linhas que saíram.
+   */
+  const admin = createAdminClient();
+  const { data, error } = await admin
     .from("prospeccao_mensagens")
     .delete()
     .eq("org_id", org.id)
@@ -865,10 +877,15 @@ export async function cancelarFila(): Promise<EstadoAbordagem> {
 
 export async function limparEnviadas() {
   if (!(await podeUsar("prospeccao"))) return;
-  const supabase = await createClient();
-  await supabase
+  const org = await getMinhaOrg();
+  if (!org) return;
+  // O filtro por organização é explícito de propósito: contar com a RLS para
+  // limitar um DELETE em lote é apostar que a política cobre DELETE.
+  const admin = createAdminClient();
+  await admin
     .from("prospeccao_mensagens")
     .delete()
+    .eq("org_id", org.id)
     .in("status", ["enviada", "cancelada", "erro", "sem_whatsapp"]);
   revalidatePath("/app/prospeccao/abordagem");
 }
