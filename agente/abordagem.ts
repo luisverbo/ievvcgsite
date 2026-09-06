@@ -342,7 +342,26 @@ async function atenderLinha(linha: Linha, c: Comum): Promise<{ mandouResumo: boo
     return { mandouResumo };
   }
 
-  const r = await enviarMensagem(sessao.page, msg.telefone, msg.texto);
+  /*
+   * Uma exceção aqui (página fechada, navegador travado, seletor que o
+   * WhatsApp mudou) subia até o try/catch de cima e a mensagem ficava
+   * PENDENTE para sempre — o agente tentava de novo a cada volta, o servidor
+   * rearmava o intervalo a cada tentativa, e a fila parecia congelada sem
+   * motivo. Agora a falha é reportada com o texto do erro e aparece no painel.
+   */
+  let r: Awaited<ReturnType<typeof enviarMensagem>>;
+  try {
+    r = await enviarMensagem(sessao.page, msg.telefone, msg.texto);
+  } catch (e) {
+    const motivoErro = `falha no navegador: ${(e as Error).message.slice(0, 160)}`;
+    await api
+      .fimMensagem({ id: msg.id, ok: false, erro: motivoErro, linha_id: linha.id, pararTudo: true })
+      .catch(() => {});
+    log(`⚠️  ${rotulo}: ${motivoErro} — reabrindo a sessão`);
+    await api.zapEstado("desconectado", motivoErro, null, linha.id).catch(() => {});
+    await fecharSessao(chave);
+    return { mandouResumo };
+  }
 
   if (r.ok) {
     await api.fimMensagem({ id: msg.id, prospecto_id: msg.prospecto_id, ok: true, linha_id: linha.id });

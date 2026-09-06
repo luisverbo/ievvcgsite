@@ -1078,7 +1078,9 @@ export async function POST(req: Request) {
             .eq("id", id)
             .eq("org_id", org);
           await liberarCadencia(org);
+          await anotarMotivo(org, `o agente não conseguiu enviar: ${String(corpo.erro ?? "sessão caiu").slice(0, 160)}`);
         } else {
+          await anotarMotivo(org, `envio falhou: ${String(corpo.erro ?? "sem detalhe").slice(0, 160)}`);
           await admin
             .from("prospeccao_mensagens")
             .update({
