@@ -370,6 +370,22 @@ export async function enviarMensagem(
       }
       if (CARREGANDO.test(texto)) {
         if (!carregandoDesde) carregandoDesde = Date.now();
+        /*
+         * Número que existe abre em segundos. Quando o WhatsApp fica um
+         * minuto inteiro em "Iniciando conversa", ele não vai avisar nada:
+         * é o que ele faz com número sem WhatsApp (em vez do aviso de
+         * "inválido"). Cancela e classifica como sem WhatsApp — a fila anda
+         * e o número não é tentado de novo.
+         */
+        if (Date.now() - carregandoDesde > 60_000) {
+          await fotografarFalha(page, telefone);
+          await page.keyboard.press("Escape").catch(() => {});
+          return {
+            ok: false,
+            motivo: 'O WhatsApp ficou 1 min em "Iniciando conversa" e não abriu: número sem WhatsApp.',
+            semWhatsapp: true,
+          };
+        }
         await espera(1500);
         continue;
       }
