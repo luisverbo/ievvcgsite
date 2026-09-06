@@ -98,8 +98,23 @@ export type Tarefa = {
   filtros?: unknown;
 };
 
+/*
+ * O painel avisa junto com a fila se o dono clicou em Atualizar. O aviso fica
+ * guardado aqui até o serviço perguntar — assim o clique age na volta
+ * seguinte (~8s), e não na checagem de 5 em 5 minutos.
+ */
+let avisoDeAtualizacao = false;
+export const atualizacaoPedida = (): boolean => {
+  const v = avisoDeAtualizacao;
+  avisoDeAtualizacao = false;
+  return v;
+};
+
 export const proximaTarefa = () =>
-  chamar<{ tarefa: Tarefa | null }>("proxima_tarefa").then((r) => r.tarefa);
+  chamar<{ tarefa: Tarefa | null; atualizar?: boolean }>("proxima_tarefa").then((r) => {
+    if (r.atualizar) avisoDeAtualizacao = true;
+    return r.tarefa;
+  });
 
 export const progresso = (id: string, progresso: number, total: number) =>
   chamar("progresso", { id, progresso, total });

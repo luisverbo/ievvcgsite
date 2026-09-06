@@ -123,6 +123,20 @@ async function anotarMotivo(orgId: string, motivo: string): Promise<void> {
   }
 }
 
+/*
+ * O dono clicou em Atualizar para este agente? Só lê — quem limpa o pedido
+ * é a ação `versao`, ao entregá-lo. Tolerante à coluna (migração 2026-09-06).
+ */
+async function atualizacaoPedida(agenteId: string): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin.from("agentes").select("atualizar_pedido").eq("id", agenteId).maybeSingle();
+    return (data as { atualizar_pedido: boolean | null } | null)?.atualizar_pedido === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: Request) {
   const agente = await agenteDaRequisicao(req);
   if (!agente) return j({ erro: "Token inválido ou desativado." }, 401);
@@ -194,7 +208,16 @@ export async function POST(req: Request) {
          * espera a assinatura. A trava é aqui, no servidor — o agente não
          * sabe de plano nenhum.
          */
-        if (!(await orgPodeUsar(org, "prospeccao"))) return j({ tarefa: null });
+        /*
+         * O agente pergunta isto a cada volta (~8s). Vai junto se o dono
+         * clicou em Atualizar: aí o agente confere a versão na volta seguinte,
+         * em vez de esperar a checagem de 5 em 5 minutos. O pedido NÃO é
+         * limpo aqui — quem limpa é a ação `versao`, ao entregar de fato.
+         */
+        const atualizar = await atualizacaoPedida(agente.id);
+        const semTarefa = () => j({ tarefa: null, atualizar });
+
+        if (!(await orgPodeUsar(org, "prospeccao"))) return semTarefa();
 
         // O filtro status='pendente' no UPDATE é o que impede dois agentes da
         // mesma organização de pegarem a mesma tarefa.
@@ -206,7 +229,7 @@ export async function POST(req: Request) {
           .order("created_at")
           .limit(1);
         const candidata = (fila as { id: string }[] | null)?.[0];
-        if (!candidata) return j({ tarefa: null });
+        if (!candidata) return semTarefa();
 
         const { data: presa } = await admin
           .from("prospeccao_tarefas")
@@ -231,7 +254,7 @@ export async function POST(req: Request) {
             .maybeSingle();
           if (extra) tarefa.filtros = (extra as { filtros?: unknown }).filtros ?? null;
         }
-        return j({ tarefa });
+        return j({ tarefa, atualizar });
       }
 
       case "progresso": {

@@ -396,7 +396,7 @@ export default async function MeuAgentePage() {
                         {s === "atual" ? "✓ atualizado" : s === "desatualizado" ? "versão anterior" : "versão desconhecida"}
                       </span>
                       {a.atualizar_pedido ? (
-                        <span className="text-brand-2">🔄 atualização pedida — reinicia em até 5 min</span>
+                        <span className="text-brand-2">🔄 atualização pedida — reinicia em instantes (agente antigo: até 5 min)</span>
                       ) : (
                         ligado &&
                         s !== "antigo" && (

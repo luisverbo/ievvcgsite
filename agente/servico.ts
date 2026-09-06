@@ -287,6 +287,10 @@ async function main() {
         ? await api.proximaTarefa().then((t) => (t?.tipo === "instagram" ? null : t))
         : await api.proximaTarefa();
 
+      // O dono clicou em Atualizar: a próxima volta confere a versão já,
+      // sem esperar os 5 minutos do relógio normal.
+      if (api.atualizacaoPedida()) proximaChecagemVersaoEm = 0;
+
       if (!tarefa) {
         // Sem busca para fazer, o agente cuida da fila de abordagem — assim as
         // duas coisas convivem sem disputar o navegador.
