@@ -7,6 +7,7 @@ import { funcaoLigada } from "@/lib/painel/flags";
 import Painel from "./Painel";
 import type { LinhaTela } from "./Linhas";
 import { linhasDaOrg, MAX_LINHAS } from "@/lib/prospeccao/linhas";
+import { inicioDoDiaBr } from "@/lib/prospeccao/dia";
 import type { ConfigAbordagem, MensagemRow } from "./actions";
 import { telefoneWhatsapp } from "@/lib/prospeccao/mensagem";
 import type { ProspectoRow } from "@/lib/prospeccao/tipos";
@@ -96,12 +97,10 @@ export default async function AbordagemPage() {
    * null = migração pendente: o Painel desenha a linha das colunas antigas.
    */
   const linhasRaw = await linhasDaOrg(org.id, true);
-  const inicioHoje = new Date();
-  inicioHoje.setHours(0, 0, 0, 0);
   const principalId = linhasRaw?.find((l) => l.principal)?.id ?? null;
   const enviadasPorLinha = new Map<string, number>();
   for (const m of mensagens) {
-    if (m.status !== "enviada" || !m.enviada_em || m.enviada_em < inicioHoje.toISOString()) continue;
+    if (m.status !== "enviada" || !m.enviada_em || m.enviada_em < inicioDoDiaBr()) continue;
     const chave = (m as { linha_id?: string | null }).linha_id ?? principalId;
     if (chave) enviadasPorLinha.set(chave, (enviadasPorLinha.get(chave) ?? 0) + 1);
   }

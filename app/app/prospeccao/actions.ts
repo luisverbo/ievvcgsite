@@ -7,6 +7,7 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { slugify } from "@/lib/format";
 import { podeUsar } from "@/lib/painel/permissoes";
 import { acharNicho, nichoLivreValido } from "@/lib/prospeccao/nichos";
+import { inicioDoDiaBr } from "@/lib/prospeccao/dia";
 import { normalizarFiltros, resumoFiltros, temFiltro } from "@/lib/prospeccao/filtros";
 import { IG_FILA_MAX, IG_LIMITE_DIA } from "@/lib/prospeccao/instagram";
 import { montarBriefingDoProspecto } from "@/lib/prospeccao/briefing";
@@ -82,9 +83,14 @@ export async function enfileirarBuscaGoogle(
     minAvaliacoes: formData.get("f_min_av"),
     maxAvaliacoes: formData.get("f_max_av"),
     minNota: formData.get("f_min_nota"),
-    // "1" = só empresas novas. É o padrão do formulário; a pessoa só troca
-    // quando quer, de propósito, trazer as mesmas de novo.
-    evitarRepetidas: formData.get("evitar_repetidas") !== "0",
+    /*
+     * "Só empresas novas" — o padrão do formulário, ligado. Lido com getAll
+     * porque a tela manda por dois caminhos: um par hidden("0") + checkbox("1")
+     * nos filtros (checkbox desmarcado não envia nada, daí o hidden), e um
+     * par de radios quando a busca repete uma já feita. Nos dois, o que
+     * importa é se o "1" veio.
+     */
+    evitarRepetidas: formData.getAll("evitar_repetidas").includes("1"),
   });
   const comFiltro = temFiltro(filtros) || filtros.evitarRepetidas;
 
@@ -117,6 +123,78 @@ export async function enfileirarBuscaGoogle(
         ? `Busca na fila, filtrando por ${resumoFiltros(filtros).join(" · ")}. O agente abre mais empresas do que o pedido até completar ${limite} que passem.`
         : "Busca na fila. O agente vai executar em instantes — acompanhe aqui embaixo.") + avisoTeste,
   };
+}
+
+/*
+ * Apagar empresas da lista, em lote.
+ *
+ * Recebe o MESMO filtro da tela de leads (pesquisa, estágio, nome, etiqueta):
+ * o que está na tela é o que sai. Sem filtro nenhum, apaga a lista inteira —
+ * e é por isso que a tela pede o número de empresas digitado à mão antes.
+ *
+ * O que some junto, por cascata: as mensagens daquelas empresas. Ou seja, o
+ * histórico de "já abordei este" vai embora com elas, e uma busca futura
+ * pode trazê-las de novo como novas. A tela avisa isso com todas as letras.
+ */
+export async function apagarLista(
+  _prev: BuscaState,
+  formData: FormData,
+): Promise<BuscaState> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const filtro = String(formData.get("f") ?? "todos");
+  const busca = String(formData.get("b") ?? "todas");
+  const procura = String(formData.get("q") ?? "").trim().slice(0, 80).replace(/[%_]/g, "\\$&");
+  const tag = String(formData.get("tag") ?? "").trim().slice(0, 30);
+  const confirmou = Number(formData.get("quantas"));
+
+  const supabase = await createClient();
+  const alvo = () => {
+    let q = supabase.from("prospeccao").select("id", { count: "exact", head: true }).eq("org_id", org.id);
+    if (["novo", "contactado", "respondeu", "fechou", "descartado"].includes(filtro)) {
+      q = q.eq("status", filtro);
+    }
+    if (busca !== "todas") {
+      const [nicho, local] = busca.split("|");
+      q = q.eq("nicho_busca", nicho).eq("local_busca", local);
+    }
+    if (procura) q = q.ilike("nome", `%${procura}%`);
+    if (tag) q = q.eq("etiqueta", tag);
+    return q;
+  };
+
+  const { count } = await alvo();
+  const total = count ?? 0;
+  if (total === 0) return { error: "Não há empresas nesse filtro para apagar." };
+  /*
+   * A trava: o número que a pessoa digitou tem que bater com o que vai sumir.
+   * Um "tem certeza?" é fácil demais de clicar sem ler — e isto aqui não tem
+   * desfazer.
+   */
+  if (confirmou !== total) {
+    return {
+      error: `Para apagar, digite exatamente ${total} no campo de confirmação (é quantas empresas serão apagadas).`,
+    };
+  }
+
+  // O delete repete os mesmos filtros: a contagem acima é só a conferência.
+  let d = supabase.from("prospeccao").delete().eq("org_id", org.id);
+  if (["novo", "contactado", "respondeu", "fechou", "descartado"].includes(filtro)) {
+    d = d.eq("status", filtro);
+  }
+  if (busca !== "todas") {
+    const [nicho, local] = busca.split("|");
+    d = d.eq("nicho_busca", nicho).eq("local_busca", local);
+  }
+  if (procura) d = d.ilike("nome", `%${procura}%`);
+  if (tag) d = d.eq("etiqueta", tag);
+  const { error } = await d;
+  if (error) return { error: error.message };
+
+  revalidatePath("/app/prospeccao", "layout");
+  return { ok: `${total} ${total === 1 ? "empresa apagada" : "empresas apagadas"} da sua lista.` };
 }
 
 /*
@@ -228,14 +306,12 @@ export async function capturarInstagram(id: string) {
     .in("status", ["pendente", "rodando"]);
   if ((naFila ?? 0) >= IG_FILA_MAX) return;
 
-  const inicioDia = new Date();
-  inicioDia.setHours(0, 0, 0, 0);
   const { count: hoje } = await supabase
     .from("prospeccao_tarefas")
     .select("id", { count: "exact", head: true })
     .eq("org_id", org.id)
     .eq("tipo", "instagram")
-    .gte("created_at", inicioDia.toISOString());
+    .gte("created_at", inicioDoDiaBr());
   if ((hoje ?? 0) >= IG_LIMITE_DIA) return;
 
   await supabase.from("prospeccao_tarefas").insert({

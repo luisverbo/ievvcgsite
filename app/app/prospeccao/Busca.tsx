@@ -170,8 +170,6 @@ export default function Busca({
         </div>
       ) : (
         <>
-          {/* Sem busca igual: só novas, sem perguntar — não há o que repetir. */}
-          <input type="hidden" name="evitar_repetidas" value="1" />
           {parecidas.length > 0 && (
             <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-paper-dim">
               ℹ️ Você já tem {somaParecidas} {somaParecidas === 1 ? "empresa" : "empresas"} parecidas
@@ -273,6 +271,37 @@ export default function Busca({
               </span>
             </label>
           </div>
+
+          {/*
+            "Só empresas novas" mora AQUI, junto dos outros filtros, e não
+            escondido: era um campo invisível que ligava sozinho, e quem quisesse
+            entender por que uma busca trouxe menos do que pediu não achava a
+            explicação em lugar nenhum. Quando a busca é idêntica a uma já feita,
+            o aviso lá em cima assume a pergunta e este bloco some.
+          */}
+          {!igual && (
+            <div className={fieldClass}>
+              <label className={labelClass}>Empresas repetidas</label>
+              <label className="mt-1 flex cursor-pointer items-start gap-2.5 rounded-lg border border-white/10 p-2.5 transition hover:border-white/25">
+                <input type="hidden" name="evitar_repetidas" value="0" />
+                <input
+                  type="checkbox"
+                  name="evitar_repetidas"
+                  value="1"
+                  defaultChecked
+                  className="mt-0.5 flex-none accent-current"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold text-paper">Só empresas novas</span>
+                  <span className="mt-0.5 block text-[11px] leading-snug text-paper-dim">
+                    Pula quem já está na sua lista (de qualquer busca anterior) e continua
+                    procurando até completar o número pedido. Desligue para atualizar telefone,
+                    avaliações e site de quem você já tem — não duplica.
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
         </div>
       </details>
 

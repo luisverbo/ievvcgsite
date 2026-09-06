@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { inicioDoDiaBr } from "./dia";
 
 /*
  * As LINHAS de WhatsApp de uma conta — e quem manda a próxima mensagem.
@@ -205,15 +206,13 @@ export async function podeEnviarPor(
   if (continuacao) return { pode: true, motivo: "" };
 
   // Enviadas hoje, por linha (a principal também herda as sem linha, de antes).
-  const inicio = new Date();
-  inicio.setHours(0, 0, 0, 0);
   const { data: hoje } = await admin
     .from("prospeccao_mensagens")
     .select("linha_id")
     .eq("org_id", orgId)
     .eq("status", "enviada")
     .neq("tipo", "apresentacao")
-    .gte("enviada_em", inicio.toISOString());
+    .gte("enviada_em", inicioDoDiaBr());
   const contagem = new Map<string, number>();
   const principal = linhas.find((l) => l.principal)?.id ?? null;
   for (const m of (hoje as { linha_id: string | null }[] | null) ?? []) {

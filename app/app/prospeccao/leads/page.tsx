@@ -6,12 +6,14 @@ import { podeUsar, exigirProspeccao } from "@/lib/painel/permissoes";
 import { funcaoLigada } from "@/lib/painel/flags";
 import { type ProspectoRow } from "@/lib/prospeccao/tipos";
 import { acharNicho } from "@/lib/prospeccao/nichos";
+import { inicioDoDiaBr } from "@/lib/prospeccao/dia";
 import { IG_FILA_MAX, IG_LIMITE_DIA } from "@/lib/prospeccao/instagram";
 import { cardClass } from "@/components/painel/ui";
 import Abas from "../Abas";
 import BuscaNome from "../BuscaNome";
 import Exportar from "../Exportar";
 import SeletorPesquisa from "../SeletorPesquisa";
+import ApagarLista from "./ApagarLista";
 import CardLead, { type ContextoCard } from "./CardLead";
 
 export const maxDuration = 300;
@@ -192,8 +194,6 @@ export default async function LeadsPage({
   let igOcupado = false;
   let igNoLimite = false;
   if (podeSites) {
-    const inicioDia = new Date();
-    inicioDia.setHours(0, 0, 0, 0);
     const [{ count: igNaFila }, { count: igHoje }] = await Promise.all([
       supabase
         .from("prospeccao_tarefas")
@@ -206,7 +206,7 @@ export default async function LeadsPage({
         .select("id", { count: "exact", head: true })
         .eq("org_id", org.id)
         .eq("tipo", "instagram")
-        .gte("created_at", inicioDia.toISOString()),
+        .gte("created_at", inicioDoDiaBr()),
     ]);
     igOcupado = (igNaFila ?? 0) >= IG_FILA_MAX;
     igNoLimite = (igHoje ?? 0) >= IG_LIMITE_DIA;
@@ -214,6 +214,21 @@ export default async function LeadsPage({
 
   const ctx: ContextoCard = { podeSites, espelhoLigado, igOcupado, igNoLimite, hojeBr, agora, respostasRapidas };
   const comFiltro = filtro !== "todos" || busca !== "todas" || Boolean(procura) || Boolean(tagAtiva);
+  /*
+   * O que está filtrado agora, por extenso. Serve ao botão de apagar: "apagar
+   * 21 empresas — todas as empresas" e "apagar 21 — Advocacia · Barra da
+   * Tijuca" são decisões bem diferentes, e a frase é o que separa as duas.
+   */
+  const rotuloDoFiltro = !comFiltro
+    ? "todas as empresas da sua lista"
+    : [
+        busca !== "todas" ? (pesquisas.find((p) => p.chave === busca)?.rotulo ?? "esta pesquisa") : "",
+        filtro !== "todos" ? FILTROS.find((x) => x.chave === filtro)?.rotulo.toLowerCase() : "",
+        procura ? `nome contém “${qBruto}”` : "",
+        tagAtiva ? `etiqueta ${tagAtiva}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
   const comCelular = lista.filter((p) => temCelular(p.telefone)).length;
 
   const linkFiltro = (chave: string) =>
@@ -283,6 +298,15 @@ export default async function LeadsPage({
                 filtros={{ f: filtro, b: busca, q: procura || undefined, tag: tagAtiva || undefined }}
                 quantidade={lista.length}
                 comFiltro={comFiltro}
+              />
+              {/* Apaga exatamente o que está filtrado na tela — e diz qual é. */}
+              <ApagarLista
+                total={lista.length}
+                rotulo={rotuloDoFiltro}
+                f={filtro}
+                b={busca}
+                q={qBruto}
+                tag={tagAtiva || undefined}
               />
             </div>
           </div>

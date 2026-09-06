@@ -28,12 +28,14 @@ import {
   MODELO_APRESENTACAO_PROPRIA,
 } from "@/lib/prospeccao/mensagem";
 import { faixa, type ProspectoRow } from "@/lib/prospeccao/tipos";
+import { inicioDoDiaBr } from "@/lib/prospeccao/dia";
 import { acharNicho } from "@/lib/prospeccao/nichos";
 import { inputClass, labelClass, cardClass } from "@/components/painel/ui";
 import Robo from "@/components/painel/Robo";
 import ModelosProntos from "./ModelosProntos";
 import PausarEnvio from "./PausarEnvio";
 import Linhas, { type LinhaTela } from "./Linhas";
+import SeletorNicho from "./SeletorNicho";
 
 // A primeira mensagem não precisa de etiqueta; as outras, sim — o usuário
 // tem que saber que está olhando a SEGUNDA conversa com aquele lead.
@@ -301,33 +303,17 @@ export default function Painel({
         </p>
 
         {pesquisas.length > 1 && (
-          <div className="mb-3 flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => setPesquisa("todas")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                pesquisa === "todas"
-                  ? "bg-brand text-white"
-                  : "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
-              }`}
-            >
-              Todas ({candidatos.length})
-            </button>
-            {pesquisas.map((p) => (
-              <button
-                key={p.chave}
-                type="button"
-                onClick={() => setPesquisa(p.chave)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                  pesquisa === p.chave
-                    ? "bg-brand text-white"
-                    : "border border-white/15 text-paper-dim hover:border-white/40 hover:text-paper"
-                }`}
-              >
-                {p.rotulo} ({p.total})
-              </button>
-            ))}
-          </div>
+          <SeletorNicho
+            itens={pesquisas}
+            valor={pesquisa}
+            total={candidatos.length}
+            aoEscolher={(chave) => {
+              setPesquisa(chave);
+              // Trocar de pesquisa com gente marcada mandaria mensagem para
+              // quem não está mais na tela — a seleção começa do zero.
+              setMarcados(new Set());
+            }}
+          />
         )}
 
         <div className="mb-2 flex flex-wrap items-center gap-3 text-xs">
@@ -1488,11 +1474,7 @@ function agruparPorDia(mensagens: MensagemRow[]) {
   return grupos;
 }
 
-function hojeInicio() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
-}
+const hojeInicio = inicioDoDiaBr;
 
 // "45" -> "45 segundos"; "150" -> "2min30"
 function emMinutos(segundos: number) {

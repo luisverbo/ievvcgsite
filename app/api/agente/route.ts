@@ -42,6 +42,7 @@ async function cadenciaDaOrg(orgId: string): Promise<CadenciaEnvio & { limite_di
 }
 import { prepararFollowups } from "@/lib/prospeccao/followup";
 import { funcaoLigada } from "@/lib/painel/flags";
+import { inicioDoDiaBr } from "@/lib/prospeccao/dia";
 import { orgPodeUsar } from "@/lib/painel/permissoes";
 import { tetoEnviosDaOrg } from "@/lib/painel/teste";
 import { ARQUIVOS_DO_AGENTE, VERSAO_AGENTE } from "@/lib/agente/pacote";
@@ -529,8 +530,6 @@ export async function POST(req: Request) {
         // cliente configurou. O agente recebe o menor dos dois.
         const tetoPlano = await tetoEnviosDaOrg(org);
 
-        const inicioDia = new Date();
-        inicioDia.setHours(0, 0, 0, 0);
         /*
          * O limite diário conta CONTATOS: a apresentação de quem respondeu ao
          * gancho é continuação de conversa, não contato novo, e fica de fora
@@ -542,7 +541,7 @@ export async function POST(req: Request) {
           .eq("org_id", org)
           .eq("status", "enviada")
           .neq("tipo", TIPO_APRESENTACAO)
-          .gte("enviada_em", inicioDia.toISOString());
+          .gte("enviada_em", inicioDoDiaBr());
 
         const { count: pendentes } = await admin
           .from("prospeccao_mensagens")
@@ -912,15 +911,13 @@ export async function POST(req: Request) {
            * apresentação passando por cima da cota, o servidor é quem garante
            * que a passagem não leva os contatos novos junto.
            */
-          const inicio = new Date();
-          inicio.setHours(0, 0, 0, 0);
           const { count: contatosHoje } = await admin
             .from("prospeccao_mensagens")
             .select("id", { count: "exact", head: true })
             .eq("org_id", org)
             .eq("status", "enviada")
             .neq("tipo", TIPO_APRESENTACAO)
-            .gte("enviada_em", inicio.toISOString());
+            .gte("enviada_em", inicioDoDiaBr());
           if ((contatosHoje ?? 0) >= limite) return j({ mensagem: null, motivo: "limite do dia" });
         }
 
