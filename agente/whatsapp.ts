@@ -347,10 +347,46 @@ async function fotografarFalha(page: Page, telefone: string): Promise<{ nome: st
  * contrário da busca, que é a 3) e o textbox dentro do painel principal.
  */
 export const SELETOR_CAIXA = [
+  '#main [contenteditable="true"]',
+  '[role="main"] [contenteditable="true"]',
   'footer div[contenteditable="true"]',
   'div[contenteditable="true"][data-tab="10"]',
-  '#main div[role="textbox"][contenteditable="true"]',
+  '[contenteditable="true"][aria-placeholder]',
 ].join(", ");
+
+// O painel da conversa (cabeçalho com o número, mensagens, rodapé).
+const SELETOR_CONVERSA = '#main, [role="main"]';
+
+/*
+ * O que existe no painel da conversa, em uma linha: cada elemento editável
+ * (com papel, aba, rótulo e onde está) e os botões. É o que diz, sem foto,
+ * por que a caixa de texto não foi encontrada.
+ */
+async function descreverConversa(page: Page): Promise<string> {
+  try {
+    return await page.evaluate((sel) => {
+      const main = document.querySelector(sel);
+      if (!main) return "sem painel de conversa";
+      const ed = [...document.querySelectorAll('[contenteditable="true"]')].map((e) => {
+        const el = e as HTMLElement;
+        const pai = el.closest("footer") ? "footer" : el.closest("#main, [role=main]") ? "main" : el.closest("#side") ? "side" : "?";
+        return `${el.tagName.toLowerCase()} role=${el.getAttribute("role") ?? "-"} tab=${el.getAttribute("data-tab") ?? "-"} rotulo="${(
+          el.getAttribute("aria-label") ??
+          el.getAttribute("aria-placeholder") ??
+          el.getAttribute("title") ??
+          ""
+        ).slice(0, 30)}" em=${pai}`;
+      });
+      const botoes = [...main.querySelectorAll("button, [role=button]")]
+        .map((b) => ((b as HTMLElement).innerText || b.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim())
+        .filter(Boolean)
+        .slice(0, 8);
+      return `rodapé=${main.querySelector("footer") ? "sim" : "não"}; editáveis=[${ed.join(" | ") || "nenhum"}]; botões=[${botoes.join(" | ")}]`;
+    }, SELETOR_CONVERSA);
+  } catch {
+    return "não deu para ler o painel";
+  }
+}
 
 // Aviso de número sem WhatsApp, em português e inglês.
 const SEM_ZAP = /inválido|invalid|não está no WhatsApp|isn't on WhatsApp|not on WhatsApp/i;
@@ -429,6 +465,8 @@ export async function enviarMensagem(
     let prontoEm = 0;
     let carregandoDesde = 0;
     let semLigacaoVisto = false;
+    let conversaDesde = 0;
+    let tentouBotao = false;
     diagnostico = "";
 
     while (Date.now() - inicio < esperaAbertura) {
@@ -491,6 +529,31 @@ export async function enviarMensagem(
         continue;
       }
 
+      /*
+       * A conversa ABRIU (cabeçalho com o número) mas a caixa ainda não veio:
+       * isto é progresso, não silêncio — recarregar aqui jogaria fora uma
+       * conversa quase pronta. Espera o teto inteiro. E se houver um botão
+       * pedindo confirmação para conversar com número desconhecido, clica.
+       */
+      const conversa = page.locator(SELETOR_CONVERSA).first();
+      const textoConversa = ((await conversa.innerText().catch(() => "")) ?? "").trim();
+      if (textoConversa.length > 0) {
+        if (!conversaDesde) conversaDesde = Date.now();
+        if (!tentouBotao && Date.now() - conversaDesde > Math.min(5000, esperaSilencio)) {
+          tentouBotao = true;
+          const botao = conversa
+            .locator("button, [role=button]")
+            .filter({ hasText: /continuar|iniciar conversa|enviar mensagem|conversar|^ok$|^sim/i })
+            .first();
+          if ((await botao.count().catch(() => 0)) > 0) {
+            log(`${telefone}: a conversa abriu com um botão na frente — clicando`);
+            await botao.click({ timeout: 5000 }).catch(() => {});
+          }
+        }
+        await espera(passo);
+        continue;
+      }
+
       if (Date.now() - prontoEm > esperaSilencio) {
         diagnostico = `lista visível e nada aconteceu em ${Math.round((Date.now() - prontoEm) / 1000)}s${
           semLigacaoVisto ? " (o WhatsApp esteve sem ligação com o celular)" : ""
@@ -500,16 +563,25 @@ export async function enviarMensagem(
       await espera(passo);
     }
 
+    if (!abriu && !diagnostico && conversaDesde) {
+      diagnostico = `a conversa abriu mas a caixa de texto não apareceu em ${Math.round((Date.now() - conversaDesde) / 1000)}s`;
+    }
+
     if (!abriu && !diagnostico) diagnostico = `a conversa não abriu em ${Math.round(esperaAbertura / 1000)}s`;
     if (!abriu && tentativa < tentativas) log(`${telefone}: ${diagnostico} — abrindo de novo`);
   }
 
   if (!abriu) {
     const { nome, dataUri } = await fotografarFalha(page, telefone);
-    const painel = ((await page.locator("#main").innerText().catch(() => "")) ?? "").replace(/\s+/g, " ").trim();
-    const partes = [diagnostico, painel ? `painel: "${painel.slice(0, 100)}"` : "", nome ? `foto: ${nome}` : ""].filter(
-      Boolean,
-    );
+    const painel = ((await page.locator(SELETOR_CONVERSA).first().innerText().catch(() => "")) ?? "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const partes = [
+      diagnostico,
+      painel ? `painel: "${painel.slice(0, 80)}"` : "",
+      painel ? await descreverConversa(page) : "",
+      nome ? `foto: ${nome}` : "",
+    ].filter(Boolean);
     return {
       ok: false,
       motivo: `A conversa não abriu (${partes.join("; ")}).`,
