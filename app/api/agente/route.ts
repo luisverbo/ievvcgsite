@@ -1106,15 +1106,63 @@ export async function POST(req: Request) {
           await liberarCadencia(org);
           await anotarMotivo(org, `o agente não conseguiu enviar: ${String(corpo.erro ?? "sessão caiu").slice(0, 160)}`);
         } else {
-          await anotarMotivo(org, `envio falhou: ${String(corpo.erro ?? "sem detalhe").slice(0, 160)}`);
-          await admin
-            .from("prospeccao_mensagens")
-            .update({
-              status: corpo.semWhatsapp ? "sem_whatsapp" : "erro",
-              erro: (corpo.erro as string) ?? null,
-            })
-            .eq("id", id)
-            .eq("org_id", org);
+          const erroTexto = String(corpo.erro ?? "sem detalhe").slice(0, 400);
+          await anotarMotivo(org, `envio falhou: ${erroTexto.slice(0, 160)}`);
+
+          /*
+           * A foto da tela na falha vai para a linha que tentou: é o que o
+           * painel mostra em "foto da última falha". Coluna da migração
+           * 2026-09-13 — tolerante.
+           */
+          const foto = typeof corpo.foto === "string" && corpo.foto.startsWith("data:image/") ? corpo.foto : null;
+          if (foto && linhaEnvio && foto.length < 1_500_000) {
+            await admin
+              .from("whatsapp_linhas")
+              .update({ ultima_foto: foto, ultima_foto_em: agora(), ultima_foto_motivo: erroTexto.slice(0, 300) })
+              .eq("id", linhaEnvio)
+              .eq("org_id", org)
+              .then(() => {}, () => {});
+          }
+
+          /*
+           * "A conversa não abriu" é culpa do momento (WhatsApp Web ainda
+           * sem ligação com o celular depois da recarga), não do número: a
+           * mensagem volta à fila até 3 vezes. Coluna `tentativas` da
+           * migração 2026-09-13; sem ela, vira erro como sempre.
+           */
+          let devolvida = false;
+          if (corpo.tentarDeNovo && !corpo.semWhatsapp) {
+            try {
+              const { data: m, error: eSel } = await admin
+                .from("prospeccao_mensagens")
+                .select("tentativas")
+                .eq("id", id)
+                .eq("org_id", org)
+                .maybeSingle();
+              const feitas = eSel ? null : ((m as { tentativas: number | null } | null)?.tentativas ?? 0);
+              if (feitas !== null && feitas < 2) {
+                const { error: eUp } = await admin
+                  .from("prospeccao_mensagens")
+                  .update({ status: "pendente", erro: `${erroTexto} (tentativa ${feitas + 1} de 3)`, tentativas: feitas + 1 })
+                  .eq("id", id)
+                  .eq("org_id", org);
+                devolvida = !eUp;
+              }
+            } catch {
+              /* migração pendente */
+            }
+          }
+
+          if (!devolvida) {
+            await admin
+              .from("prospeccao_mensagens")
+              .update({
+                status: corpo.semWhatsapp ? "sem_whatsapp" : "erro",
+                erro: erroTexto,
+              })
+              .eq("id", id)
+              .eq("org_id", org);
+          }
           /*
            * Nada saiu da conta: o intervalo entre mensagens não precisa ser
            * cumprido. Sem isto, cada número sem WhatsApp custava até 20 min

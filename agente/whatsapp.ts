@@ -176,7 +176,16 @@ export async function aguardarConexao(
 
 export type ResultadoEnvio =
   | { ok: true }
-  | { ok: false; motivo: string; semWhatsapp?: boolean; pararTudo?: boolean };
+  | {
+      ok: false;
+      motivo: string;
+      semWhatsapp?: boolean;
+      pararTudo?: boolean;
+      /* Foto da tela na hora da falha (data URI), para o painel mostrar. */
+      foto?: string;
+      /* Falha de abertura, não do número: vale tentar de novo mais tarde. */
+      tentarDeNovo?: boolean;
+    };
 
 /*
  * Escuta: quais dos números que abordamos responderam?
@@ -262,9 +271,7 @@ export async function lerRespostas(
         waitUntil: "domcontentloaded",
         timeout: 60_000,
       });
-      const caixa = page
-        .locator('div[contenteditable="true"][data-tab="10"], footer div[contenteditable="true"]')
-        .first();
+      const caixa = page.locator(SELETOR_CAIXA).first();
       const inicio = Date.now();
       while (Date.now() - inicio < 30_000 && (await caixa.count()) === 0) await espera(1200);
       if ((await caixa.count()) === 0) continue;
@@ -308,131 +315,234 @@ export async function lerRespostas(
 }
 
 /*
- * Foto da tela no momento da falha, em agente/diagnostico/. Devolve o nome
- * do arquivo (ou null se nem isso deu). Nunca lança: é diagnóstico.
+ * Foto da tela no momento da falha: vai para agente/diagnostico/ (as 6 mais
+ * recentes) e volta como data URI para o painel mostrar. Nunca lança.
  */
-async function fotografarFalha(page: Page, telefone: string): Promise<string | null> {
+async function fotografarFalha(page: Page, telefone: string): Promise<{ nome: string | null; dataUri: string | null }> {
+  let dataUri: string | null = null;
+  let nome: string | null = null;
   try {
+    const jpeg = await page.screenshot({ type: "jpeg", quality: 55, fullPage: false, timeout: 10_000 });
+    dataUri = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
     fs.mkdirSync(DIAGNOSTICO, { recursive: true });
-    const nome = `envio-${telefone.replace(/\D/g, "")}-${Date.now()}.png`;
-    await page.screenshot({ path: path.join(DIAGNOSTICO, nome), fullPage: false, timeout: 10_000 });
-    // Só as 6 mais recentes: a pasta não pode virar um depósito.
+    nome = `envio-${telefone.replace(/\D/g, "")}-${Date.now()}.jpg`;
+    fs.writeFileSync(path.join(DIAGNOSTICO, nome), jpeg);
     const antigas = fs
       .readdirSync(DIAGNOSTICO)
-      .filter((f) => f.startsWith("envio-") && f.endsWith(".png"))
+      .filter((f) => f.startsWith("envio-"))
       .map((f) => ({ f, t: fs.statSync(path.join(DIAGNOSTICO, f)).mtimeMs }))
       .sort((a, b) => b.t - a.t)
       .slice(6)
       .map((x) => x.f);
     for (const f of antigas) fs.rmSync(path.join(DIAGNOSTICO, f), { force: true });
-    return nome;
   } catch {
-    return null;
+    /* diagnóstico é bônus */
   }
+  return { nome, dataUri };
 }
 
+/*
+ * A caixa de texto da conversa. Três formas porque o WhatsApp Web troca o
+ * DOM sem avisar: o rodapé da conversa, a aba 10 (a caixa de mensagem, ao
+ * contrário da busca, que é a 3) e o textbox dentro do painel principal.
+ */
+export const SELETOR_CAIXA = [
+  'footer div[contenteditable="true"]',
+  'div[contenteditable="true"][data-tab="10"]',
+  '#main div[role="textbox"][contenteditable="true"]',
+].join(", ");
+
+// Aviso de número sem WhatsApp, em português e inglês.
+const SEM_ZAP = /inválido|invalid|não está no WhatsApp|isn't on WhatsApp|not on WhatsApp/i;
+// "Iniciando conversa · Cancelar": o WhatsApp procurando o número. É espera.
+const CARREGANDO = /iniciando conversa|starting chat|carregando|loading|sincronizando|syncing/i;
+// Faixa no topo da lista quando o WhatsApp Web está sem ligação com o celular.
+const SEM_LIGACAO =
+  /computador não conectado|tentando conectar|conectando|phone not connected|trying to reach|connecting|sem conexão/i;
+
+export type OpcoesEnvio = {
+  /* Origem do WhatsApp Web. O teste aponta para um servidor local. */
+  base?: string;
+  /* Teto total para a conversa abrir, por tentativa. */
+  esperaAberturaMs?: number;
+  /* Preso em "Iniciando conversa" por mais que isto: tenta abrir de novo. */
+  esperaIniciandoMs?: number;
+  /* App pronto, sem diálogo e sem conversa por mais que isto: tenta de novo. */
+  esperaSilencioMs?: number;
+  /* Quantas vezes navegar até a conversa antes de desistir. */
+  tentativas?: number;
+  /* Pausa humana antes do Enter, [mín, máx]. */
+  pausaAntesMs?: [number, number];
+  /* Quanto esperar a caixa esvaziar depois do Enter. */
+  confirmacaoMs?: number;
+  log?: (m: string) => void;
+};
+
+/*
+ * Abre a conversa pelo endereço e manda o texto.
+ *
+ * O que aprendemos na prática, e este código carrega:
+ *
+ *   - Cada envio recarrega o WhatsApp Web inteiro. A lista aparece do cache
+ *     ANTES da ligação com o servidor voltar; se a busca do número roda nessa
+ *     janela, ela fica presa em "Iniciando conversa" ou some sem abrir nada —
+ *     e o número tinha WhatsApp. Por isso: preso ou em silêncio, navegamos
+ *     de novo (uma segunda carga é rápida, com tudo em cache).
+ *   - "Iniciando conversa" NÃO é aviso: apertar Esc nela cancela a conversa.
+ *   - O aviso de número inválido é lido pelo texto do diálogo, não por um
+ *     seletor: o WhatsApp muda as classes toda semana, as palavras não.
+ *   - Na falha final, foto da tela e o texto do painel principal vão no
+ *     motivo — numa VPS sem monitor é a única forma de ver o que houve.
+ */
 export async function enviarMensagem(
   page: Page,
   telefone: string,
   texto: string,
+  opcoes: OpcoesEnvio = {},
 ): Promise<ResultadoEnvio> {
-  const url = `https://web.whatsapp.com/send?phone=${telefone}&text=${encodeURIComponent(texto)}`;
+  const base = opcoes.base ?? "https://web.whatsapp.com";
+  const esperaAbertura = opcoes.esperaAberturaMs ?? 120_000;
+  const esperaIniciando = opcoes.esperaIniciandoMs ?? 60_000;
+  const esperaSilencio = opcoes.esperaSilencioMs ?? 25_000;
+  const tentativas = Math.max(1, opcoes.tentativas ?? 2);
+  const [pausaMin, pausaMax] = opcoes.pausaAntesMs ?? [1200, 3000];
+  const confirmacao = opcoes.confirmacaoMs ?? 2500;
+  const log = opcoes.log ?? (() => {});
+  const passo = Math.min(1500, Math.max(100, Math.floor(esperaSilencio / 5)));
 
-  try {
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
-  } catch {
-    return { ok: false, motivo: "A página do WhatsApp não carregou." };
-  }
-
-  /*
-   * A conversa demora a montar — e cada envio recarrega o WhatsApp Web
-   * inteiro, o que numa VPS ocupada passa de um minuto. Espera pela caixa de
-   * texto, pelo aviso de número inválido ou por qualquer outro diálogo, o
-   * que vier primeiro. O diálogo é lido pelo texto, e não por uma frase
-   * fixa: o WhatsApp muda as palavras e a tela ficaria "sem abrir" à toa.
-   */
-  const caixa = page
-    .locator('div[contenteditable="true"][data-tab="10"], footer div[contenteditable="true"]')
-    .first();
+  const url = `${base}/send/?phone=${telefone}&text=${encodeURIComponent(texto)}&type=phone_number&app_absent=0`;
+  const caixa = page.locator(SELETOR_CAIXA).first();
   const dialogo = page.locator('div[role="dialog"]').first();
-  const SEM_ZAP = /inválido|invalid|não está no WhatsApp|isn't on WhatsApp|not on WhatsApp/i;
-  // "Iniciando conversa · Cancelar" é o WhatsApp procurando o número — é
-  // espera, não aviso. Apertar Esc aqui cancelaria a própria conversa.
-  const CARREGANDO = /iniciando conversa|starting chat|carregando|loading|sincronizando|syncing/i;
 
-  const inicio = Date.now();
-  let carregandoDesde = 0;
-  while (Date.now() - inicio < 120_000) {
-    if ((await dialogo.count()) > 0) {
-      const texto = ((await dialogo.innerText().catch(() => "")) ?? "").replace(/\s+/g, " ").trim();
-      if (SEM_ZAP.test(texto)) {
-        return { ok: false, motivo: "Este número não tem WhatsApp.", semWhatsapp: true };
+  let diagnostico = "";
+  let abriu = false;
+
+  for (let tentativa = 1; tentativa <= tentativas && !abriu; tentativa++) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
+    } catch {
+      if (tentativa < tentativas) continue;
+      return { ok: false, motivo: "A página do WhatsApp não carregou.", tentarDeNovo: true };
+    }
+
+    const inicio = Date.now();
+    let prontoEm = 0;
+    let carregandoDesde = 0;
+    let semLigacaoVisto = false;
+    diagnostico = "";
+
+    while (Date.now() - inicio < esperaAbertura) {
+      if ((await caixa.count()) > 0) {
+        abriu = true;
+        break;
       }
-      if (CARREGANDO.test(texto)) {
-        if (!carregandoDesde) carregandoDesde = Date.now();
-        /*
-         * Número que existe abre em segundos. Quando o WhatsApp fica um
-         * minuto inteiro em "Iniciando conversa", ele não vai avisar nada:
-         * é o que ele faz com número sem WhatsApp (em vez do aviso de
-         * "inválido"). Cancela e classifica como sem WhatsApp — a fila anda
-         * e o número não é tentado de novo.
-         */
-        if (Date.now() - carregandoDesde > 60_000) {
-          await fotografarFalha(page, telefone);
+
+      if ((await dialogo.count()) > 0) {
+        const textoDialogo = ((await dialogo.innerText().catch(() => "")) ?? "").replace(/\s+/g, " ").trim();
+        if (SEM_ZAP.test(textoDialogo)) {
+          return { ok: false, motivo: "Este número não tem WhatsApp.", semWhatsapp: true };
+        }
+        if (CARREGANDO.test(textoDialogo)) {
+          if (!carregandoDesde) carregandoDesde = Date.now();
+          if (Date.now() - carregandoDesde > esperaIniciando) {
+            diagnostico = `preso em "Iniciando conversa" por ${Math.round((Date.now() - carregandoDesde) / 1000)}s`;
+            await page.keyboard.press("Escape").catch(() => {});
+            break; // tenta de novo
+          }
+          await espera(passo);
+          continue;
+        }
+        if (textoDialogo) {
+          // Outro aviso na frente da conversa: fecha e conta o que dizia.
           await page.keyboard.press("Escape").catch(() => {});
+          await espera(Math.min(800, passo));
+          if ((await caixa.count()) > 0) {
+            abriu = true;
+            break;
+          }
+          const { dataUri } = await fotografarFalha(page, telefone);
           return {
             ok: false,
-            motivo: 'O WhatsApp ficou 1 min em "Iniciando conversa" e não abriu: número sem WhatsApp.',
-            semWhatsapp: true,
+            motivo: `O WhatsApp mostrou um aviso: ${textoDialogo.slice(0, 140)}`,
+            foto: dataUri ?? undefined,
+            tentarDeNovo: true,
           };
         }
-        await espera(1500);
+      } else {
+        carregandoDesde = 0;
+      }
+
+      if (!(await estaConectado(page))) {
+        if (await acharQr(page)) {
+          return { ok: false, motivo: "A sessão do WhatsApp caiu.", pararTudo: true };
+        }
+        await espera(passo); // ainda carregando o app
         continue;
       }
-      // Outro aviso na frente da conversa: fecha e conta o que dizia.
-      if (texto) {
-        await page.keyboard.press("Escape").catch(() => {});
-        await espera(800);
-        if ((await caixa.count()) === 0) {
-          await fotografarFalha(page, telefone);
-          return { ok: false, motivo: `O WhatsApp mostrou um aviso: ${texto.slice(0, 140)}` };
-        }
+      if (!prontoEm) prontoEm = Date.now();
+
+      // Sem ligação com o celular: a busca do número não anda. Não conta
+      // como silêncio — é espera.
+      const semLigacao = (await page.locator("#side, #app").getByText(SEM_LIGACAO).count().catch(() => 0)) > 0;
+      if (semLigacao) {
+        semLigacaoVisto = true;
+        prontoEm = Date.now();
+        await espera(passo);
+        continue;
       }
+
+      if (Date.now() - prontoEm > esperaSilencio) {
+        diagnostico = `lista visível e nada aconteceu em ${Math.round((Date.now() - prontoEm) / 1000)}s${
+          semLigacaoVisto ? " (o WhatsApp esteve sem ligação com o celular)" : ""
+        }`;
+        break; // tenta de novo
+      }
+      await espera(passo);
     }
-    if ((await caixa.count()) > 0) break;
-    if (!(await estaConectado(page)) && (await acharQr(page))) {
-      return { ok: false, motivo: "A sessão do WhatsApp caiu.", pararTudo: true };
-    }
-    await espera(1500);
+
+    if (!abriu && !diagnostico) diagnostico = `a conversa não abriu em ${Math.round(esperaAbertura / 1000)}s`;
+    if (!abriu && tentativa < tentativas) log(`${telefone}: ${diagnostico} — abrindo de novo`);
   }
 
-  if ((await caixa.count()) === 0) {
-    const foto = await fotografarFalha(page, telefone);
-    const estado = carregandoDesde
-      ? `preso em "Iniciando conversa" por ${Math.round((Date.now() - carregandoDesde) / 1000)}s`
-      : (await estaConectado(page))
-        ? "lista de conversas visível"
-        : "lista de conversas ausente";
-    // Se ficou no "Iniciando conversa", cancela para não deixar a tela presa
-    // para a próxima mensagem.
-    if (carregandoDesde) await page.keyboard.press("Escape").catch(() => {});
+  if (!abriu) {
+    const { nome, dataUri } = await fotografarFalha(page, telefone);
+    const painel = ((await page.locator("#main").innerText().catch(() => "")) ?? "").replace(/\s+/g, " ").trim();
+    const partes = [diagnostico, painel ? `painel: "${painel.slice(0, 100)}"` : "", nome ? `foto: ${nome}` : ""].filter(
+      Boolean,
+    );
     return {
       ok: false,
-      motivo: `A conversa não abriu em 2 min (${estado}${foto ? `; foto em agente/diagnostico/${foto}` : ""}).`,
+      motivo: `A conversa não abriu (${partes.join("; ")}).`,
+      foto: dataUri ?? undefined,
+      tentarDeNovo: true,
     };
   }
 
   // Pausa curta antes de enviar: digitar e mandar no mesmo instante é
   // comportamento de robô.
-  await espera(1200 + Math.random() * 1800);
+  await espera(pausaMin + Math.random() * Math.max(0, pausaMax - pausaMin));
   await caixa.click({ timeout: 10_000 }).catch(() => {});
   await page.keyboard.press("Enter");
 
-  // Confirma que saiu: a caixa esvazia quando a mensagem é enviada.
-  await espera(2500);
-  const restou = (await caixa.textContent().catch(() => ""))?.trim() ?? "";
-  if (restou.length > 0 && restou.length >= texto.length / 2) {
-    return { ok: false, motivo: "A mensagem não saiu da caixa de texto." };
+  // Confirma que saiu: a caixa esvazia quando a mensagem é enviada. Se não
+  // esvaziou, tenta o botão de enviar antes de dar por perdido.
+  await espera(confirmacao);
+  const sobrou = async () => {
+    const restou = (await caixa.textContent().catch(() => ""))?.trim() ?? "";
+    return restou.length > 0 && restou.length >= texto.length / 2;
+  };
+  if (await sobrou()) {
+    const botao = page
+      .locator('button[aria-label*="Enviar" i], button[aria-label*="Send" i], [data-icon="send"], [data-icon="wds-ic-send-filled"]')
+      .first();
+    if ((await botao.count()) > 0) {
+      await botao.click({ timeout: 5_000 }).catch(() => {});
+      await espera(confirmacao);
+    }
+    if (await sobrou()) {
+      const { dataUri } = await fotografarFalha(page, telefone);
+      return { ok: false, motivo: "A mensagem não saiu da caixa de texto.", foto: dataUri ?? undefined, tentarDeNovo: true };
+    }
   }
 
   return { ok: true };

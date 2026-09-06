@@ -35,6 +35,7 @@ import Robo from "@/components/painel/Robo";
 import ModelosProntos from "./ModelosProntos";
 import PausarEnvio from "./PausarEnvio";
 import Linhas, { type LinhaTela } from "./Linhas";
+import type { FotoFalha } from "./Linhas";
 import SeletorNicho from "./SeletorNicho";
 import JaAbordei, { type JaAbordado } from "./JaAbordei";
 import CancelarFila from "./CancelarFila";
@@ -81,6 +82,7 @@ export default function Painel({
   jaAbordados = [],
   ultimoTeste = null,
   agenteOnline = false,
+  fotoFalha = null,
 }: {
   config: ConfigAbordagem;
   candidatos: ProspectoRow[];
@@ -94,6 +96,8 @@ export default function Painel({
   /* O último teste de envio, para o card de diagnóstico. */
   ultimoTeste?: ResultadoTeste;
   agenteOnline?: boolean;
+  /* Foto da tela na última falha de envio (migração 2026-09-13). */
+  fotoFalha?: FotoFalha | null;
   /* Interruptores do Admin: desligado, o card correspondente nem aparece. */
   fechadorLigado?: boolean;
   resumoLigado?: boolean;
@@ -323,6 +327,7 @@ export default function Painel({
         maxLinhas={maxLinhas}
         motivo={config.ultimo_motivo}
         motivoEm={config.ultimo_motivo_em}
+        fotoFalha={fotoFalha}
       />
 
       {/*
@@ -1489,7 +1494,9 @@ export default function Painel({
                     <span className="text-paper-dim">
                       {m.modo === "auto" ? "automático" : "manual"}
                     </span>
-                    {m.erro && <span className="text-danger">{m.erro}</span>}
+                    {m.erro && (
+                      <span className={m.status === "pendente" ? "text-paper-dim" : "text-danger"}>{m.erro}</span>
+                    )}
                     <span className="ml-auto text-paper-dim">
                       {new Date(m.enviada_em ?? m.created_at).toLocaleTimeString("pt-BR", {
                         hour: "2-digit",

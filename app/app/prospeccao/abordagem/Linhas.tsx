@@ -40,6 +40,9 @@ export type LinhaTela = {
   enviadasHoje: number;
 };
 
+/* A foto da tela na última falha de envio, com a linha, a hora e o motivo. */
+export type FotoFalha = { linha: string; foto: string; em: string; motivo: string | null };
+
 const ROTULO: Record<LinhaTela["status"], { texto: string; cor: string; borda: string }> = {
   conectado: { texto: "conectado", cor: "text-ok", borda: "border-ok/30" },
   aguardando_qr: { texto: "aguardando leitura do QR", cor: "text-brand-2", borda: "border-brand-2/40" },
@@ -57,6 +60,7 @@ export default function Linhas({
   maxLinhas,
   motivo,
   motivoEm,
+  fotoFalha = null,
 }: {
   linhas: LinhaTela[];
   /* Migração pendente: só a linha principal, pelas colunas antigas. */
@@ -69,6 +73,7 @@ export default function Linhas({
   /* A última resposta do servidor ao agente sobre o envio, e quando foi. */
   motivo?: string | null;
   motivoEm?: string | null;
+  fotoFalha?: FotoFalha | null;
 }) {
   const router = useRouter();
   const [, iniciar] = useTransition();
@@ -306,6 +311,36 @@ export default function Linhas({
             </span>
           )}
         </p>
+      )}
+
+      {/*
+        A foto que o agente tirou quando a conversa não abriu. Numa VPS sem
+        monitor é a única forma de ver o que o WhatsApp mostrou — e a
+        diferença entre adivinhar e saber.
+      */}
+      {fotoFalha && (
+        <details className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] text-paper-dim">
+          <summary className="cursor-pointer">
+            <b className="text-paper">Foto da última falha</b> · {fotoFalha.linha} ·{" "}
+            {new Date(fotoFalha.em).toLocaleString("pt-BR", {
+              day: "2-digit",
+              month: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+            {fotoFalha.motivo && <span className="text-danger"> · {fotoFalha.motivo}</span>}
+          </summary>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={fotoFalha.foto}
+            alt="Tela do WhatsApp no momento da falha"
+            className="mt-2 w-full max-w-3xl rounded border border-white/10"
+          />
+          <p className="mt-1">
+            É a tela do WhatsApp Web no instante em que o agente desistiu. Se aparecer um aviso,
+            ele é a resposta; se for só a lista de conversas, a busca do número não andou.
+          </p>
+        </details>
       )}
 
       {!legado && linhas.length > 1 && (

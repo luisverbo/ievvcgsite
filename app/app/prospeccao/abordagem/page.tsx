@@ -5,7 +5,7 @@ import { getMinhaOrg } from "@/lib/painel/queries";
 import { podeUsar, exigirProspeccao } from "@/lib/painel/permissoes";
 import { funcaoLigada } from "@/lib/painel/flags";
 import Painel from "./Painel";
-import type { LinhaTela } from "./Linhas";
+import type { FotoFalha, LinhaTela } from "./Linhas";
 import type { JaAbordado } from "./JaAbordei";
 import type { ResultadoTeste } from "./TesteEnvio";
 
@@ -115,6 +115,25 @@ export default async function AbordagemPage() {
    */
   const linhasRaw = await linhasDaOrg(org.id, true);
   const principalId = linhasRaw?.find((l) => l.principal)?.id ?? null;
+
+  /*
+   * A foto da última falha de envio (a mais recente entre as linhas). Consulta
+   * própria e tolerante: colunas da migração 2026-09-13.
+   */
+  let fotoFalha: FotoFalha | null = null;
+  try {
+    const { data: fotos } = await supabase
+      .from("whatsapp_linhas")
+      .select("nome, ultima_foto, ultima_foto_em, ultima_foto_motivo")
+      .eq("org_id", org.id)
+      .not("ultima_foto", "is", null)
+      .order("ultima_foto_em", { ascending: false })
+      .limit(1);
+    const f = (fotos as { nome: string; ultima_foto: string; ultima_foto_em: string; ultima_foto_motivo: string | null }[] | null)?.[0];
+    if (f) fotoFalha = { linha: f.nome, foto: f.ultima_foto, em: f.ultima_foto_em, motivo: f.ultima_foto_motivo };
+  } catch {
+    /* migração pendente */
+  }
   const enviadasPorLinha = new Map<string, number>();
   for (const m of mensagens) {
     if (m.status !== "enviada" || !m.enviada_em || m.enviada_em < inicioDoDiaBr()) continue;
@@ -295,6 +314,7 @@ export default async function AbordagemPage() {
         jaAbordados={jaAbordados}
         ultimoTeste={ultimoTeste}
         agenteOnline={agenteOnline}
+        fotoFalha={fotoFalha}
         fechadorLigado={(await funcaoLigada("fechador")) && podeSites}
         resumoLigado={(await funcaoLigada("resumo_diario")) && (await podeUsar("prospeccao_resumo"))}
         cerebroLigado={(await funcaoLigada("mensagens_ia")) && (await podeUsar("prospeccao_ia"))}

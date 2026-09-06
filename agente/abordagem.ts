@@ -360,7 +360,7 @@ async function atenderLinha(linha: Linha, c: Comum): Promise<{ mandouResumo: boo
    */
   let r: Awaited<ReturnType<typeof enviarMensagem>>;
   try {
-    r = await enviarMensagem(sessao.page, msg.telefone, msg.texto);
+    r = await enviarMensagem(sessao.page, msg.telefone, msg.texto, { log: (m) => log(`${rotulo}: ${m}`) });
   } catch (e) {
     const motivoErro = `falha no navegador: ${(e as Error).message.slice(0, 160)}`;
     const repetida = ultimaFalha?.id === msg.id;
@@ -394,6 +394,8 @@ async function atenderLinha(linha: Linha, c: Comum): Promise<{ mandouResumo: boo
       erro: r.motivo,
       linha_id: linha.id,
       pararTudo: r.pararTudo,
+      tentarDeNovo: r.tentarDeNovo,
+      foto: r.foto,
     });
     log(`⚠️  ${rotulo}: ${msg.telefone}: ${r.motivo}`);
 

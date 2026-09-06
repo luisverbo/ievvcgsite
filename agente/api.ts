@@ -299,4 +299,9 @@ export const fimMensagem = (dados: {
   linha_id?: string | null;
   // A sessão caiu no meio: a mensagem volta para a fila, outra linha assume.
   pararTudo?: boolean;
+  // A conversa não abriu (culpa do momento, não do número): o servidor
+  // devolve à fila para mais uma tentativa, até um limite.
+  tentarDeNovo?: boolean;
+  // Foto da tela na falha (data URI), para o painel mostrar.
+  foto?: string;
 }) => chamar("fim_mensagem", { ...dados, linha_id: dados.linha_id ?? undefined });
