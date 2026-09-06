@@ -412,7 +412,9 @@ async function atenderLinha(linha: Linha, c: Comum): Promise<{ mandouResumo: boo
    * quem espera é o servidor (cadência da conta, revezando entre as linhas);
    * sem linhas, o relógio fica aqui, como sempre.
    */
-  if (!c.servidorComLinhas) {
+  // Falha (número sem WhatsApp, conversa que não abriu) não gasta intervalo:
+  // nada saiu da conta, e a próxima pode ir já.
+  if (!c.servidorComLinhas && r.ok) {
     const s = c.intervaloMin + Math.random() * (c.intervaloMax - c.intervaloMin);
     proximoEnvioEm = Date.now() + s * 1000;
     proximaChecagemEm = proximoEnvioEm;

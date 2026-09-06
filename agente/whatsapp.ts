@@ -12,10 +12,14 @@
  */
 
 import { chromium, type BrowserContext, type Page } from "playwright";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
+// Fotos da tela quando um envio falha — a única forma de ver o que o
+// WhatsApp mostrou numa VPS sem monitor. Ficam só as 6 mais recentes.
+const DIAGNOSTICO = path.join(AQUI, "diagnostico");
 // O perfil da linha PRINCIPAL — o de sempre. As outras linhas ganham uma
 // pasta cada (perfilDaLinha): cada número é uma sessão, um navegador.
 export const PERFIL_ZAP = path.join(AQUI, ".perfil-whatsapp");
@@ -303,6 +307,30 @@ export async function lerRespostas(
   return saida;
 }
 
+/*
+ * Foto da tela no momento da falha, em agente/diagnostico/. Devolve o nome
+ * do arquivo (ou null se nem isso deu). Nunca lança: é diagnóstico.
+ */
+async function fotografarFalha(page: Page, telefone: string): Promise<string | null> {
+  try {
+    fs.mkdirSync(DIAGNOSTICO, { recursive: true });
+    const nome = `envio-${telefone.replace(/\D/g, "")}-${Date.now()}.png`;
+    await page.screenshot({ path: path.join(DIAGNOSTICO, nome), fullPage: false, timeout: 10_000 });
+    // Só as 6 mais recentes: a pasta não pode virar um depósito.
+    const antigas = fs
+      .readdirSync(DIAGNOSTICO)
+      .filter((f) => f.startsWith("envio-") && f.endsWith(".png"))
+      .map((f) => ({ f, t: fs.statSync(path.join(DIAGNOSTICO, f)).mtimeMs }))
+      .sort((a, b) => b.t - a.t)
+      .slice(6)
+      .map((x) => x.f);
+    for (const f of antigas) fs.rmSync(path.join(DIAGNOSTICO, f), { force: true });
+    return nome;
+  } catch {
+    return null;
+  }
+}
+
 export async function enviarMensagem(
   page: Page,
   telefone: string,
@@ -316,17 +344,35 @@ export async function enviarMensagem(
     return { ok: false, motivo: "A página do WhatsApp não carregou." };
   }
 
-  // A conversa demora a montar; espera pela caixa de texto ou pelo aviso de
-  // número inválido, o que vier primeiro.
+  /*
+   * A conversa demora a montar — e cada envio recarrega o WhatsApp Web
+   * inteiro, o que numa VPS ocupada passa de um minuto. Espera pela caixa de
+   * texto, pelo aviso de número inválido ou por qualquer outro diálogo, o
+   * que vier primeiro. O diálogo é lido pelo texto, e não por uma frase
+   * fixa: o WhatsApp muda as palavras e a tela ficaria "sem abrir" à toa.
+   */
   const caixa = page
     .locator('div[contenteditable="true"][data-tab="10"], footer div[contenteditable="true"]')
     .first();
-  const invalido = page.getByText(/inválido|invalid|não está no WhatsApp|isn't on WhatsApp/i).first();
+  const dialogo = page.locator('div[role="dialog"]').first();
+  const SEM_ZAP = /inválido|invalid|não está no WhatsApp|isn't on WhatsApp|not on WhatsApp/i;
 
   const inicio = Date.now();
-  while (Date.now() - inicio < 45_000) {
-    if ((await invalido.count()) > 0) {
-      return { ok: false, motivo: "Este número não tem WhatsApp.", semWhatsapp: true };
+  while (Date.now() - inicio < 90_000) {
+    if ((await dialogo.count()) > 0) {
+      const texto = ((await dialogo.innerText().catch(() => "")) ?? "").replace(/\s+/g, " ").trim();
+      if (SEM_ZAP.test(texto)) {
+        return { ok: false, motivo: "Este número não tem WhatsApp.", semWhatsapp: true };
+      }
+      // Outro aviso na frente da conversa: fecha e conta o que dizia.
+      if (texto) {
+        await page.keyboard.press("Escape").catch(() => {});
+        await espera(800);
+        if ((await caixa.count()) === 0) {
+          await fotografarFalha(page, telefone);
+          return { ok: false, motivo: `O WhatsApp mostrou um aviso: ${texto.slice(0, 140)}` };
+        }
+      }
     }
     if ((await caixa.count()) > 0) break;
     if (!(await estaConectado(page)) && (await acharQr(page))) {
@@ -336,7 +382,12 @@ export async function enviarMensagem(
   }
 
   if ((await caixa.count()) === 0) {
-    return { ok: false, motivo: "A conversa não abriu a tempo." };
+    const foto = await fotografarFalha(page, telefone);
+    const estado = (await estaConectado(page)) ? "lista de conversas visível" : "lista de conversas ausente";
+    return {
+      ok: false,
+      motivo: `A conversa não abriu em 90s (${estado}${foto ? `; foto em agente/diagnostico/${foto}` : ""}).`,
+    };
   }
 
   // Pausa curta antes de enviar: digitar e mandar no mesmo instante é

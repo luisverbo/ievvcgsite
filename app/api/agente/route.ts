@@ -1115,6 +1115,13 @@ export async function POST(req: Request) {
             })
             .eq("id", id)
             .eq("org_id", org);
+          /*
+           * Nada saiu da conta: o intervalo entre mensagens não precisa ser
+           * cumprido. Sem isto, cada número sem WhatsApp custava até 20 min
+           * de espera à toa — quatro deles seguidos travavam a fila por
+           * mais de uma hora.
+           */
+          await liberarCadencia(org);
         }
         return j({ ok: true });
       }
