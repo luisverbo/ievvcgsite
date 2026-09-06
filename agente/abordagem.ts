@@ -41,6 +41,8 @@ type Linha = {
   ativa: boolean;
   /* Sem dono, ou dono calado há 15 min: dá para assumir. */
   livre?: boolean;
+  /* Restringida pelo WhatsApp (não abre conversas novas) até este instante. */
+  restringida_ate?: string | null;
 };
 
 // Não vale perguntar o estado da abordagem a cada volta de 8s do serviço.
@@ -59,6 +61,9 @@ const proximaEscutaEm = new Map<string, number>();
 
 // O aviso de "pausado" sai uma vez por pausa, não a cada 20 segundos.
 let pausadoAvisado = false;
+
+// O aviso de "linha restringida" sai uma vez por restrição, por linha.
+const restricaoAvisada = new Map<string, string>();
 
 /*
  * A última mensagem que derrubou o navegador. A primeira falha devolve a
@@ -244,7 +249,21 @@ async function atenderLinha(linha: Linha, c: Comum): Promise<{ mandouResumo: boo
   const conectado = linha.status === "conectado";
   const escutar = c.aguardando > 0 && Date.now() >= (proximaEscutaEm.get(chave) ?? 0) && conectado;
   const resumo = c.resumo && conectado;
-  const querEnviar = linha.ativa && (c.pendentes > 0 || c.continuacoes > 0);
+  /*
+   * Restringida pelo WhatsApp: nada de conversa nova por esta linha até o
+   * prazo — o servidor também recusa, mas nem vale abrir o navegador para
+   * isso. Escuta e resumo (conversas existentes) continuam.
+   */
+  const restrita = !!linha.restringida_ate && new Date(linha.restringida_ate).getTime() > Date.now();
+  if (restrita && restricaoAvisada.get(chave) !== linha.restringida_ate) {
+    restricaoAvisada.set(chave, linha.restringida_ate!);
+    log(
+      `⛔ ${rotulo}: restringida pelo WhatsApp (não abre conversas novas) até ${new Date(
+        linha.restringida_ate!,
+      ).toLocaleString("pt-BR")} — envio parado nela`,
+    );
+  }
+  const querEnviar = linha.ativa && !restrita && (c.pendentes > 0 || c.continuacoes > 0);
   if (!pedidoConexao && !querEnviar && !escutar && !resumo) return nada;
 
   // Só um pedido de conexão, com a sessão já de pé: nada a fazer além de
@@ -396,8 +415,20 @@ async function atenderLinha(linha: Linha, c: Comum): Promise<{ mandouResumo: boo
       pararTudo: r.pararTudo,
       tentarDeNovo: r.tentarDeNovo,
       foto: r.foto,
+      restringida: r.restringida,
     });
     log(`⚠️  ${rotulo}: ${msg.telefone}: ${r.motivo}`);
+
+    if (r.restringida) {
+      /*
+       * A sessão está de pé — é o WhatsApp que não deixa abrir conversa
+       * nova. Não fecha nada: escuta e resumo seguem. O servidor marcou a
+       * linha e o painel explica o que fazer.
+       */
+      log(`⛔ ${rotulo}: o WhatsApp restringiu esta conta — envio parado nesta linha; veja o painel`);
+      await api.zapEstado("conectado", r.motivo, null, linha.id).catch(() => {});
+      return { mandouResumo };
+    }
 
     if (r.pararTudo) {
       // Sessão caiu: derruba o navegador desta linha para reconectar (e

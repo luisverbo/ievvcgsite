@@ -185,6 +185,8 @@ export type ResultadoEnvio =
       foto?: string;
       /* Falha de abertura, não do número: vale tentar de novo mais tarde. */
       tentarDeNovo?: boolean;
+      /* O WhatsApp restringiu a conta nos dispositivos conectados: não abre conversas novas. */
+      restringida?: boolean;
     };
 
 /*
@@ -392,6 +394,15 @@ async function descreverConversa(page: Page): Promise<string> {
 const SEM_ZAP = /inválido|invalid|não está no WhatsApp|isn't on WhatsApp|not on WhatsApp/i;
 // "Iniciando conversa · Cancelar": o WhatsApp procurando o número. É espera.
 const CARREGANDO = /iniciando conversa|starting chat|carregando|loading|sincronizando|syncing/i;
+/*
+ * A restrição: o WhatsApp bloqueia a conta de ABRIR conversas novas pelos
+ * dispositivos conectados (o WhatsApp Web), e escreve isto no lugar da caixa
+ * de texto. Conversas já existentes seguem funcionando — por isso o teste
+ * para o próprio número passa e todos os números novos falham.
+ */
+const RESTRICAO =
+  /restringida dos dispositivos|não é possível iniciar novas conversas|restricted from linked devices|can't start new chats|cannot start new chats|unable to start new chats/i;
+
 // Faixa no topo da lista quando o WhatsApp Web está sem ligação com o celular.
 const SEM_LIGACAO =
   /computador não conectado|tentando conectar|conectando|phone not connected|trying to reach|connecting|sem conexão/i;
@@ -538,6 +549,19 @@ export async function enviarMensagem(
       const conversa = page.locator(SELETOR_CONVERSA).first();
       const textoConversa = ((await conversa.innerText().catch(() => "")) ?? "").trim();
       if (textoConversa.length > 0) {
+        if (RESTRICAO.test(textoConversa)) {
+          const { dataUri } = await fotografarFalha(page, telefone);
+          const frase = textoConversa.replace(/\s+/g, " ").match(/[^.]*restringid[^.]*\.?[^.]*\.?/i)?.[0]?.trim();
+          return {
+            ok: false,
+            motivo: `O WhatsApp restringiu esta conta nos dispositivos conectados: não abre conversas novas por enquanto${
+              frase ? ` (texto do WhatsApp: "${frase.slice(0, 160)}")` : ""
+            }.`,
+            pararTudo: true,
+            restringida: true,
+            foto: dataUri ?? undefined,
+          };
+        }
         if (!conversaDesde) conversaDesde = Date.now();
         if (!tentouBotao && Date.now() - conversaDesde > Math.min(5000, esperaSilencio)) {
           tentouBotao = true;

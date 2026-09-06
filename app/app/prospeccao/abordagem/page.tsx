@@ -23,7 +23,7 @@ type JaAbordadoRow = {
   local_busca: string | null;
   nao_perturbar: boolean | null;
 };
-import { linhasDaOrg, MAX_LINHAS } from "@/lib/prospeccao/linhas";
+import { linhasDaOrg, restricoesDaOrg, MAX_LINHAS } from "@/lib/prospeccao/linhas";
 import { inicioDoDiaBr } from "@/lib/prospeccao/dia";
 import type { ConfigAbordagem, MensagemRow } from "./actions";
 import { telefoneWhatsapp } from "@/lib/prospeccao/mensagem";
@@ -179,6 +179,8 @@ export default async function AbordagemPage() {
     .maybeSingle();
   const agenteOnline = agenteVivo((agentesRaw as { ultimo_contato: string | null } | null)?.ultimo_contato);
 
+  // Restrições do WhatsApp em vigor (migração 2026-09-14; vazio sem ela).
+  const restricoes = await restricoesDaOrg(org.id);
   const linhasTela: LinhaTela[] = (linhasRaw ?? []).map((l) => ({
     id: l.id,
     nome: l.nome,
@@ -189,6 +191,7 @@ export default async function AbordagemPage() {
     ativa: l.ativa,
     desconectar_pedido: l.desconectar_pedido,
     enviadasHoje: enviadasPorLinha.get(l.id) ?? 0,
+    restringidaAte: restricoes.get(l.id)?.ate ?? null,
   }));
   const prospectos = (prospRaw as ProspectoRow[] | null) ?? [];
 

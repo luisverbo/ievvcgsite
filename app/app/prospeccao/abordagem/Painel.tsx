@@ -245,6 +245,7 @@ export default function Painel({
           ativa: true,
           desconectar_pedido: false,
           enviadasHoje,
+          restringidaAte: null,
         },
       ]
     : linhas;

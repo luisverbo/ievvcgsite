@@ -38,6 +38,8 @@ export type LinhaTela = {
   ativa: boolean;
   desconectar_pedido: boolean;
   enviadasHoje: number;
+  /* O WhatsApp restringiu este número (não abre conversas novas) até aqui. */
+  restringidaAte: string | null;
 };
 
 /* A foto da tela na última falha de envio, com a linha, a hora e o motivo. */
@@ -174,6 +176,35 @@ export default function Linhas({
                   hoje <b className="text-paper">{l.enviadasHoje}</b>/{limiteDiario}
                 </span>
               </div>
+
+              {l.restringidaAte && (
+                <div className="mt-3 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-paper">
+                  <p className="font-bold text-danger">
+                    ⛔ O WhatsApp restringiu este número: ele não abre conversas novas pelo WhatsApp Web
+                    por enquanto.
+                  </p>
+                  <p className="mt-1 text-paper-dim">
+                    É uma trava do próprio WhatsApp contra disparo para desconhecidos a partir de
+                    “dispositivos conectados”. Conversas já existentes continuam (por isso o teste para
+                    o seu número passa). O agente parou de enviar por esta linha até{" "}
+                    <b className="text-paper">
+                      {new Date(l.restringidaAte).toLocaleString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </b>
+                    ; se houver outra linha conectada, ela assume.
+                  </p>
+                  <p className="mt-1 text-paper-dim">
+                    O que ajuda: não insistir hoje; usar o celular normalmente (conversas de verdade);
+                    quando voltar, começar com 10 a 15 mensagens por dia e subir devagar; e usar o
+                    gancho curto em vez de textão. Insistir enquanto restringido é o caminho para o
+                    banimento definitivo.
+                  </p>
+                </div>
+              )}
 
               {l.mensagem && <p className="mt-2 text-xs text-paper-dim">{l.mensagem}</p>}
 

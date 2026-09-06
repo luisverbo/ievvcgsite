@@ -16,6 +16,7 @@ import {
   liberarCadencia,
   assumirSeLivre,
   linhaOrfa,
+  restricoesDaOrg,
   type CadenciaEnvio,
 } from "@/lib/prospeccao/linhas";
 
@@ -120,6 +121,68 @@ async function anotarMotivo(orgId: string, motivo: string): Promise<void> {
       .eq("org_id", orgId);
   } catch {
     /* sem drama */
+  }
+}
+
+/*
+ * O WhatsApp restringiu a linha: marca por 24h (nenhuma mensagem sai por
+ * ela), e avisa o dono da conta no WhatsApp dele — pelo mesmo caminho do
+ * resumo diário, que é uma conversa existente e por isso ainda funciona.
+ * Tolerante às colunas da migração 2026-09-14; nunca lança.
+ */
+const RESTRICAO_HORAS = 24;
+
+async function registrarRestricao(orgId: string, linhaId: string, motivo: string): Promise<void> {
+  const admin = createAdminClient();
+  const ate = new Date(Date.now() + RESTRICAO_HORAS * 3_600_000);
+  try {
+    await admin
+      .from("whatsapp_linhas")
+      .update({ restringida_ate: ate.toISOString(), restringida_msg: motivo.slice(0, 300) })
+      .eq("id", linhaId)
+      .eq("org_id", orgId);
+  } catch {
+    /* migração pendente */
+  }
+
+  try {
+    const [{ data: cfg }, { data: linha }] = await Promise.all([
+      admin.from("prospeccao_config").select("resumo_zap").eq("org_id", orgId).maybeSingle(),
+      admin.from("whatsapp_linhas").select("nome").eq("id", linhaId).maybeSingle(),
+    ]);
+    const telefone = ((cfg as { resumo_zap: string | null } | null)?.resumo_zap ?? "").replace(/\D/g, "");
+    if (!telefone) return;
+    const nome = (linha as { nome: string } | null)?.nome ?? "a linha";
+
+    // Um aviso por restrição: não repete a cada mensagem que falha.
+    const { count } = await admin
+      .from("avisos_zap")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .ilike("texto", "%restringiu%")
+      .gte("created_at", new Date(Date.now() - 12 * 3_600_000).toISOString());
+    if ((count ?? 0) > 0) return;
+
+    const quando = ate.toLocaleString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    await admin.from("avisos_zap").insert({
+      org_id: orgId,
+      telefone,
+      texto: [
+        `⛔ O WhatsApp restringiu ${nome}: ele não abre conversas novas pelo WhatsApp Web por enquanto.`,
+        "",
+        `Parei de enviar por esse número até ${quando}. Conversas já existentes continuam normais.`,
+        "",
+        "O que ajuda: não insistir hoje, usar o celular normalmente e, quando voltar, começar com 10 a 15 mensagens por dia e subir devagar. Se você tiver outra linha conectada, ela assume sozinha.",
+      ].join("\n"),
+    });
+  } catch {
+    /* aviso é cortesia */
   }
 }
 
@@ -657,8 +720,11 @@ export async function POST(req: Request) {
            * reivindicar. Sem a migração, o campo não vai — e o agente segue
            * com a linha única de sempre.
            */
-          linhas: await Promise.all(
+          linhas: await (async () => {
+            const restricoes = await restricoesDaOrg(org);
+            return Promise.all(
             ((await linhasDaOrg(org)) ?? []).map(async (l) => ({
+              restringida_ate: restricoes.get(l.id)?.ate ?? null,
               id: l.id,
               nome: l.nome,
               principal: l.principal,
@@ -675,7 +741,8 @@ export async function POST(req: Request) {
               livre: await linhaOrfa(l),
               ativa: l.ativa,
             })),
-          ),
+            );
+          })(),
         });
       }
 
@@ -1097,6 +1164,9 @@ export async function POST(req: Request) {
            * para a fila para outra linha (ou esta, reconectada) mandar, e a
            * cadência é liberada na hora: com "1 linha enviando", é assim que
            * a reserva assume sem esperar o intervalo.
+           *
+           * Restringida pelo WhatsApp: mesma coisa para a mensagem, e a linha
+           * fica de fora por 24h (registrarRestricao) — outra linha assume.
            */
           await admin
             .from("prospeccao_mensagens")
@@ -1104,7 +1174,22 @@ export async function POST(req: Request) {
             .eq("id", id)
             .eq("org_id", org);
           await liberarCadencia(org);
-          await anotarMotivo(org, `o agente não conseguiu enviar: ${String(corpo.erro ?? "sessão caiu").slice(0, 160)}`);
+          if (corpo.restringida && linhaEnvio) {
+            const motivoR = String(corpo.erro ?? "o WhatsApp restringiu a conta").slice(0, 300);
+            await registrarRestricao(org, linhaEnvio, motivoR);
+            const foto = typeof corpo.foto === "string" && corpo.foto.startsWith("data:image/") ? corpo.foto : null;
+            if (foto && foto.length < 1_500_000) {
+              await admin
+                .from("whatsapp_linhas")
+                .update({ ultima_foto: foto, ultima_foto_em: agora(), ultima_foto_motivo: motivoR })
+                .eq("id", linhaEnvio)
+                .eq("org_id", org)
+                .then(() => {}, () => {});
+            }
+            await anotarMotivo(org, `o WhatsApp restringiu a linha: não abre conversas novas. Envio parado nela por ${RESTRICAO_HORAS}h`);
+          } else {
+            await anotarMotivo(org, `o agente não conseguiu enviar: ${String(corpo.erro ?? "sessão caiu").slice(0, 160)}`);
+          }
         } else {
           const erroTexto = String(corpo.erro ?? "sem detalhe").slice(0, 400);
           await anotarMotivo(org, `envio falhou: ${erroTexto.slice(0, 160)}`);

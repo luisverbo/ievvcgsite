@@ -272,6 +272,8 @@ export type LinhaInfo = {
   /* Sem dono, ou dono calado há 15 min — pode ser reivindicada. */
   livre?: boolean;
   ativa: boolean;
+  /* Restringida pelo WhatsApp (não abre conversas novas) até este instante. */
+  restringida_ate?: string | null;
 };
 
 export const linhaReivindicar = (linhaId: string) =>
@@ -304,4 +306,6 @@ export const fimMensagem = (dados: {
   tentarDeNovo?: boolean;
   // Foto da tela na falha (data URI), para o painel mostrar.
   foto?: string;
+  // O WhatsApp restringiu a conta: não abre conversas novas. A linha para.
+  restringida?: boolean;
 }) => chamar("fim_mensagem", { ...dados, linha_id: dados.linha_id ?? undefined });

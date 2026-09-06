@@ -77,6 +77,31 @@ export async function linhasDaOrg(orgId: string, comQr = false): Promise<LinhaRo
 }
 
 /*
+ * Restrições do WhatsApp em vigor, por linha (migração 2026-09-14). Só as
+ * com prazo no futuro. Consulta própria e tolerante: sem a coluna, vazio.
+ */
+export type Restricao = { ate: string; msg: string | null };
+
+export async function restricoesDaOrg(orgId: string): Promise<Map<string, Restricao>> {
+  const mapa = new Map<string, Restricao>();
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("whatsapp_linhas")
+      .select("id, restringida_ate, restringida_msg")
+      .eq("org_id", orgId)
+      .gt("restringida_ate", new Date().toISOString());
+    if (error) return mapa;
+    for (const l of (data as { id: string; restringida_ate: string; restringida_msg: string | null }[] | null) ?? []) {
+      mapa.set(l.id, { ate: l.restringida_ate, msg: l.restringida_msg });
+    }
+  } catch {
+    /* migração pendente */
+  }
+  return mapa;
+}
+
+/*
  * A linha principal — a do perfil antigo do agente. Conta criada depois da
  * migração não tem nenhuma: nasce aqui, na primeira vez que alguém precisa
  * dela (o agente antigo reportando estado, o painel clicando em Conectar).
@@ -250,9 +275,22 @@ export async function podeEnviarPor(
       if (a.ultimo_contato && Date.now() - new Date(a.ultimo_contato).getTime() < VIVO_MS) vivos.add(a.id);
     }
   }
+  // Restringida pelo WhatsApp: não abre conversa nova, nem a apresentação.
+  const restricoes = await restricoesDaOrg(orgId);
   const viva = (l: LinhaRow) =>
-    l.ativa && l.status === "conectado" && (l.agente_id === null || vivos.has(l.agente_id));
+    l.ativa && l.status === "conectado" && (l.agente_id === null || vivos.has(l.agente_id)) && !restricoes.has(l.id);
 
+  const restricao = restricoes.get(linha.id);
+  if (restricao) {
+    const ate = new Date(restricao.ate).toLocaleString("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return { pode: false, motivo: `linha restringida pelo WhatsApp (não abre conversas novas) até ${ate}` };
+  }
   if (!viva(linha)) return { pode: false, motivo: "linha fora do ar ou desligada" };
   if (continuacao) return { pode: true, motivo: "" };
 
