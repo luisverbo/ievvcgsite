@@ -356,13 +356,22 @@ export async function enviarMensagem(
     .first();
   const dialogo = page.locator('div[role="dialog"]').first();
   const SEM_ZAP = /inválido|invalid|não está no WhatsApp|isn't on WhatsApp|not on WhatsApp/i;
+  // "Iniciando conversa · Cancelar" é o WhatsApp procurando o número — é
+  // espera, não aviso. Apertar Esc aqui cancelaria a própria conversa.
+  const CARREGANDO = /iniciando conversa|starting chat|carregando|loading|sincronizando|syncing/i;
 
   const inicio = Date.now();
-  while (Date.now() - inicio < 90_000) {
+  let carregandoDesde = 0;
+  while (Date.now() - inicio < 120_000) {
     if ((await dialogo.count()) > 0) {
       const texto = ((await dialogo.innerText().catch(() => "")) ?? "").replace(/\s+/g, " ").trim();
       if (SEM_ZAP.test(texto)) {
         return { ok: false, motivo: "Este número não tem WhatsApp.", semWhatsapp: true };
+      }
+      if (CARREGANDO.test(texto)) {
+        if (!carregandoDesde) carregandoDesde = Date.now();
+        await espera(1500);
+        continue;
       }
       // Outro aviso na frente da conversa: fecha e conta o que dizia.
       if (texto) {
@@ -383,10 +392,17 @@ export async function enviarMensagem(
 
   if ((await caixa.count()) === 0) {
     const foto = await fotografarFalha(page, telefone);
-    const estado = (await estaConectado(page)) ? "lista de conversas visível" : "lista de conversas ausente";
+    const estado = carregandoDesde
+      ? `preso em "Iniciando conversa" por ${Math.round((Date.now() - carregandoDesde) / 1000)}s`
+      : (await estaConectado(page))
+        ? "lista de conversas visível"
+        : "lista de conversas ausente";
+    // Se ficou no "Iniciando conversa", cancela para não deixar a tela presa
+    // para a próxima mensagem.
+    if (carregandoDesde) await page.keyboard.press("Escape").catch(() => {});
     return {
       ok: false,
-      motivo: `A conversa não abriu em 90s (${estado}${foto ? `; foto em agente/diagnostico/${foto}` : ""}).`,
+      motivo: `A conversa não abriu em 2 min (${estado}${foto ? `; foto em agente/diagnostico/${foto}` : ""}).`,
     };
   }
 
