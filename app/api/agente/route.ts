@@ -14,6 +14,8 @@ import {
   podeEnviarPor,
   registrarEntrega,
   liberarCadencia,
+  assumirSeLivre,
+  linhaOrfa,
   type CadenciaEnvio,
 } from "@/lib/prospeccao/linhas";
 
@@ -540,7 +542,7 @@ export async function POST(req: Request) {
           .select("id", { count: "exact", head: true })
           .eq("org_id", org)
           .eq("status", "enviada")
-          .neq("tipo", TIPO_APRESENTACAO)
+          .not("tipo", "in", `(${TIPO_APRESENTACAO},teste)`)
           .gte("enviada_em", inicioDoDiaBr());
 
         const { count: pendentes } = await admin
@@ -607,16 +609,25 @@ export async function POST(req: Request) {
            * reivindicar. Sem a migração, o campo não vai — e o agente segue
            * com a linha única de sempre.
            */
-          linhas: (await linhasDaOrg(org))?.map((l) => ({
-            id: l.id,
-            nome: l.nome,
-            principal: l.principal,
-            status: l.status,
-            desconectar_pedido: l.desconectar_pedido,
-            agente_id: l.agente_id,
-            minha: l.agente_id === agente.id,
-            ativa: l.ativa,
-          })),
+          linhas: await Promise.all(
+            ((await linhasDaOrg(org)) ?? []).map(async (l) => ({
+              id: l.id,
+              nome: l.nome,
+              principal: l.principal,
+              status: l.status,
+              desconectar_pedido: l.desconectar_pedido,
+              agente_id: l.agente_id,
+              minha: l.agente_id === agente.id,
+              /*
+               * Livre = sem dono, ou com um dono que não dá sinal há 15 min.
+               * É o que permite a um agente reinstalado (token novo, registro
+               * novo em `agentes`) retomar a própria linha em vez de ficar
+               * olhando para ela sem poder atender.
+               */
+              livre: await linhaOrfa(l),
+              ativa: l.ativa,
+            })),
+          ),
         });
       }
 
@@ -628,14 +639,11 @@ export async function POST(req: Request) {
       case "linha_reivindicar": {
         const id = idValido(corpo.linha_id);
         if (!id) return j({ ok: false });
-        const { data } = await admin
-          .from("whatsapp_linhas")
-          .update({ agente_id: agente.id, atualizado_em: agora() })
-          .eq("id", id)
-          .eq("org_id", org)
-          .is("agente_id", null)
-          .select("id");
-        return j({ ok: !!data && data.length > 0 });
+        const alvo = await resolverLinha(org, id);
+        if (!alvo) return j({ ok: false });
+        // Livre (sem dono) ou órfã (dono calado há 15 min): quem está no ar leva.
+        const nova = await assumirSeLivre(org, alvo, agente.id);
+        return j({ ok: nova.agente_id === agente.id });
       }
 
       /*
@@ -652,6 +660,7 @@ export async function POST(req: Request) {
           .eq("org_id", org)
           .eq("status", "enviada")
           .is("resposta_em", null)
+          .neq("tipo", "teste")
           .gte("enviada_em", new Date(Date.now() - 14 * 86_400_000).toISOString())
           .order("enviada_em", { ascending: false })
           .limit(60);
@@ -812,11 +821,17 @@ export async function POST(req: Request) {
          */
         const linhaEstado = await resolverLinha(org, corpo.linha_id);
         if (linhaEstado) {
-          await atualizarLinha(org, linhaEstado, {
+          /*
+           * Quem reporta o estado é quem está segurando a sessão — então
+           * assume a linha se ela estiver sem dono ou órfã. Sem isto, um
+           * agente reinstalado (token novo = registro novo em `agentes`)
+           * ficava para sempre fora da própria linha.
+           */
+          const dono = await assumirSeLivre(org, linhaEstado, agente.id);
+          await atualizarLinha(org, dono, {
             status: estado,
             mensagem,
             ...(qr !== undefined ? { qr } : {}),
-            ...(linhaEstado.agente_id === null ? { agente_id: agente.id } : {}),
           });
           return j({ ok: true });
         }
@@ -873,7 +888,14 @@ export async function POST(req: Request) {
          * da cadência e do limite dela). Sem a migração, `linha` é null e vale
          * o comportamento antigo — um WhatsApp por conta.
          */
-        const linha = await resolverLinha(org, corpo.linha_id);
+        /*
+         * Quem está pedindo mensagem está com a sessão na mão: se a linha
+         * estiver órfã, ele assume aqui mesmo. Sem isto, um agente antigo
+         * (que não sabe reivindicar) nunca voltaria a enviar depois de uma
+         * reinstalação — a linha ficaria presa a um dono que não existe mais.
+         */
+        const linhaBruta = await resolverLinha(org, corpo.linha_id);
+        const linha = linhaBruta ? await assumirSeLivre(org, linhaBruta, agente.id) : null;
         const cadencia = await cadenciaDaOrg(org);
         const tetoDoPlano = await tetoEnviosDaOrg(org);
         const limite = tetoDoPlano === null ? cadencia.limite_diario : Math.min(cadencia.limite_diario, tetoDoPlano);
@@ -889,7 +911,7 @@ export async function POST(req: Request) {
           .eq("org_id", org)
           .eq("status", "pendente")
           .eq("modo", "auto")
-          .eq("tipo", TIPO_APRESENTACAO)
+          .in("tipo", [TIPO_APRESENTACAO, "teste"])
           .order("created_at")
           .limit(1);
         const apresentacao = (apres as MensagemFila[] | null)?.[0];
@@ -916,7 +938,7 @@ export async function POST(req: Request) {
             .select("id", { count: "exact", head: true })
             .eq("org_id", org)
             .eq("status", "enviada")
-            .neq("tipo", TIPO_APRESENTACAO)
+            .not("tipo", "in", `(${TIPO_APRESENTACAO},teste)`)
             .gte("enviada_em", inicioDoDiaBr());
           if ((contatosHoje ?? 0) >= limite) return j({ mensagem: null, motivo: "limite do dia" });
         }

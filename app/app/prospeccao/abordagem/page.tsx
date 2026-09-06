@@ -7,6 +7,12 @@ import { funcaoLigada } from "@/lib/painel/flags";
 import Painel from "./Painel";
 import type { LinhaTela } from "./Linhas";
 import type { JaAbordado } from "./JaAbordei";
+import type { ResultadoTeste } from "./TesteEnvio";
+
+// Agente vivo = deu sinal nos últimos 15 min (o mesmo critério da tela do agente).
+function agenteVivo(ultimo: string | null | undefined): boolean {
+  return !!ultimo && Date.now() - new Date(ultimo).getTime() < 15 * 60_000;
+}
 
 type JaAbordadoRow = {
   id: string;
@@ -115,6 +121,45 @@ export default async function AbordagemPage() {
     const chave = (m as { linha_id?: string | null }).linha_id ?? principalId;
     if (chave) enviadasPorLinha.set(chave, (enviadasPorLinha.get(chave) ?? 0) + 1);
   }
+  /*
+   * O último teste de envio e se existe agente vivo — o card de diagnóstico
+   * precisa dos dois: um teste na fila sem agente no ar fica esperando para
+   * sempre, e é melhor a tela dizer isso antes de a pessoa esperar.
+   */
+  const { data: testeRaw } = await supabase
+    .from("prospeccao_mensagens")
+    .select("telefone, status, erro, created_at, enviada_em")
+    .eq("org_id", org.id)
+    .eq("tipo", "teste")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const linhaTeste = testeRaw as {
+    telefone: string;
+    status: NonNullable<ResultadoTeste>["status"];
+    erro: string | null;
+    created_at: string;
+    enviada_em: string | null;
+  } | null;
+  const ultimoTeste: ResultadoTeste = linhaTeste
+    ? {
+        telefone: linhaTeste.telefone,
+        status: linhaTeste.status,
+        erro: linhaTeste.erro,
+        criadoEm: linhaTeste.created_at,
+        enviadaEm: linhaTeste.enviada_em,
+      }
+    : null;
+
+  const { data: agentesRaw } = await supabase
+    .from("agentes")
+    .select("ultimo_contato")
+    .eq("org_id", org.id)
+    .order("ultimo_contato", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const agenteOnline = agenteVivo((agentesRaw as { ultimo_contato: string | null } | null)?.ultimo_contato);
+
   const linhasTela: LinhaTela[] = (linhasRaw ?? []).map((l) => ({
     id: l.id,
     nome: l.nome,
@@ -248,6 +293,8 @@ export default async function AbordagemPage() {
         linhas={linhasTela}
         maxLinhas={MAX_LINHAS}
         jaAbordados={jaAbordados}
+        ultimoTeste={ultimoTeste}
+        agenteOnline={agenteOnline}
         fechadorLigado={(await funcaoLigada("fechador")) && podeSites}
         resumoLigado={(await funcaoLigada("resumo_diario")) && (await podeUsar("prospeccao_resumo"))}
         cerebroLigado={(await funcaoLigada("mensagens_ia")) && (await podeUsar("prospeccao_ia"))}

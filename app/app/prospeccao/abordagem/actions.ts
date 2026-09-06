@@ -768,6 +768,65 @@ export async function cancelarMensagem(id: string) {
 }
 
 /*
+ * Teste de envio: um número, um texto, e o resultado de verdade.
+ *
+ * "O WhatsApp está conectado mas não manda" é a dúvida mais difícil de
+ * responder olhando a tela — conectado é um status guardado no banco, não uma
+ * prova. A mensagem de teste percorre o MESMO caminho de uma abordagem (fila
+ * → agente → WhatsApp Web) e volta com o veredito da ponta: enviada, ou o
+ * motivo exato da falha.
+ *
+ * Ela fura a fila e não conta no limite do dia — é diagnóstico, não venda.
+ */
+export async function enviarTesteZap(
+  _prev: EstadoAbordagem,
+  formData: FormData,
+): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const bruto = String(formData.get("telefone") ?? "").trim();
+  const telefone = telefoneWhatsapp(bruto);
+  if (!telefone) {
+    return { error: "Número inválido — use celular com DDD, ex.: (21) 99999-8888." };
+  }
+  const texto = String(formData.get("texto") ?? "").trim().slice(0, 600);
+  if (texto.length < 2) return { error: "Escreva a mensagem do teste." };
+  const linha = String(formData.get("linha") ?? "").trim();
+
+  const supabase = await createClient();
+  // Um teste por vez: o anterior que não saiu vira lixo na fila.
+  await supabase
+    .from("prospeccao_mensagens")
+    .delete()
+    .eq("org_id", org.id)
+    .eq("tipo", "teste")
+    .eq("status", "pendente");
+
+  const { error } = await supabase.from("prospeccao_mensagens").insert({
+    org_id: org.id,
+    prospecto_id: null,
+    telefone,
+    texto,
+    tipo: "teste",
+    modo: "auto",
+    status: "pendente",
+    ...(linha ? { linha_id: linha } : {}),
+  });
+  if (error) {
+    return /tipo|prospecto_id/.test(error.message)
+      ? { error: "Rode a migração do teste de envio no Supabase (2026-09-11_teste_envio.sql) primeiro." }
+      : { error: error.message };
+  }
+
+  revalidatePath("/app/prospeccao/abordagem");
+  return {
+    ok: `Teste na fila para ${bruto}. O agente manda em até 20 segundos — o resultado aparece aqui embaixo.`,
+  };
+}
+
+/*
  * Cancela a fila inteira — as mensagens que ainda não saíram.
  *
  * APAGA em vez de marcar como cancelada, e é de propósito: a trava "nunca
@@ -789,6 +848,7 @@ export async function cancelarFila(): Promise<EstadoAbordagem> {
     .delete()
     .eq("org_id", org.id)
     .eq("status", "pendente")
+    .neq("tipo", "teste")
     .select("id");
   if (error) return { error: error.message };
 

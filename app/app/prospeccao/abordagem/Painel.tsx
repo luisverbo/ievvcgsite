@@ -38,6 +38,7 @@ import Linhas, { type LinhaTela } from "./Linhas";
 import SeletorNicho from "./SeletorNicho";
 import JaAbordei, { type JaAbordado } from "./JaAbordei";
 import CancelarFila from "./CancelarFila";
+import TesteEnvio, { type ResultadoTeste } from "./TesteEnvio";
 
 // A primeira mensagem não precisa de etiqueta; as outras, sim — o usuário
 // tem que saber que está olhando a SEGUNDA conversa com aquele lead.
@@ -78,6 +79,8 @@ export default function Painel({
   linhas = [],
   maxLinhas = 5,
   jaAbordados = [],
+  ultimoTeste = null,
+  agenteOnline = false,
 }: {
   config: ConfigAbordagem;
   candidatos: ProspectoRow[];
@@ -88,6 +91,9 @@ export default function Painel({
   maxLinhas?: number;
   /* Quem já recebeu mensagem — a lista de onde sai o reenvio. */
   jaAbordados?: JaAbordado[];
+  /* O último teste de envio, para o card de diagnóstico. */
+  ultimoTeste?: ResultadoTeste;
+  agenteOnline?: boolean;
   /* Interruptores do Admin: desligado, o card correspondente nem aparece. */
   fechadorLigado?: boolean;
   resumoLigado?: boolean;
@@ -315,6 +321,20 @@ export default function Painel({
         pausado={pausado}
         naFila={naFilaAuto}
         maxLinhas={maxLinhas}
+      />
+
+      {/*
+        O teste de envio logo abaixo das linhas: é ali que a pessoa está
+        olhando quando desconfia que "conectado" não quer dizer "mandando".
+      */}
+      <TesteEnvio
+        ultimo={ultimoTeste}
+        agenteOnline={agenteOnline}
+        linhas={linhasTela.map((l) => ({
+          id: l.id,
+          nome: l.nome,
+          conectada: l.status === "conectado",
+        }))}
       />
 
       {/* ------------------------- escolher ----------------------------- */}

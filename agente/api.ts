@@ -254,6 +254,8 @@ export type LinhaInfo = {
   desconectar_pedido: boolean;
   agente_id: string | null;
   minha: boolean;
+  /* Sem dono, ou dono calado há 15 min — pode ser reivindicada. */
+  livre?: boolean;
   ativa: boolean;
 };
 

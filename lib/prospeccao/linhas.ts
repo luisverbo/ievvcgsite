@@ -130,6 +130,60 @@ export async function resolverLinha(orgId: string, linhaId: unknown): Promise<Li
   return linhas.find((l) => l.id === id) ?? null;
 }
 
+// Agente vivo = deu sinal nos últimos 15 min (o mesmo critério das telas).
+const VIVO_MS = 15 * 60_000;
+
+/*
+ * O dono desta linha ainda está no ar?
+ *
+ * Sem dono, ninguém segura a sessão — a linha está livre. Com dono calado há
+ * mais de 15 minutos, ela está ÓRFÃ: o programa que a segurava não existe
+ * mais (o cliente baixou o agente de novo, trocou de máquina, reinstalou).
+ * Toda vez que alguém baixa o agente nasce um registro novo em `agentes`, e
+ * sem esta conta a linha ficaria presa a um dono que nunca mais volta — o
+ * painel dizendo "conectado" e nada saindo, que é o pior sintoma possível.
+ */
+export async function linhaOrfa(linha: LinhaRow): Promise<boolean> {
+  if (!linha.agente_id) return true;
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("agentes")
+      .select("ultimo_contato")
+      .eq("id", linha.agente_id)
+      .maybeSingle();
+    const ultimo = (data as { ultimo_contato: string | null } | null)?.ultimo_contato;
+    return !ultimo || Date.now() - new Date(ultimo).getTime() >= VIVO_MS;
+  } catch {
+    return false;
+  }
+}
+
+/*
+ * O agente que está falando assume a linha, se ela estiver livre ou órfã.
+ * Devolve a linha já com o dono novo — é ela que o escalonador usa em
+ * seguida, para a mensagem sair na mesma volta em vez de esperar a próxima.
+ */
+export async function assumirSeLivre(
+  orgId: string,
+  linha: LinhaRow,
+  agenteId: string,
+): Promise<LinhaRow> {
+  if (linha.agente_id === agenteId) return linha;
+  if (!(await linhaOrfa(linha))) return linha;
+  try {
+    const admin = createAdminClient();
+    await admin
+      .from("whatsapp_linhas")
+      .update({ agente_id: agenteId, atualizado_em: new Date().toISOString() })
+      .eq("id", linha.id)
+      .eq("org_id", orgId);
+    return { ...linha, agente_id: agenteId };
+  } catch {
+    return linha;
+  }
+}
+
 type PatchLinha = Partial<
   Pick<LinhaRow, "status" | "mensagem" | "qr" | "desconectar_pedido" | "agente_id" | "ultima_enviada_em">
 >;
@@ -170,9 +224,6 @@ export type CadenciaEnvio = {
   proximo_envio_em: string | null;
 };
 
-// Agente vivo = deu sinal nos últimos 15 min (o mesmo critério das telas).
-const VIVO_MS = 15 * 60_000;
-
 /*
  * Esta linha pode mandar a próxima mensagem AGORA?
  *
@@ -206,12 +257,13 @@ export async function podeEnviarPor(
   if (continuacao) return { pode: true, motivo: "" };
 
   // Enviadas hoje, por linha (a principal também herda as sem linha, de antes).
+  // Apresentação e teste não são contato novo: ficam fora da conta do dia.
   const { data: hoje } = await admin
     .from("prospeccao_mensagens")
     .select("linha_id")
     .eq("org_id", orgId)
     .eq("status", "enviada")
-    .neq("tipo", "apresentacao")
+    .not("tipo", "in", "(apresentacao,teste)")
     .gte("enviada_em", inicioDoDiaBr());
   const contagem = new Map<string, number>();
   const principal = linhas.find((l) => l.principal)?.id ?? null;

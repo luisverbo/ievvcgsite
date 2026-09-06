@@ -39,6 +39,8 @@ type Linha = {
   status: string;
   desconectar_pedido: boolean;
   ativa: boolean;
+  /* Sem dono, ou dono calado há 15 min: dá para assumir. */
+  livre?: boolean;
 };
 
 // Não vale perguntar o estado da abordagem a cada volta de 8s do serviço.
@@ -127,11 +129,19 @@ export async function rodarAbordagem(headless: boolean, log: (m: string) => void
     const idsConhecidos = new Set<string>();
     for (const l of estado.linhas) {
       idsConhecidos.add(l.id);
+      /*
+       * Linha LIVRE (sem dono, ou com um dono que sumiu há 15 min) volta para
+       * quem tem a sessão dela em disco. É o que conserta o caso mais chato:
+       * o cliente baixa o agente de novo, o token novo vira outro registro, e
+       * a linha ficava presa ao agente antigo — painel dizendo "conectado" e
+       * nada saindo. Só reivindico o que eu realmente seguro (tenho o perfil)
+       * ou o que está pedindo QR agora.
+       */
       let minha = l.minha;
-      if (!minha && l.agente_id === null) {
+      if (!minha && (l.livre ?? l.agente_id === null)) {
         const querConectar = l.status === "aguardando_qr";
-        const principalDeCasa = l.principal && (await existe(PERFIL_ZAP));
-        if (querConectar || principalDeCasa) {
+        const temPerfil = await existe(l.principal ? PERFIL_ZAP : perfilDaLinha(l.id));
+        if (querConectar || temPerfil) {
           minha = await api.linhaReivindicar(l.id).catch(() => false);
           if (minha) log(`📱 ${l.nome}: passa a ser deste agente`);
         }
