@@ -19,6 +19,7 @@ import { escreverMensagens } from "@/lib/prospeccao/escrever";
 import { ofertaDaOrg } from "@/lib/prospeccao/oferta";
 import { funcaoLigada } from "@/lib/painel/flags";
 import type { ProspectoRow } from "@/lib/prospeccao/tipos";
+import { janelaDeConfig, janelaAberta, descreverJanela, quandoAbre } from "@/lib/prospeccao/janela";
 
 export type ConfigAbordagem = {
   org_id: string;
@@ -73,6 +74,11 @@ export type ConfigAbordagem = {
   aquecimento_por_hora?: number | null;
   aquecimento_grupo?: string | null;
   aquecimento_ultimo_em?: string | null;
+  // Horário de envio (Brasília): hora de início, de fim e dias da semana
+  // ("1,2,3,4,5" = seg a sex). Migração 2026-09-16.
+  envio_hora_inicio?: number | null;
+  envio_hora_fim?: number | null;
+  envio_dias?: string | null;
 };
 
 export type MensagemRow = {
@@ -753,11 +759,14 @@ export async function prepararAbordagem(
   const complemento = modoGancho
     ? " Quem responder recebe a apresentação sozinho, minutos depois."
     : "";
-  // Prometer "começa a enviar em instantes" com o envio pausado seria mentira
-  // — e o cliente ficaria esperando um agente que está de freio puxado.
+  // Prometer "começa a enviar em instantes" com o envio pausado — ou fora do
+  // horário — seria mentira, e o cliente ficaria esperando à toa.
+  const janelaCfg = janelaDeConfig(cfg as Parameters<typeof janelaDeConfig>[0]);
   const comeco = cfg?.envio_pausado
     ? " ⏸️ O envio está PAUSADO: elas ficam guardadas até você clicar em Retomar."
-    : " O agente começa a enviar em instantes.";
+    : janelaCfg && !janelaAberta(janelaCfg)
+      ? ` 🕒 Fora do horário de envio (${descreverJanela(janelaCfg)}): o agente começa ${quandoAbre(janelaCfg)}.`
+      : " O agente começa a enviar em instantes.";
   return {
     ok:
       modo === "auto"
@@ -1240,4 +1249,40 @@ export async function pararAquecimento(): Promise<EstadoAbordagem> {
     .eq("status", "pendente");
   revalidatePath("/app/prospeccao/abordagem");
   return { ok: "Aquecimento desligado." };
+}
+
+
+/* ----------------------------- horário de envio ---------------------------- */
+
+export async function salvarHorarioEnvio(_: EstadoAbordagem, formData: FormData): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const inicio = Math.min(23, Math.max(0, Number(formData.get("inicio"))));
+  const fim = Math.min(24, Math.max(1, Number(formData.get("fim"))));
+  if (!Number.isInteger(inicio) || !Number.isInteger(fim)) return { error: "Horário inválido." };
+  if (fim <= inicio) return { error: "A hora de parar precisa ser depois da de começar." };
+  const dias = [...new Set(formData.getAll("dias").map((d) => Number(d)).filter((d) => Number.isInteger(d) && d >= 0 && d <= 6))].sort();
+  if (dias.length === 0) return { error: "Escolha pelo menos um dia da semana." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("prospeccao_config").upsert(
+    {
+      org_id: org.id,
+      envio_hora_inicio: inicio,
+      envio_hora_fim: fim,
+      envio_dias: dias.join(","),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "org_id" },
+  );
+  if (error) {
+    return /envio_hora|envio_dias/.test(error.message)
+      ? { error: "Rode a migração do horário no Supabase (2026-09-16_horario_envio.sql) primeiro." }
+      : { error: error.message };
+  }
+  revalidatePath("/app/prospeccao/abordagem");
+  revalidatePath("/app/prospeccao", "layout");
+  return { ok: `Horário salvo: ${descreverJanela({ inicio, fim, dias })}.` };
 }

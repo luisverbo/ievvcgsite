@@ -9,6 +9,19 @@ import type { FotoFalha, LinhaTela } from "./Linhas";
 import type { JaAbordado } from "./JaAbordei";
 import type { ResultadoTeste } from "./TesteEnvio";
 
+// A janela de envio e o estado dela agora (fora do render: relógio aqui).
+function montarJanelaInfo(bruto: Parameters<typeof janelaDeConfig>[0]) {
+  const janelaReal = janelaDeConfig(bruto);
+  const agoraMs = Date.now();
+  return {
+    janela: janelaReal ?? JANELA_PADRAO,
+    disponivel: janelaReal !== null,
+    aberta: janelaReal ? janelaAberta(janelaReal, agoraMs) : true,
+    retomaEm: janelaReal ? quandoAbre(janelaReal, agoraMs) : "",
+    agora: agoraMs,
+  };
+}
+
 // Aquecimento ligado = prazo no futuro.
 function aquecimentoAtivo(ate: string | null | undefined): boolean {
   return !!ate && new Date(ate).getTime() > Date.now();
@@ -29,6 +42,7 @@ type JaAbordadoRow = {
   nao_perturbar: boolean | null;
 };
 import { linhasDaOrg, restricoesDaOrg, MAX_LINHAS } from "@/lib/prospeccao/linhas";
+import { janelaDeConfig, janelaAberta, quandoAbre, JANELA_PADRAO } from "@/lib/prospeccao/janela";
 import { inicioDoDiaBr } from "@/lib/prospeccao/dia";
 import type { ConfigAbordagem, MensagemRow } from "./actions";
 import { telefoneWhatsapp } from "@/lib/prospeccao/mensagem";
@@ -188,6 +202,13 @@ export default async function AbordagemPage() {
     .maybeSingle();
   const agenteOnline = agenteVivo((agentesRaw as { ultimo_contato: string | null } | null)?.ultimo_contato);
 
+  /*
+   * A janela de envio. `janelaDeConfig` devolve null quando as colunas não
+   * vieram (migração 2026-09-16 pendente): aí a tela mostra o padrão, mas
+   * avisa que o servidor ainda envia a qualquer hora.
+   */
+  const janelaInfo = montarJanelaInfo(bruto);
+
   // Restrições do WhatsApp em vigor (migração 2026-09-14; vazio sem ela).
   const restricoes = await restricoesDaOrg(org.id);
   // O número de cada linha (migração 2026-09-15; vazio sem ela).
@@ -337,6 +358,7 @@ export default async function AbordagemPage() {
         agenteOnline={agenteOnline}
         fotoFalha={fotoFalha}
         aquecimentoLigado={aquecimentoAtivo(config.aquecimento_ate)}
+        janelaInfo={janelaInfo}
         fechadorLigado={(await funcaoLigada("fechador")) && podeSites}
         resumoLigado={(await funcaoLigada("resumo_diario")) && (await podeUsar("prospeccao_resumo"))}
         cerebroLigado={(await funcaoLigada("mensagens_ia")) && (await podeUsar("prospeccao_ia"))}

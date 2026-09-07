@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { linhasDaOrg, restricoesDaOrg } from "./linhas";
+import { janelaDeConfig, janelaAberta } from "./janela";
 
 /*
  * Aquecimento de linhas.
@@ -139,7 +140,21 @@ export async function prepararAquecimento(orgId: string): Promise<boolean> {
     if (error || !cfgRaw) return false;
     const cfg = cfgRaw as ConfigAquecimento;
     if (!cfg.aquecimento_ate || new Date(cfg.aquecimento_ate).getTime() < Date.now()) return false;
-    if (!dentroDoHorario()) return false;
+
+    // A mesma janela do envio (migração 2026-09-16); sem ela, 8h–22h.
+    let noHorario = dentroDoHorario();
+    try {
+      const { data: jRaw, error: eJ } = await admin
+        .from("prospeccao_config")
+        .select("envio_hora_inicio, envio_hora_fim, envio_dias")
+        .eq("org_id", orgId)
+        .maybeSingle();
+      const janela = eJ ? null : janelaDeConfig(jRaw as { envio_hora_inicio: number; envio_hora_fim: number; envio_dias: string } | null);
+      if (janela) noHorario = janelaAberta(janela);
+    } catch {
+      /* fica o padrão */
+    }
+    if (!noHorario) return false;
 
     // Uma por vez: se a anterior ainda não saiu, espera.
     const { count: pendentes } = await admin

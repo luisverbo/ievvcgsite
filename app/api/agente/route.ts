@@ -45,6 +45,7 @@ async function cadenciaDaOrg(orgId: string): Promise<CadenciaEnvio & { limite_di
 }
 import { prepararFollowups } from "@/lib/prospeccao/followup";
 import { prepararAquecimento, TIPO_AQUECIMENTO } from "@/lib/prospeccao/aquecimento";
+import { janelaDeConfig, janelaAberta, proximaAbertura, descreverJanela, quandoAbre, type Janela } from "@/lib/prospeccao/janela";
 import { funcaoLigada } from "@/lib/painel/flags";
 import { inicioDoDiaBr } from "@/lib/prospeccao/dia";
 import { orgPodeUsar } from "@/lib/painel/permissoes";
@@ -103,6 +104,25 @@ async function envioPausado(orgId: string): Promise<boolean> {
     return (data as { envio_pausado: boolean | null } | null)?.envio_pausado === true;
   } catch {
     return false;
+  }
+}
+
+/*
+ * A janela de envio da conta (migração 2026-09-16). null = sem a migração:
+ * envia em qualquer hora, como sempre foi. Consulta própria e tolerante.
+ */
+async function janelaDaOrg(orgId: string): Promise<Janela | null> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("prospeccao_config")
+      .select("envio_hora_inicio, envio_hora_fim, envio_dias")
+      .eq("org_id", orgId)
+      .maybeSingle();
+    if (error || !data) return null;
+    return janelaDeConfig(data as { envio_hora_inicio: number; envio_hora_fim: number; envio_dias: string });
+  } catch {
+    return null;
   }
 }
 
@@ -636,6 +656,15 @@ export async function POST(req: Request) {
         // Sem prospecção no plano (teste vencido, suspenso), vale como pausado.
         const pausado = (await envioPausado(org)) || !(await orgPodeUsar(org, "prospeccao"));
 
+        /*
+         * A janela de envio: fora dela a fila de prospecção espera. Vai no
+         * estado para o agente nem abrir o navegador para enviar (a escuta
+         * continua) — e `pendentes` some do ponto de vista do agente antigo,
+         * que só sabe olhar esse número.
+         */
+        const janela = await janelaDaOrg(org);
+        const janelaFechada = janela ? !janelaAberta(janela) : false;
+
         // Teste grátis: o teto de envios é do plano, por cima do que o
         // cliente configurou. O agente recebe o menor dos dois.
         const tetoPlano = await tetoEnviosDaOrg(org);
@@ -713,10 +742,21 @@ export async function POST(req: Request) {
           // WhatsApp só para enviar, mas continua escutando e conectando.
           // Pausado, a fila some do ponto de vista do agente — menos o que
           // fura a pausa (o teste), senão ele nem pergunta.
-          pendentes: pausado ? (continuacoes ?? 0) : (pendentes ?? 0),
+          pendentes: pausado || janelaFechada ? (continuacoes ?? 0) : (pendentes ?? 0),
           aguardando,
           continuacoes: continuacoes ?? 0,
           pausado,
+          janela: janela
+            ? {
+                inicio: janela.inicio,
+                fim: janela.fim,
+                dias: janela.dias,
+                aberta: !janelaFechada,
+                proxima_abertura: janelaFechada ? (proximaAbertura(janela)?.toISOString() ?? null) : null,
+                resumo: descreverJanela(janela),
+                retoma: janelaFechada ? quandoAbre(janela) : null,
+              }
+            : null,
           /*
            * As linhas de WhatsApp da conta, para o agente saber quais sessões
            * abrir: as dele (`minha`), e as livres pedindo QR, que ele pode
@@ -1080,6 +1120,12 @@ export async function POST(req: Request) {
          * está parado não serviria para nada.
          */
         if (pausadoAgora) return recusar("envio pausado no painel");
+
+        // A janela: contato novo só nas horas e dias que o dono escolheu.
+        const janelaEnvio = await janelaDaOrg(org);
+        if (janelaEnvio && !janelaAberta(janelaEnvio)) {
+          return recusar(`fora do horário de envio (${descreverJanela(janelaEnvio)}) — retoma ${quandoAbre(janelaEnvio)}`);
+        }
 
         if (linha) {
           const v = await podeEnviarPor(org, linha, cadencia, limite, false);

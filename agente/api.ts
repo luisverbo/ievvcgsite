@@ -185,6 +185,16 @@ export const abordagemEstado = () =>
     pausado?: boolean;
     /* As linhas de WhatsApp da conta. Servidor antigo não manda: uma linha só. */
     linhas?: LinhaInfo[];
+    /* A janela de envio (horas e dias, Brasília). Servidor antigo não manda. */
+    janela?: {
+      inicio: number;
+      fim: number;
+      dias: number[];
+      aberta: boolean;
+      proxima_abertura: string | null;
+      resumo: string;
+      retoma: string | null;
+    } | null;
   }>("abordagem_estado");
 
 /* --------------------------------- escuta --------------------------------- */

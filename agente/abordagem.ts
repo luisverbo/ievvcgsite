@@ -66,6 +66,9 @@ let pausadoAvisado = false;
 // O aviso de "linha restringida" sai uma vez por restrição, por linha.
 const restricaoAvisada = new Map<string, string>();
 
+// O aviso de "fora do horário" sai uma vez por fechamento, não a cada volta.
+let janelaAvisada = false;
+
 /*
  * A última mensagem que derrubou o navegador. A primeira falha devolve a
  * mensagem à fila (a sessão pode ter caído por azar); se a MESMA mensagem
@@ -132,6 +135,21 @@ export async function rodarAbordagem(headless: boolean, log: (m: string) => void
   pausadoAvisado = pausado;
 
   /*
+   * A janela de envio: fora das horas e dias escolhidos no painel, a fila
+   * de prospecção espera. O navegador só abre para escutar (e para as
+   * continuações — apresentação, teste, aquecimento — que furam a janela
+   * por escolha do servidor). O servidor também recusa; aqui é para não
+   * ficar um navegador aberto à toa a noite inteira.
+   */
+  const janelaFechada = estado.janela ? !estado.janela.aberta : false;
+  if (janelaFechada && !janelaAvisada) {
+    log(
+      `🕒 fora do horário de envio (${estado.janela!.resumo}) — retoma ${estado.janela!.retoma ?? "quando abrir"}; a escuta continua`,
+    );
+  }
+  janelaAvisada = janelaFechada;
+
+  /*
    * Quais linhas são minhas. Servidor com linhas: as que têm o meu id, mais
    * as que ninguém segura e o painel pediu para conectar (reivindico — quem
    * chega primeiro leva). A principal sem dono é minha se eu tiver o perfil
@@ -193,6 +211,7 @@ export async function rodarAbordagem(headless: boolean, log: (m: string) => void
     pendentes,
     aguardando,
     continuacoes,
+    janelaFechada,
     servidorComLinhas: Boolean(estado.linhas),
   };
   // O resumo (ou aviso) do dono sai por UMA linha só — a primeira conectada.
@@ -216,6 +235,7 @@ type Comum = {
   intervaloMax: number;
   pendentes: number;
   aguardando: number;
+  janelaFechada: boolean;
   continuacoes: number;
   resumo: boolean;
   servidorComLinhas: boolean;
@@ -264,7 +284,8 @@ async function atenderLinha(linha: Linha, c: Comum): Promise<{ mandouResumo: boo
       ).toLocaleString("pt-BR")} — envio parado nela`,
     );
   }
-  const querEnviar = linha.ativa && !restrita && (c.pendentes > 0 || c.continuacoes > 0);
+  const querEnviar =
+    linha.ativa && !restrita && ((c.pendentes > 0 && !c.janelaFechada) || c.continuacoes > 0);
   if (!pedidoConexao && !querEnviar && !escutar && !resumo) return nada;
 
   // Só um pedido de conexão, com a sessão já de pé: nada a fazer além de

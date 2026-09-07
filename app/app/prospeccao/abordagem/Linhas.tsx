@@ -365,7 +365,8 @@ export default function Linhas({
           {!/entregue/.test(motivo) && (
             <span className="mt-1 block">
               Enquanto isto não virar “mensagem entregue”, nada sai. Se disser que a linha está fora
-              do ar, reconecte; se falar em intervalo ou vez, é só esperar o ritmo que você definiu.
+              do ar, reconecte; se falar em intervalo, vez ou horário, é só esperar o ritmo e a
+              janela que você definiu.
             </span>
           )}
         </p>

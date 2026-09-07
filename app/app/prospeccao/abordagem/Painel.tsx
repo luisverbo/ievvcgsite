@@ -41,6 +41,8 @@ import JaAbordei, { type JaAbordado } from "./JaAbordei";
 import CancelarFila from "./CancelarFila";
 import TesteEnvio, { type ResultadoTeste } from "./TesteEnvio";
 import Aquecimento from "./Aquecimento";
+import HorarioEnvio from "./HorarioEnvio";
+import type { Janela } from "@/lib/prospeccao/janela";
 
 // A primeira mensagem não precisa de etiqueta; as outras, sim — o usuário
 // tem que saber que está olhando a SEGUNDA conversa com aquele lead.
@@ -88,6 +90,7 @@ export default function Painel({
   agenteOnline = false,
   fotoFalha = null,
   aquecimentoLigado = false,
+  janelaInfo = null,
 }: {
   config: ConfigAbordagem;
   candidatos: ProspectoRow[];
@@ -105,6 +108,8 @@ export default function Painel({
   fotoFalha?: FotoFalha | null;
   /* Aquecimento com prazo no futuro (calculado no servidor). */
   aquecimentoLigado?: boolean;
+  /* A janela de envio e o estado dela agora (calculado no servidor). */
+  janelaInfo?: { janela: Janela; disponivel: boolean; aberta: boolean; retomaEm: string; agora: number } | null;
   /* Interruptores do Admin: desligado, o card correspondente nem aparece. */
   fechadorLigado?: boolean;
   resumoLigado?: boolean;
@@ -208,6 +213,7 @@ export default function Painel({
   const semi = pendentes.filter((m) => m.modo === "semi");
   const pausado = config.envio_pausado === true;
   const naFilaAuto = pendentes.filter((m) => m.modo === "auto").length;
+  const foraDoHorario = !!janelaInfo && janelaInfo.disponivel && !janelaInfo.aberta;
   const enviadasHoje = mensagens.filter(
     (m) => m.status === "enviada" && m.enviada_em && m.enviada_em > hojeInicio(),
   ).length;
@@ -283,7 +289,23 @@ export default function Painel({
         O agente conversando é o produto acontecendo — merece o palco de cima.
         Só aparece quando a fila automática está andando de verdade.
       */}
-      {temFilaAuto && !pausado && config.whatsapp_status === "conectado" && (
+      {/* Fora do horário com fila esperando: o estado que explica o silêncio da noite. */}
+      {temFilaAuto && !pausado && foraDoHorario && (
+        <div className="anim-entrada flex flex-wrap items-center gap-4 rounded-2xl border border-white/10 bg-ink-2 p-5">
+          <Robo estado="dormindo" tamanho={56} />
+          <div className="min-w-0 flex-1">
+            <h2 className="font-display text-lg font-extrabold text-paper">🕒 Fora do horário de envio</h2>
+            <p className="mt-0.5 text-sm text-paper-dim">
+              <b className="text-paper">{naFilaAuto}</b> na fila esperando · o agente retoma{" "}
+              <b className="text-paper">{janelaInfo!.retomaEm}</b>. Enquanto isso ele continua escutando quem
+              responde; a apresentação de quem responder sai na hora.
+            </p>
+          </div>
+          <CancelarFila quantas={pendentes.length} />
+        </div>
+      )}
+
+      {temFilaAuto && !pausado && !foraDoHorario && config.whatsapp_status === "conectado" && (
         <div className="anim-entrada card-aurora rounded-2xl p-5">
           <div className="flex flex-wrap items-center gap-4">
             <Robo estado="trabalhando" tamanho={64} />
@@ -338,6 +360,18 @@ export default function Painel({
         motivoEm={config.ultimo_motivo_em}
         fotoFalha={fotoFalha}
       />
+
+      {janelaInfo && (
+        <HorarioEnvio
+          janela={janelaInfo.janela}
+          disponivel={janelaInfo.disponivel}
+          aberta={janelaInfo.aberta}
+          retomaEm={janelaInfo.retomaEm}
+          naFila={naFilaAuto}
+          porDia={config.limite_diario * Math.max(1, linhasTela.filter((l) => l.ativa && l.status === "conectado").length)}
+          agora={janelaInfo.agora}
+        />
+      )}
 
       {/*
         O teste de envio logo abaixo das linhas: é ali que a pessoa está
