@@ -643,3 +643,90 @@ export async function enviarMensagem(
 
   return { ok: true };
 }
+
+/*
+ * Manda num GRUPO, pelo nome — o aquecimento entre as linhas da conta, quando
+ * o dono criou um grupo com todas. Sem endereço por URL: abre o grupo pela
+ * lista de conversas (ou pela busca), digita e manda.
+ */
+export async function enviarNoGrupo(
+  page: Page,
+  nomeGrupo: string,
+  texto: string,
+  opcoes: Pick<OpcoesEnvio, "log" | "pausaAntesMs" | "confirmacaoMs" | "esperaAberturaMs"> = {},
+): Promise<ResultadoEnvio> {
+  const log = opcoes.log ?? (() => {});
+  const [pausaMin, pausaMax] = opcoes.pausaAntesMs ?? [1200, 3000];
+  const confirmacao = opcoes.confirmacaoMs ?? 2500;
+  const teto = opcoes.esperaAberturaMs ?? 60_000;
+  const nome = nomeGrupo.trim();
+
+  if (!(await estaConectado(page))) {
+    if (await acharQr(page)) return { ok: false, motivo: "A sessão do WhatsApp caiu.", pararTudo: true };
+    return { ok: false, motivo: "O WhatsApp ainda não carregou a lista de conversas.", tentarDeNovo: true };
+  }
+
+  // 1) Na lista de conversas, pelo título exato.
+  const naLista = page.locator(`#pane-side span[title="${nome.replace(/"/g, '\\"')}"]`).first();
+  if ((await naLista.count()) > 0) {
+    await naLista.click({ timeout: 10_000 }).catch(() => {});
+  } else {
+    // 2) Pela busca: digita o nome e clica no resultado com esse título.
+    const busca = page
+      .locator('#side [contenteditable="true"][data-tab="3"], #side div[role="textbox"][contenteditable="true"]')
+      .first();
+    if ((await busca.count()) === 0) {
+      return { ok: false, motivo: `Não achei o grupo "${nome}" na lista nem a busca do WhatsApp.`, tentarDeNovo: true };
+    }
+    await busca.click({ timeout: 5000 }).catch(() => {});
+    await page.keyboard.press("Control+A").catch(() => {});
+    await page.keyboard.type(nome, { delay: 40 });
+    await espera(2500);
+    const resultado = page.locator(`#side span[title="${nome.replace(/"/g, '\\"')}"]`).first();
+    if ((await resultado.count()) === 0) {
+      await page.keyboard.press("Escape").catch(() => {});
+      return {
+        ok: false,
+        motivo: `O grupo "${nome}" não apareceu na busca. Confira o nome exato no celular desta linha.`,
+      };
+    }
+    await resultado.click({ timeout: 10_000 }).catch(() => {});
+  }
+
+  // A caixa da conversa: espera aparecer, como no envio comum.
+  const caixa = page.locator(SELETOR_CAIXA).first();
+  const inicio = Date.now();
+  while (Date.now() - inicio < teto && (await caixa.count()) === 0) await espera(800);
+  if ((await caixa.count()) === 0) {
+    const { dataUri } = await fotografarFalha(page, `grupo-${nome}`);
+    return { ok: false, motivo: `Abri "${nome}" mas a caixa de texto não apareceu.`, foto: dataUri ?? undefined, tentarDeNovo: true };
+  }
+
+  // Confere que é o grupo certo: o cabeçalho da conversa traz o nome.
+  const cabecalho = ((await page.locator(`${SELETOR_CONVERSA} header`).first().innerText().catch(() => "")) ?? "").trim();
+  if (cabecalho && !cabecalho.toLowerCase().includes(nome.toLowerCase())) {
+    return { ok: false, motivo: `Abriu outra conversa ("${cabecalho.slice(0, 40)}") em vez do grupo "${nome}".` };
+  }
+
+  await espera(pausaMin + Math.random() * Math.max(0, pausaMax - pausaMin));
+  await caixa.click({ timeout: 10_000 }).catch(() => {});
+  await page.keyboard.type(texto, { delay: 30 + Math.random() * 50 });
+  await espera(300);
+  await page.keyboard.press("Enter");
+
+  await espera(confirmacao);
+  const restou = (await caixa.textContent().catch(() => ""))?.trim() ?? "";
+  if (restou.length > 0 && restou.length >= texto.length / 2) {
+    const botao = page.locator('button[aria-label*="Enviar" i], button[aria-label*="Send" i], [data-icon="send"]').first();
+    if ((await botao.count()) > 0) {
+      await botao.click({ timeout: 5000 }).catch(() => {});
+      await espera(confirmacao);
+    }
+    const ainda = (await caixa.textContent().catch(() => ""))?.trim() ?? "";
+    if (ainda.length > 0 && ainda.length >= texto.length / 2) {
+      return { ok: false, motivo: "A mensagem não saiu da caixa de texto do grupo.", tentarDeNovo: true };
+    }
+  }
+  log(`grupo "${nome}": mensagem enviada`);
+  return { ok: true };
+}

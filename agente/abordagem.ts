@@ -22,6 +22,7 @@ import {
   abrirWhatsapp,
   aguardarConexao,
   enviarMensagem,
+  enviarNoGrupo,
   lerRespostas,
   PERFIL_ZAP,
   perfilDaLinha,
@@ -379,7 +380,9 @@ async function atenderLinha(linha: Linha, c: Comum): Promise<{ mandouResumo: boo
    */
   let r: Awaited<ReturnType<typeof enviarMensagem>>;
   try {
-    r = await enviarMensagem(sessao.page, msg.telefone, msg.texto, { log: (m) => log(`${rotulo}: ${m}`) });
+    r = msg.grupo
+      ? await enviarNoGrupo(sessao.page, msg.grupo, msg.texto, { log: (m) => log(`${rotulo}: ${m}`) })
+      : await enviarMensagem(sessao.page, msg.telefone, msg.texto, { log: (m) => log(`${rotulo}: ${m}`) });
   } catch (e) {
     const motivoErro = `falha no navegador: ${(e as Error).message.slice(0, 160)}`;
     const repetida = ultimaFalha?.id === msg.id;

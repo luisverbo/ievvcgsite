@@ -301,7 +301,7 @@ export async function podeEnviarPor(
     .select("linha_id")
     .eq("org_id", orgId)
     .eq("status", "enviada")
-    .not("tipo", "in", "(apresentacao,teste)")
+    .not("tipo", "in", "(apresentacao,teste,aquecimento)")
     .gte("enviada_em", inicioDoDiaBr());
   const contagem = new Map<string, number>();
   const principal = linhas.find((l) => l.principal)?.id ?? null;

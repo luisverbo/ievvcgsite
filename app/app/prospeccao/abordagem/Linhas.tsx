@@ -11,9 +11,11 @@ import {
   desconectarWhatsapp,
   removerLinha,
   salvarLinhasSimultaneas,
+  salvarTelefoneLinha,
   type EstadoAbordagem,
 } from "./actions";
 import Robo from "@/components/painel/Robo";
+import { inputClass } from "@/components/painel/ui";
 import PausarEnvio from "./PausarEnvio";
 
 /*
@@ -40,6 +42,8 @@ export type LinhaTela = {
   enviadasHoje: number;
   /* O WhatsApp restringiu este número (não abre conversas novas) até aqui. */
   restringidaAte: string | null;
+  /* O número desta linha (DDI+DDD+número) — para o aquecimento entre linhas. */
+  telefone: string | null;
 };
 
 /* A foto da tela na última falha de envio, com a linha, a hora e o motivo. */
@@ -207,6 +211,29 @@ export default function Linhas({
               )}
 
               {l.mensagem && <p className="mt-2 text-xs text-paper-dim">{l.mensagem}</p>}
+
+              {!legado && (
+                <form
+                  className="mt-2 flex flex-wrap items-center gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const fd = new FormData(e.currentTarget);
+                    acao(() => salvarTelefoneLinha(l.id, String(fd.get("telefone") ?? "")));
+                  }}
+                >
+                  <label className="text-[11px] text-paper-dim">número desta linha</label>
+                  <input
+                    name="telefone"
+                    defaultValue={l.telefone ?? ""}
+                    placeholder="5521999998888"
+                    inputMode="numeric"
+                    className={`${inputClass} w-40 py-1 text-xs`}
+                  />
+                  <button type="submit" className="rounded-lg border border-white/15 px-3 py-1 text-[11px] text-paper-dim hover:text-paper">
+                    salvar
+                  </button>
+                </form>
+              )}
 
               {l.status === "aguardando_qr" && !l.qr && (
                 <p className="mt-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-brand-2">

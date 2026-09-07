@@ -284,6 +284,8 @@ export type MensagemPendente = {
   prospecto_id: string;
   telefone: string;
   texto: string;
+  /* Aquecimento num grupo: manda pelo NOME do grupo, não pelo número. */
+  grupo?: string | null;
 };
 
 export const proximaMensagem = (linhaId?: string | null) =>

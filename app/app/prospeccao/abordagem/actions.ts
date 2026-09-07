@@ -67,6 +67,12 @@ export type ConfigAbordagem = {
   // tela mostra quando "está conectado e não sai nada".
   ultimo_motivo?: string | null;
   ultimo_motivo_em?: string | null;
+  // Aquecimento: as linhas da conta conversam entre si até esta data,
+  // N vezes por hora, e num grupo (pelo nome) se o dono criou um.
+  aquecimento_ate?: string | null;
+  aquecimento_por_hora?: number | null;
+  aquecimento_grupo?: string | null;
+  aquecimento_ultimo_em?: string | null;
 };
 
 export type MensagemRow = {
@@ -74,7 +80,8 @@ export type MensagemRow = {
   prospecto_id: string;
   telefone: string;
   texto: string;
-  tipo?: "abordagem" | "fechamento" | "followup" | "gancho" | "apresentacao" | "reenvio";
+  tipo?: "abordagem" | "fechamento" | "followup" | "gancho" | "apresentacao" | "reenvio" | "teste" | "aquecimento";
+  grupo?: string | null;
   linha_id?: string | null;
   modo: "semi" | "auto";
   status: "pendente" | "enviada" | "erro" | "cancelada" | "sem_whatsapp";
@@ -1133,4 +1140,85 @@ export async function desconectarWhatsapp() {
     );
   }
   revalidatePath("/app/prospeccao/abordagem");
+}
+
+
+/* ------------------------------ aquecimento ------------------------------- */
+
+// O número de uma linha: é para ele que as outras mandam no aquecimento.
+export async function salvarTelefoneLinha(linhaId: string, telefone: string): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+  const digitos = telefone.replace(/\D/g, "");
+  if (digitos && (digitos.length < 10 || digitos.length > 15)) {
+    return { error: "Número incompleto. Use DDI + DDD + número, ex.: 5521999998888." };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("whatsapp_linhas")
+    .update({ telefone: digitos || null })
+    .eq("id", linhaId)
+    .eq("org_id", org.id);
+  if (error) {
+    return /telefone/.test(error.message)
+      ? { error: "Rode a migração do aquecimento no Supabase (2026-09-15_aquecimento.sql) primeiro." }
+      : { error: error.message };
+  }
+  revalidatePath("/app/prospeccao/abordagem");
+  return { ok: "Número salvo." };
+}
+
+/*
+ * Liga o aquecimento por N dias. O servidor cuida do resto: a cada checagem
+ * do agente ele decide se é hora de mais uma troca entre as linhas.
+ */
+export async function configurarAquecimento(_: EstadoAbordagem, formData: FormData): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const dias = Math.min(14, Math.max(1, Number(formData.get("dias")) || 2));
+  const porHora = Math.min(12, Math.max(1, Number(formData.get("por_hora")) || 4));
+  const grupo = String(formData.get("grupo") ?? "").trim().slice(0, 80) || null;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("prospeccao_config").upsert(
+    {
+      org_id: org.id,
+      aquecimento_ate: new Date(Date.now() + dias * 86_400_000).toISOString(),
+      aquecimento_por_hora: porHora,
+      aquecimento_grupo: grupo,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "org_id" },
+  );
+  if (error) {
+    return /aquecimento/.test(error.message)
+      ? { error: "Rode a migração do aquecimento no Supabase (2026-09-15_aquecimento.sql) primeiro." }
+      : { error: error.message };
+  }
+  revalidatePath("/app/prospeccao/abordagem");
+  return { ok: `Aquecimento ligado por ${dias} dia${dias > 1 ? "s" : ""}, ${porHora} troca${porHora > 1 ? "s" : ""} por hora.` };
+}
+
+export async function pararAquecimento(): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("prospeccao_config")
+    .update({ aquecimento_ate: null, updated_at: new Date().toISOString() })
+    .eq("org_id", org.id);
+  if (error) return { error: error.message };
+  // O que ainda estava na fila de aquecimento não precisa sair.
+  await supabase
+    .from("prospeccao_mensagens")
+    .update({ status: "cancelada" })
+    .eq("org_id", org.id)
+    .eq("tipo", "aquecimento")
+    .eq("status", "pendente");
+  revalidatePath("/app/prospeccao/abordagem");
+  return { ok: "Aquecimento desligado." };
 }

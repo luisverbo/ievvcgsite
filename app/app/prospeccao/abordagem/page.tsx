@@ -9,6 +9,11 @@ import type { FotoFalha, LinhaTela } from "./Linhas";
 import type { JaAbordado } from "./JaAbordei";
 import type { ResultadoTeste } from "./TesteEnvio";
 
+// Aquecimento ligado = prazo no futuro.
+function aquecimentoAtivo(ate: string | null | undefined): boolean {
+  return !!ate && new Date(ate).getTime() > Date.now();
+}
+
 // Agente vivo = deu sinal nos últimos 15 min (o mesmo critério da tela do agente).
 function agenteVivo(ultimo: string | null | undefined): boolean {
   return !!ultimo && Date.now() - new Date(ultimo).getTime() < 15 * 60_000;
@@ -79,6 +84,10 @@ export default async function AbordagemPage() {
     followup_ligado: false,
     followup_dias: 4,
     followup_msg_modelo: null,
+    aquecimento_ate: null,
+    aquecimento_por_hora: 4,
+    aquecimento_grupo: null,
+    aquecimento_ultimo_em: null,
     ...(bruto ?? {}),
   };
 
@@ -181,6 +190,14 @@ export default async function AbordagemPage() {
 
   // Restrições do WhatsApp em vigor (migração 2026-09-14; vazio sem ela).
   const restricoes = await restricoesDaOrg(org.id);
+  // O número de cada linha (migração 2026-09-15; vazio sem ela).
+  const telefones = new Map<string, string | null>();
+  try {
+    const { data: tels } = await supabase.from("whatsapp_linhas").select("id, telefone").eq("org_id", org.id);
+    for (const t of (tels as { id: string; telefone: string | null }[] | null) ?? []) telefones.set(t.id, t.telefone);
+  } catch {
+    /* migração pendente */
+  }
   const linhasTela: LinhaTela[] = (linhasRaw ?? []).map((l) => ({
     id: l.id,
     nome: l.nome,
@@ -192,6 +209,7 @@ export default async function AbordagemPage() {
     desconectar_pedido: l.desconectar_pedido,
     enviadasHoje: enviadasPorLinha.get(l.id) ?? 0,
     restringidaAte: restricoes.get(l.id)?.ate ?? null,
+    telefone: telefones.get(l.id) ?? null,
   }));
   const prospectos = (prospRaw as ProspectoRow[] | null) ?? [];
 
@@ -318,6 +336,7 @@ export default async function AbordagemPage() {
         ultimoTeste={ultimoTeste}
         agenteOnline={agenteOnline}
         fotoFalha={fotoFalha}
+        aquecimentoLigado={aquecimentoAtivo(config.aquecimento_ate)}
         fechadorLigado={(await funcaoLigada("fechador")) && podeSites}
         resumoLigado={(await funcaoLigada("resumo_diario")) && (await podeUsar("prospeccao_resumo"))}
         cerebroLigado={(await funcaoLigada("mensagens_ia")) && (await podeUsar("prospeccao_ia"))}

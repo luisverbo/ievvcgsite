@@ -44,6 +44,7 @@ async function cadenciaDaOrg(orgId: string): Promise<CadenciaEnvio & { limite_di
   return { ...padrao, ...((velho as Partial<typeof padrao> | null) ?? {}) };
 }
 import { prepararFollowups } from "@/lib/prospeccao/followup";
+import { prepararAquecimento, TIPO_AQUECIMENTO } from "@/lib/prospeccao/aquecimento";
 import { funcaoLigada } from "@/lib/painel/flags";
 import { inicioDoDiaBr } from "@/lib/prospeccao/dia";
 import { orgPodeUsar } from "@/lib/painel/permissoes";
@@ -620,6 +621,8 @@ export async function POST(req: Request) {
          * erros: nunca atrasa nem derruba a checagem de estado.
          */
         await prepararFollowups(org);
+        // E a próxima troca do aquecimento, se for hora (relógio próprio).
+        await prepararAquecimento(org);
 
         const { data: cfgRaw } = await admin
           .from("prospeccao_config")
@@ -647,7 +650,7 @@ export async function POST(req: Request) {
           .select("id", { count: "exact", head: true })
           .eq("org_id", org)
           .eq("status", "enviada")
-          .not("tipo", "in", `(${TIPO_APRESENTACAO},teste)`)
+          .not("tipo", "in", `(${TIPO_APRESENTACAO},teste,${TIPO_AQUECIMENTO})`)
           .gte("enviada_em", inicioDoDiaBr());
 
         const { count: pendentes } = await admin
@@ -668,7 +671,7 @@ export async function POST(req: Request) {
           .eq("org_id", org)
           .eq("status", "pendente")
           .eq("modo", "auto")
-          .in("tipo", [TIPO_APRESENTACAO, "teste"]);
+          .in("tipo", [TIPO_APRESENTACAO, "teste", TIPO_AQUECIMENTO]);
 
         /*
          * `aguardando` = de quantos números esperamos resposta. É o que faz o
@@ -775,7 +778,7 @@ export async function POST(req: Request) {
           .eq("org_id", org)
           .eq("status", "enviada")
           .is("resposta_em", null)
-          .neq("tipo", "teste")
+          .not("tipo", "in", `(teste,${TIPO_AQUECIMENTO})`)
           .gte("enviada_em", new Date(Date.now() - 14 * 86_400_000).toISOString())
           .order("enviada_em", { ascending: false })
           .limit(60);
@@ -1022,6 +1025,32 @@ export async function POST(req: Request) {
         const limite = tetoDoPlano === null ? cadencia.limite_diario : Math.min(cadencia.limite_diario, tetoDoPlano);
 
         /*
+         * Aquecimento: a troca entre as linhas da conta, reservada à linha que
+         * fala (linha_id). Fura limite, intervalo e pausa, como o teste — não
+         * é contato com ninguém de fora. Leva `grupo` (coluna 2026-09-15);
+         * sem a migração a consulta falha e o caminho simplesmente não existe.
+         */
+        if (linha) {
+          const { data: aq } = await admin
+            .from("prospeccao_mensagens")
+            .select("id, prospecto_id, telefone, texto, grupo")
+            .eq("org_id", org)
+            .eq("status", "pendente")
+            .eq("modo", "auto")
+            .eq("tipo", TIPO_AQUECIMENTO)
+            .eq("linha_id", linha.id)
+            .order("created_at")
+            .limit(1);
+          const aquecimento = (aq as (MensagemFila & { grupo: string | null })[] | null)?.[0];
+          if (aquecimento) {
+            const v = await podeEnviarPor(org, linha, cadencia, limite, true);
+            if (!v.pode) return recusar(v.motivo);
+            await anotarMotivo(org, `entregue (aquecimento, ${linha.nome})`);
+            return j({ mensagem: { ...aquecimento, linha_id: linha.id } });
+          }
+        }
+
+        /*
          * Apresentação primeiro: o lead respondeu ao gancho e está com o
          * WhatsApp na mão AGORA. Ela não espera atrás de vinte contatos novos
          * — nem a vez do revezamento; só precisa de uma linha viva.
@@ -1067,7 +1096,7 @@ export async function POST(req: Request) {
             .select("id", { count: "exact", head: true })
             .eq("org_id", org)
             .eq("status", "enviada")
-            .not("tipo", "in", `(${TIPO_APRESENTACAO},teste)`)
+            .not("tipo", "in", `(${TIPO_APRESENTACAO},teste,${TIPO_AQUECIMENTO})`)
             .gte("enviada_em", inicioDoDiaBr());
           if ((contatosHoje ?? 0) >= limite) return recusar("limite do dia atingido");
         }

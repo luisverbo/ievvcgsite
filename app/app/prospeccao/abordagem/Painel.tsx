@@ -40,6 +40,7 @@ import SeletorNicho from "./SeletorNicho";
 import JaAbordei, { type JaAbordado } from "./JaAbordei";
 import CancelarFila from "./CancelarFila";
 import TesteEnvio, { type ResultadoTeste } from "./TesteEnvio";
+import Aquecimento from "./Aquecimento";
 
 // A primeira mensagem não precisa de etiqueta; as outras, sim — o usuário
 // tem que saber que está olhando a SEGUNDA conversa com aquele lead.
@@ -48,6 +49,9 @@ const ROTULO_TIPO: Record<string, string> = {
   followup: "🔁 remarketing",
   gancho: "👋 gancho",
   apresentacao: "📣 apresentação",
+  reenvio: "↩️ reenvio",
+  teste: "🧪 teste",
+  aquecimento: "🔥 aquecimento",
 };
 
 // O nível do Fechador em uma palavra, para o chip das configurações.
@@ -83,6 +87,7 @@ export default function Painel({
   ultimoTeste = null,
   agenteOnline = false,
   fotoFalha = null,
+  aquecimentoLigado = false,
 }: {
   config: ConfigAbordagem;
   candidatos: ProspectoRow[];
@@ -98,6 +103,8 @@ export default function Painel({
   agenteOnline?: boolean;
   /* Foto da tela na última falha de envio (migração 2026-09-13). */
   fotoFalha?: FotoFalha | null;
+  /* Aquecimento com prazo no futuro (calculado no servidor). */
+  aquecimentoLigado?: boolean;
   /* Interruptores do Admin: desligado, o card correspondente nem aparece. */
   fechadorLigado?: boolean;
   resumoLigado?: boolean;
@@ -246,6 +253,7 @@ export default function Painel({
           desconectar_pedido: false,
           enviadasHoje,
           restringidaAte: null,
+          telefone: null,
         },
       ]
     : linhas;
@@ -343,6 +351,19 @@ export default function Painel({
           nome: l.nome,
           conectada: l.status === "conectado",
         }))}
+      />
+
+      <Aquecimento
+        ate={config.aquecimento_ate ?? null}
+        ligado={aquecimentoLigado}
+        porHora={config.aquecimento_por_hora ?? 4}
+        grupo={config.aquecimento_grupo ?? null}
+        linhas={linhasTela.map((l) => ({ nome: l.nome, telefone: l.telefone, conectada: l.status === "conectado" }))}
+        legado={linhasLegado}
+        trocasHoje={
+          mensagens.filter((m) => m.tipo === "aquecimento" && m.status === "enviada" && (m.enviada_em ?? "") >= hojeInicio())
+            .length
+        }
       />
 
       {/* ------------------------- escolher ----------------------------- */}
