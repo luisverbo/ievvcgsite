@@ -489,7 +489,15 @@ export default function Painel({
         )}
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <span className="text-sm text-paper-dim">{marcados.size} selecionadas</span>
+          <span className="text-sm text-paper-dim">
+            {marcados.size} selecionadas
+            {marcados.size > (estrategia === "ia" ? 50 : 200) && (
+              <b className="text-warn">
+                {" "}
+                · o máximo por lote é {estrategia === "ia" ? "50 com a IA" : "200"}
+              </b>
+            )}
+          </span>
           <button
             type="submit"
             name="modo"

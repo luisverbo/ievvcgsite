@@ -520,7 +520,26 @@ export async function prepararAbordagem(
       : "modelo";
   const ids = formData.getAll("prospecto").map(String).filter(Boolean);
   if (ids.length === 0) return { error: "Selecione pelo menos uma empresa." };
-  if (ids.length > 50) return { error: "Máximo de 50 empresas por vez." };
+  /*
+   * Quantas cabem num lote.
+   *
+   * O teto era 50 para os dois caminhos, e ficou apertado depois que a busca
+   * passou a trazer até 120: o dono marcava a lista inteira e levava um "não".
+   * Preparar não é enviar — a fila espera o limite do dia e o intervalo — então
+   * pelo modelo não há razão para segurar: 200 de uma vez.
+   *
+   * Com a IA continua 50: ali cada mensagem é uma chamada paga e demorada, e
+   * um lote grande estouraria o tempo da ação antes de gravar qualquer coisa.
+   */
+  const teto = estrategia === "ia" ? 50 : 200;
+  if (ids.length > teto) {
+    return {
+      error:
+        estrategia === "ia"
+          ? "Com a IA escrevendo, o máximo é 50 por vez (cada mensagem é uma chamada paga). Para lotes maiores, use o seu modelo de texto."
+          : `Máximo de ${teto} empresas por vez. Prepare em lotes — a fila não some, e vai saindo no seu limite diário.`,
+    };
+  }
 
   const supabase = await createClient();
   // select * de propósito: as colunas do gancho são de migração nova, e
