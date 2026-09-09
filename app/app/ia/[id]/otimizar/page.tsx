@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { podeUsar } from "@/lib/painel/permissoes";
+import { exigirRecurso } from "@/lib/painel/permissoes";
 import { funcaoLigada } from "@/lib/painel/flags";
 import { resumirMetricas, MIN_VISITAS_ANALISE, type Sugestao } from "@/lib/ia/otimizador";
 import Robo from "@/components/painel/Robo";
@@ -16,7 +16,7 @@ export const maxDuration = 300;
  * o pedido pronto. A IA propõe; quem manda aplicar é o dono.
  */
 export default async function OtimizarPage({ params }: { params: Promise<{ id: string }> }) {
-  if (!(await podeUsar("construtor"))) notFound();
+  await exigirRecurso("construtor");
   if (!(await funcaoLigada("otimizador"))) notFound();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();

@@ -187,19 +187,29 @@ export async function podeUsar(recurso: Recurso): Promise<boolean> {
 }
 
 /*
- * A porta das telas de prospecção.
+ * A porta de uma tela que exige plano.
  *
- * Sem o recurso, antes era 404 — o que faz sentido para quem nunca teve
- * prospecção, e é péssimo para quem teve e perdeu: o teste de 7 dias
- * venceu, a pessoa clica em Prospecção e cai numa página inexistente. Aqui
- * o teste vencido vai para a assinatura, com o motivo na URL, e o resto
- * continua 404.
+ * Sem o recurso era 404 — e 404 é a pior resposta possível aqui. Quem cai
+ * nesta porta TEM conta e ESTAVA usando: o teste de 7 dias venceu, o cartão
+ * falhou e a assinatura suspendeu, o plano mudou. Dizer "esta página não
+ * existe" para um cliente que só precisa pagar é perder a renovação na
+ * porta do caixa.
+ *
+ * Agora todo bloqueio por plano vai para a Assinatura, com o recurso na URL
+ * — é lá que a tela explica em que pé está e oferece cartão e Pix. 404
+ * continua valendo para o que é de verdade inexistente: conta que não
+ * existe (e as telas internas, que seguem atrás do ehAdmin).
  */
-export async function exigirProspeccao(): Promise<void> {
-  if (await podeUsar("prospeccao")) return;
+export async function exigirRecurso(recurso: Recurso): Promise<void> {
+  if (await podeUsar(recurso)) return;
   const org = await getMinhaOrg();
-  if (org?.plano === "teste") redirect("/app/assinatura?teste=acabou");
-  notFound();
+  if (!org) notFound();
+  redirect(`/app/assinatura?bloqueio=${recurso}`);
+}
+
+/* A porta das telas de prospecção — o caso mais comum do que está acima. */
+export async function exigirProspeccao(): Promise<void> {
+  await exigirRecurso("prospeccao");
 }
 
 /*

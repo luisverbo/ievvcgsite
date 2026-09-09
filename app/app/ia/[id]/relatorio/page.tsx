@@ -1,7 +1,7 @@
 import NextLink from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { podeUsar } from "@/lib/painel/permissoes";
+import { exigirRecurso } from "@/lib/painel/permissoes";
 import { funcaoLigada } from "@/lib/painel/flags";
 import { montarRelatorio, mesesComDados, mesValido, mesFechadoAtual } from "@/lib/ia/relatorio";
 import Robo from "@/components/painel/Robo";
@@ -20,7 +20,7 @@ export default async function RelatorioPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ m?: string }>;
 }) {
-  if (!(await podeUsar("construtor"))) notFound();
+  await exigirRecurso("construtor");
   if (!(await funcaoLigada("relatorio_mensal"))) notFound();
   const { id } = await params;
   const { m } = await searchParams;

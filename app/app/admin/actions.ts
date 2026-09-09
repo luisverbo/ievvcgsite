@@ -13,6 +13,7 @@ import { LANDING_PAGINAS, LANDING_TEMA } from "@/lib/templates/paginapro-landing
 import { salvarAnthropicKey } from "@/lib/ia/anthropic";
 import { ehAdmin as checarAdmin } from "@/lib/painel/admin";
 import { cotaDoPlano, PLANOS } from "@/lib/painel/permissoes";
+import { DIAS_TOLERANCIA } from "@/lib/pagamentos/estado";
 
 // Reexportado para as telas de admin que já importam daqui. A definição vive
 // em lib/painel/admin.ts — veja lá o porquê.
@@ -505,4 +506,141 @@ export async function gerarLinkAcesso(
     recado,
     email,
   };
+}
+
+
+/* ------------------------- acesso: liberar e cortar ------------------------- */
+
+/*
+ * Renovar o acesso de uma conta na mão, sem passar pela Stripe.
+ *
+ * Existe por dois motivos concretos: criar contas de teste suas, e entregar
+ * o sistema numa negociação fechada por fora (cortesia, permuta, um mês de
+ * cortesia por um problema). Antes só dava para trocar o PLANO — e trocar o
+ * plano não desbloqueia nada quando existe uma linha de assinatura suspensa,
+ * porque quem manda no acesso é ela (planoVigente). Era o buraco que fazia a
+ * conta mostrar "Prospector · ativo" e mesmo assim bater na porta fechada.
+ *
+ * O que faz, conforme o plano da conta:
+ *   teste  -> empurra `teste_ate` para a frente;
+ *   pago   -> escreve uma assinatura ATIVA, paga até a nova data;
+ *   free   -> não faz nada: primeiro escolha o plano, senão a conta ficaria
+ *             com acesso pago a um plano que não vende nada.
+ *
+ * Os dias entram a partir de HOJE ou da data que já existe, o que for maior:
+ * renovar quem ainda tem prazo não pode encurtar o prazo dele.
+ */
+export async function renovarAcesso(orgId: string, dias: number) {
+  if (!(await ehAdmin())) return;
+  if (!Number.isFinite(dias) || dias <= 0 || dias > 3650) return;
+
+  const admin = createAdminClient();
+  const { data: orgRaw } = await admin
+    .from("organizacoes")
+    .select("plano")
+    .eq("id", orgId)
+    .maybeSingle();
+  const plano = (orgRaw as { plano: string } | null)?.plano ?? "free";
+  const agora = Date.now();
+  const DIA = 86_400_000;
+
+  if (plano === "free") {
+    throw new Error("Escolha um plano para esta conta antes de liberar o acesso.");
+  }
+
+  if (plano === "teste") {
+    // Tolerante à coluna: sem a migração do teste grátis não há o que renovar.
+    const { data: atual } = await admin
+      .from("organizacoes")
+      .select("teste_ate")
+      .eq("id", orgId)
+      .maybeSingle();
+    const base = Math.max(
+      agora,
+      new Date((atual as { teste_ate: string | null } | null)?.teste_ate ?? 0).getTime() || 0,
+    );
+    const { error } = await admin
+      .from("organizacoes")
+      .update({ teste_ate: new Date(base + dias * DIA).toISOString() })
+      .eq("id", orgId);
+    if (error) throw new Error(`Não deu para renovar o teste: ${error.message}`);
+    revalidatePath("/app/admin");
+    return;
+  }
+
+  const { data: assRaw } = await admin
+    .from("assinaturas")
+    .select("pago_ate")
+    .eq("org_id", orgId)
+    .maybeSingle();
+  const base = Math.max(
+    agora,
+    new Date((assRaw as { pago_ate: string | null } | null)?.pago_ate ?? 0).getTime() || 0,
+  );
+  const { error } = await admin.from("assinaturas").upsert(
+    {
+      org_id: orgId,
+      plano,
+      pago_ate: new Date(base + dias * DIA).toISOString(),
+      status: "ativa",
+      // O cartão que falhou não pode continuar contando tolerância depois de
+      // uma liberação manual: a dívida foi resolvida fora do sistema.
+      falhou_em: null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "org_id" },
+  );
+  if (error) {
+    throw new Error(
+      error.message.includes("plano_check")
+        ? "O banco ainda não aceita este plano em assinaturas — rode a migração 2026-08-22_prospector_plano.sql."
+        : `Não deu para liberar o acesso: ${error.message}`,
+    );
+  }
+  revalidatePath("/app/admin");
+}
+
+/*
+ * Cortar o acesso agora — sem apagar nada.
+ *
+ * Serve para encerrar uma cortesia e, principalmente, para VER a tela do
+ * cliente bloqueado sem esperar sete dias: o teste vence na hora, a
+ * assinatura vira suspensa, e o próximo clique cai na Assinatura com o
+ * aviso. É a única forma honesta de testar o caminho da renovação.
+ */
+export async function encerrarAcesso(orgId: string) {
+  if (!(await ehAdmin())) return;
+  const admin = createAdminClient();
+  const ontem = new Date(Date.now() - 86_400_000).toISOString();
+
+  const { data: orgRaw } = await admin
+    .from("organizacoes")
+    .select("plano")
+    .eq("id", orgId)
+    .maybeSingle();
+  const plano = (orgRaw as { plano: string } | null)?.plano ?? "free";
+
+  if (plano === "teste") {
+    await admin.from("organizacoes").update({ teste_ate: ontem }).eq("id", orgId);
+    revalidatePath("/app/admin");
+    return;
+  }
+
+  // Vencido HÁ MAIS que a tolerância: com um dia só, situacaoDaAssinatura
+  // devolveria "atrasada" (que continua liberada) e o acesso seguiria de pé.
+  const vencido = new Date(Date.now() - (DIAS_TOLERANCIA + 1) * 86_400_000).toISOString();
+  const { data: existe } = await admin
+    .from("assinaturas")
+    .select("org_id")
+    .eq("org_id", orgId)
+    .maybeSingle();
+  if (!existe) {
+    revalidatePath("/app/admin");
+    return; // sem assinatura, o acesso já é o do plano contratado na mão
+  }
+  await admin
+    .from("assinaturas")
+    .update({ pago_ate: vencido, status: "suspensa", updated_at: new Date().toISOString() })
+    .eq("org_id", orgId);
+  revalidatePath("/app/admin");
 }

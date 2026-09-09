@@ -37,12 +37,24 @@ function Item({ icone, rotulo, valor }: { icone: string; rotulo: string; valor: 
   );
 }
 
+/*
+ * O nome de cada recurso na língua do cliente. A URL traz o nome técnico
+ * (`?bloqueio=prospeccao`); ninguém precisa ler isso na tela.
+ */
+const ROTULO_BLOQUEIO: Record<string, string> = {
+  prospeccao: "A prospecção",
+  prospeccao_ia: "A IA da prospecção",
+  prospeccao_resumo: "O resumo diário",
+  construtor: "O criador de páginas",
+  hospedagem: "A hospedagem com domínio próprio",
+};
+
 export default async function AssinaturaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ok?: string; erro?: string; cancelado?: string }>;
+  searchParams: Promise<{ ok?: string; erro?: string; cancelado?: string; bloqueio?: string }>;
 }) {
-  const { erro, ok: aviso } = await searchParams;
+  const { erro, ok: aviso, bloqueio } = await searchParams;
   const org = await getMinhaOrg();
   if (!org) notFound();
 
@@ -153,6 +165,36 @@ export default async function AssinaturaPage({
           Seu plano, suas faturas e a forma de pagamento — tudo num lugar só.
         </p>
       </div>
+
+      {/*
+        Chegou aqui porque uma tela travou (exigirRecurso). Este bloco é a
+        primeira coisa que a pessoa lê: o que aconteceu, o que continua
+        guardado e o que fazer. Sem ele a Assinatura abriria "do nada", e
+        quem clicou em Prospecção acharia que perdeu os dados.
+      */}
+      {bloqueio && (
+        <div
+          role="alert"
+          className="rounded-xl border border-warn/40 bg-warn/10 px-4 py-3.5 text-sm text-paper"
+        >
+          <p className="font-display text-base font-extrabold text-warn">
+            {ROTULO_BLOQUEIO[bloqueio] ?? "Este recurso"} está fora do ar na sua conta
+          </p>
+          <p className="mt-1 text-paper-dim">
+            {s.status === "suspensa"
+              ? "Sua assinatura está suspensa por falta de pagamento. Pague no cartão ou no Pix aqui embaixo e o acesso volta na hora."
+              : s.status === "cancelada"
+                ? "Sua assinatura foi cancelada. Reative aqui embaixo e o acesso volta na hora."
+                : testeAcabou
+                  ? "Seu teste grátis terminou. Assine aqui embaixo e o acesso volta na hora."
+                  : "O seu plano atual não inclui este recurso. Veja as opções aqui embaixo."}{" "}
+            <b className="text-paper">
+              Nada foi apagado: sua lista, seu funil, suas conversas e seus sites continuam
+              guardados.
+            </b>
+          </p>
+        </div>
+      )}
 
       {erro && (
         <p

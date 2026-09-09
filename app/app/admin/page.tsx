@@ -21,6 +21,8 @@ import ChaveForm from "./ebooks/ChaveForm";
 import { getAnthropicKey } from "@/lib/ia/anthropic";
 import { getOpenAIKey } from "@/lib/ebooks/openai";
 import { PLANOS, planoFreeAtivo, FREE_MAX_PAGINAS } from "@/lib/painel/permissoes";
+import { situacaoDaAssinatura, type AssinaturaRow } from "@/lib/pagamentos/estado";
+import AcessoConta, { type EstadoAcesso } from "./AcessoConta";
 import { emDolar } from "@/lib/creditos/precos";
 import { cardClass } from "@/components/painel/ui";
 
@@ -33,6 +35,48 @@ type Plano = "free" | "pro" | "agencia" | "prospector" | "teste";
 function agenteVivo(ultimo: string | null | undefined): boolean {
   return !!ultimo && Date.now() - new Date(ultimo).getTime() < 15 * 60_000;
 }
+/*
+ * Até quando esta conta pode usar o que comprou.
+ *
+ * Junta as duas fontes numa frase só: o teste grátis (organizacoes.teste_ate)
+ * e a assinatura (a mesma regra que libera ou bloqueia de verdade, em
+ * situacaoDaAssinatura). Sem esta coluna, o Admin mostrava só o PLANO — e
+ * plano não é acesso: conta no Prospector com assinatura suspensa aparecia
+ * como assinante e não conseguia abrir a prospecção.
+ */
+function estadoDeAcesso(
+  plano: string,
+  testeAte: string | null | undefined,
+  assinatura: AssinaturaRow | null,
+): EstadoAcesso {
+  const dia = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+
+  if (plano === "free") return { rotulo: "grátis", cor: "dim", semPlano: true };
+
+  if (plano === "teste") {
+    if (!testeAte) return { rotulo: "teste sem data", cor: "danger", semPlano: false };
+    const vivo = new Date(testeAte).getTime() > Date.now();
+    return {
+      rotulo: vivo ? `teste até ${dia(testeAte)}` : `teste venceu ${dia(testeAte)}`,
+      cor: vivo ? "ok" : "danger",
+      semPlano: false,
+    };
+  }
+
+  // Sem linha de assinatura = cortesia dada na mão: o plano contratado vale.
+  if (!assinatura) return { rotulo: "liberado na mão", cor: "ok", semPlano: false };
+
+  const s = situacaoDaAssinatura(assinatura);
+  const ate = assinatura.pago_ate ? ` até ${dia(assinatura.pago_ate)}` : "";
+  if (s.status === "ativa") return { rotulo: `ativa${ate}`, cor: "ok", semPlano: false };
+  if (s.status === "atrasada") {
+    return { rotulo: `atrasada · ${s.diasRestantes}d de tolerância`, cor: "warn", semPlano: false };
+  }
+  if (s.status === "suspensa") return { rotulo: "suspensa", cor: "danger", semPlano: false };
+  if (s.status === "cancelada") return { rotulo: "cancelada", cor: "danger", semPlano: false };
+  return { rotulo: "sem assinatura", cor: "dim", semPlano: false };
+}
+
 type OrgRow = {
   id: string;
   nome: string;
@@ -58,6 +102,7 @@ export default async function AdminPage() {
     { count: totalEbooks },
     { count: totalProspectos },
     freeAtivo,
+    { data: assinaturasRaw },
     { data: linhasConfigRaw },
   ] = await Promise.all([
     admin
@@ -73,6 +118,7 @@ export default async function AdminPage() {
     admin.from("ebooks").select("id", { count: "exact", head: true }),
     admin.from("prospeccao").select("id", { count: "exact", head: true }),
     planoFreeAtivo(),
+    admin.from("assinaturas").select("org_id, plano, pago_ate, status, falhou_em"),
     admin
       .from("config_sistema")
       .select("chave, valor")
@@ -86,6 +132,24 @@ export default async function AdminPage() {
   ]);
   // Uma consulta só para tudo que a landing lê de config_sistema: os dois
   // vídeos e os três campos de pixel.
+  const assinaturaPorOrg = new Map<string, AssinaturaRow>(
+    ((assinaturasRaw as (AssinaturaRow & { org_id: string })[] | null) ?? []).map((a) => [a.org_id, a]),
+  );
+  /*
+   * `teste_ate` numa consulta À PARTE, e não no select das contas: a coluna é
+   * da migração do teste grátis, e pedi-la junto derrubaria a tela inteira do
+   * Admin em quem ainda não rodou o SQL.
+   */
+  const testePorOrg = new Map<string, string | null>();
+  try {
+    const { data: testes } = await admin.from("organizacoes").select("id, teste_ate");
+    for (const t of (testes as { id: string; teste_ate: string | null }[] | null) ?? []) {
+      testePorOrg.set(t.id, t.teste_ate);
+    }
+  } catch {
+    /* migração pendente */
+  }
+
   const linhasConfig = (linhasConfigRaw as { chave: string; valor: string }[] | null) ?? [];
   const valorDe = (c: string) => linhasConfig.find((l) => l.chave === c)?.valor ?? "";
   const videoAtual = valorDe(CHAVES_VIDEO.principal);
@@ -429,6 +493,7 @@ export default async function AdminPage() {
                   <th className="px-5 py-3">Sites</th>
                   <th className="px-5 py-3">Criada em</th>
                   <th className="px-5 py-3">Plano</th>
+                  <th className="px-5 py-3 text-right">Acesso</th>
                   <th className="px-5 py-3 text-right">Ação</th>
                 </tr>
               </thead>
@@ -489,6 +554,22 @@ export default async function AdminPage() {
                           </div>
                         )}
                       </td>
+                      {/*
+                        Acesso ao lado do plano: um diz o que a conta comprou,
+                        o outro até quando ela pode usar — e é o segundo que
+                        abre ou fecha a porta.
+                      */}
+                      <td className="px-5 py-3.5">
+                        <AcessoConta
+                          orgId={org.id}
+                          nome={org.nome}
+                          estado={estadoDeAcesso(
+                            org.plano,
+                            testePorOrg.get(org.id),
+                            assinaturaPorOrg.get(org.id) ?? null,
+                          )}
+                        />
+                      </td>
                       <td className="px-5 py-3.5">
                         {/* Um botão por plano: com três planos, alternar num
                             botão só vira adivinhação de para onde ele vai. */}
@@ -523,9 +604,13 @@ export default async function AdminPage() {
       </div>
 
       <p className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-paper-dim">
-        💳 Cobrança automática (Stripe: checkout, webhook e cancelamento pelo cliente) entra na Fase
-        4. Por enquanto você ativa/desativa o plano Pro manualmente aqui, depois de receber o
-        pagamento (ex: Pix).
+        💳 <b className="text-paper">Plano</b> é o que a conta comprou; <b className="text-paper">Acesso</b> é
+        até quando ela pode usar — e é o Acesso que abre ou fecha a porta. Para dar o sistema numa
+        negociação por fora, escolha o plano e clique em <b className="text-paper">+30d</b> ou{" "}
+        <b className="text-paper">+1 ano</b>: vale como assinatura paga, sem passar pela Stripe. Para
+        montar uma conta de teste sua, ponha no <b className="text-paper">Teste grátis</b> e renove
+        pelos mesmos botões. <b className="text-paper">Encerrar</b> corta na hora, sem apagar nada — é
+        assim que você vê a tela de renovar que o cliente vê.
       </p>
     </div>
   );

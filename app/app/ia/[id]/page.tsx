@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { podeUsar } from "@/lib/painel/permissoes";
+import { exigirRecurso } from "@/lib/painel/permissoes";
 import { ehAdmin } from "@/lib/painel/admin";
 import { statusDaConta } from "@/lib/creditos/conta";
 import Construtor from "./Construtor";
@@ -20,7 +20,7 @@ export default async function ConstrutorPage({
   // ?pedido=... chega da prospecção, com o briefing da empresa já montado.
   searchParams: Promise<{ pedido?: string }>;
 }) {
-  if (!(await podeUsar("construtor"))) notFound();
+  await exigirRecurso("construtor");
   const { id } = await params;
   const { pedido } = await searchParams;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
