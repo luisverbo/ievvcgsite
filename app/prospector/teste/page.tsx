@@ -1,5 +1,7 @@
+import type { Metadata } from "next";
 import Landing from "../Landing";
 import { configDoTeste } from "@/lib/painel/teste";
+import { urlDoProspector } from "@/lib/site/url";
 
 /*
  * A landing do TESTE GRÁTIS — a página de campanha.
@@ -16,11 +18,24 @@ import { configDoTeste } from "@/lib/painel/teste";
 
 export const revalidate = 600;
 
-export async function generateMetadata() {
+export async function generateMetadata(): Promise<Metadata> {
   const cfg = await configDoTeste();
+  const titulo = `Prospector — ${cfg.dias} dias grátis, sem cartão`;
+  const descricao = `Teste o Prospector por ${cfg.dias} dias sem pagar nada: o Agente encontra empresas no Google Maps, monta a abordagem com o nome de cada uma e envia pelo seu WhatsApp. Até ${cfg.empresasPorDia} empresas e ${cfg.enviosPorDia} mensagens por dia no teste. Sem cartão.`;
+  const base = urlDoProspector();
   return {
-    title: `Prospector — ${cfg.dias} dias grátis, sem cartão`,
-    description: `Teste o Prospector por ${cfg.dias} dias sem pagar nada: o Agente encontra empresas no Google Maps, monta a abordagem com o nome de cada uma e envia pelo seu WhatsApp. Até ${cfg.empresasPorDia} empresas e ${cfg.enviosPorDia} mensagens por dia no teste. Sem cartão.`,
+    metadataBase: new URL(base),
+    title: titulo,
+    description: descricao,
+    openGraph: {
+      type: "website",
+      siteName: "Prospector",
+      locale: "pt_BR",
+      url: `${base}/teste`,
+      title: titulo,
+      description: descricao,
+    },
+    twitter: { card: "summary_large_image", title: titulo, description: descricao },
   };
 }
 
