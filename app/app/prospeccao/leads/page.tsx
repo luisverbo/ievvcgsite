@@ -152,6 +152,37 @@ export default async function LeadsPage({
     }
   }
 
+  /*
+   * O ROBÔ da empresa respondeu (WhatsApp Business com resposta automática).
+   * Não é resposta de gente — o lead segue "contactado" e o remarketing
+   * continua —, mas dizer isso no card evita duas perguntas: "o número está
+   * certo?" (está, chegou) e "por que não virou lead quente?".
+   *
+   * Consulta à parte e tolerante: a classe é da migração 2026-09-17, e o
+   * filtro é o oposto do de cima (resposta_em NULO é o que a mantém em
+   * escuta).
+   */
+  const autoPorProspecto = new Map<string, { texto: string; em: string }>();
+  if (lista.length > 0) {
+    try {
+      const { data: autoRaw } = await supabase
+        .from("prospeccao_mensagens")
+        .select("prospecto_id, resposta_texto, enviada_em")
+        .eq("org_id", org.id)
+        .eq("resposta_classe", "automatica")
+        .is("resposta_em", null)
+        .in("prospecto_id", lista.map((p) => p.id))
+        .order("enviada_em", { ascending: false });
+      for (const r of (autoRaw as { prospecto_id: string; resposta_texto: string | null; enviada_em: string }[] | null) ?? []) {
+        if (r.resposta_texto && !autoPorProspecto.has(r.prospecto_id)) {
+          autoPorProspecto.set(r.prospecto_id, { texto: r.resposta_texto, em: r.enviada_em });
+        }
+      }
+    } catch {
+      /* migração pendente */
+    }
+  }
+
   const aberturasPorProspecto = new Map<string, { total: number; ultima: string }>();
   for (const a of (abRaw as { prospecto_id: string; created_at: string }[] | null) ?? []) {
     const atual = aberturasPorProspecto.get(a.prospecto_id);
@@ -362,6 +393,7 @@ export default async function LeadsPage({
               p={p}
               ctx={ctx}
               resposta={respostaPorProspecto.get(p.id)}
+              respostaAuto={autoPorProspecto.get(p.id)}
               abertura={aberturasPorProspecto.get(p.id)}
               atraso={idx}
             />

@@ -52,6 +52,13 @@ type PaginaIA = {
   updated_at: string;
 };
 
+// Agente vivo = deu sinal nos últimos 15 min (o mesmo critério das telas de
+// Prospecção). Fora do render: relógio dentro de componente é impuro, e o
+// lint pega — com razão, porque o valor muda entre duas renderizações iguais.
+function agenteVivo(ultimo: string | null | undefined): boolean {
+  return !!ultimo && Date.now() - new Date(ultimo).getTime() < 15 * 60_000;
+}
+
 export default async function PainelHome() {
   const org = await getMinhaOrg();
   if (!org) redirect("/app/onboarding");
@@ -147,9 +154,7 @@ export default async function PainelHome() {
     empresas = count ?? 0;
     const linha = ag as { ultimo_contato: string | null } | null;
     if (linha) {
-      const online =
-        !!linha.ultimo_contato && Date.now() - new Date(linha.ultimo_contato).getTime() < 15 * 60_000;
-      estadoAgente = online ? "trabalhando" : "dormindo";
+      estadoAgente = agenteVivo(linha.ultimo_contato) ? "trabalhando" : "dormindo";
     }
   }
 
@@ -531,7 +536,7 @@ async function HomeProspector({
   const linhaAg = ag as { ultimo_contato: string | null } | null;
   const estadoAgente: EstadoRobo = !linhaAg
     ? "novo"
-    : linhaAg.ultimo_contato && Date.now() - new Date(linhaAg.ultimo_contato).getTime() < 15 * 60_000
+    : agenteVivo(linhaAg.ultimo_contato)
       ? "trabalhando"
       : "dormindo";
 

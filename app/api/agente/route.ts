@@ -3,6 +3,7 @@ import { agenteDaRequisicao } from "@/lib/agente/token";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { pontuarEGravar } from "@/lib/prospeccao/gravar";
 import { classificarResposta, classificarPorPalavras } from "@/lib/prospeccao/classificar";
+import { analisarResposta, parteNova } from "@/lib/prospeccao/automatica";
 import { dispararFechador } from "@/lib/prospeccao/fechador";
 import { enfileirarApresentacao, TIPO_APRESENTACAO } from "@/lib/prospeccao/gancho";
 import { montarResumoDoDia, resumoDevido, resumoFalhou } from "@/lib/prospeccao/resumo";
@@ -851,7 +852,7 @@ export async function POST(req: Request) {
 
         const { data: msgRaw } = await admin
           .from("prospeccao_mensagens")
-          .select("id, prospecto_id, tipo, modo")
+          .select("id, prospecto_id, tipo, modo, resposta_texto, resposta_classe")
           .eq("org_id", org)
           .eq("status", "enviada")
           .eq("telefone", telefone)
@@ -859,10 +860,60 @@ export async function POST(req: Request) {
           .order("enviada_em", { ascending: false })
           .limit(1);
         const msg = (
-          msgRaw as { id: string; prospecto_id: string; tipo: string | null; modo: string }[] | null
+          msgRaw as
+            | {
+                id: string;
+                prospecto_id: string;
+                tipo: string | null;
+                modo: string;
+                resposta_texto: string | null;
+                resposta_classe: string | null;
+              }[]
+            | null
         )?.[0];
         // Sem mensagem esperando: resposta duplicada ou conversa antiga. Nada a fazer.
         if (!msg) return j({ ok: true, classe: null });
+
+        /*
+         * O ROBÔ DA EMPRESA não é resposta.
+         *
+         * "Seja bem-vindo, você está falando com o atendimento da X" chega em
+         * boa parte das abordagens (WhatsApp Business responde sozinho). Sem
+         * esta peneira o agente mandava a apresentação para o robô — e a
+         * apresentação fura o limite do dia e a cadência, então uma leva de
+         * robôs viraria uma rajada —, o lead ia para "Responderam" no funil, e
+         * a IA gastava crédito classificando menu de atendimento.
+         *
+         * O que fazemos: guardar o texto, marcar a classe e NÃO preencher
+         * `resposta_em`. É essa ausência que mantém o número na escuta (e o
+         * remarketing correndo): quando uma pessoa escrever de verdade, a
+         * leitura seguinte traz texto novo e aí sim conta como resposta.
+         */
+        const jaVisto = msg.resposta_classe === "automatica" ? msg.resposta_texto : null;
+        const novo = parteNova(texto, jaVisto);
+        // Nada novo desde o robô: o agente releu a mesma bolha. Silêncio.
+        if (jaVisto && !novo) return j({ ok: true, classe: "automatica" });
+
+        const veredito = analisarResposta(novo || texto);
+        if (veredito.automatica) {
+          await admin
+            .from("prospeccao_mensagens")
+            .update({ resposta_texto: texto, resposta_classe: "automatica" })
+            .eq("id", msg.id)
+            .eq("org_id", org)
+            // Classe nova (migração 2026-09-17): sem ela o update falha e o
+            // caminho antigo assume — nada quebra, só não filtra.
+            .then((r) => r, () => ({ error: null }));
+          await anotarMotivo(org, `resposta automática de ${telefone}: ${veredito.motivo ?? "robô de atendimento"}`);
+          return j({ ok: true, classe: "automatica" });
+        }
+
+        /*
+         * Daqui para baixo é gente falando. Se o robô veio antes, só a parte
+         * NOVA vale — senão o "seja bem-vindo" ficaria colado em toda
+         * classificação futura daquele lead.
+         */
+        const dito = novo || texto;
 
         /*
          * Resposta ao GANCHO: o lead só disse "tudo bem e você?" — ainda não
@@ -872,10 +923,10 @@ export async function POST(req: Request) {
          * isso: "não quero" é opt-out, venha em que etapa vier.
          */
         if (msg.tipo === "gancho") {
-          const recusou = classificarPorPalavras(texto) === "recusa";
+          const recusou = classificarPorPalavras(dito) === "recusa";
           await admin
             .from("prospeccao_mensagens")
-            .update({ resposta_texto: texto, resposta_em: agora(), resposta_classe: recusou ? "recusa" : "outro" })
+            .update({ resposta_texto: dito, resposta_em: agora(), resposta_classe: recusou ? "recusa" : "outro" })
             .eq("id", msg.id)
             .eq("org_id", org);
           if (recusou) {
@@ -896,11 +947,11 @@ export async function POST(req: Request) {
           return j({ ok: true, classe: entrou ? "gancho" : null });
         }
 
-        const classe = await classificarResposta(org, texto);
+        const classe = await classificarResposta(org, dito);
 
         await admin
           .from("prospeccao_mensagens")
-          .update({ resposta_texto: texto, resposta_em: agora(), resposta_classe: classe })
+          .update({ resposta_texto: dito, resposta_em: agora(), resposta_classe: classe })
           .eq("id", msg.id)
           .eq("org_id", org);
 

@@ -87,12 +87,15 @@ export default function CardLead({
   p,
   ctx,
   resposta,
+  respostaAuto,
   abertura,
   atraso,
 }: {
   p: ProspectoRow;
   ctx: ContextoCard;
   resposta?: { texto: string; classe: string | null; em: string; tipo?: string | null };
+  /* O robô da empresa respondeu — não conta como resposta de gente. */
+  respostaAuto?: { texto: string; em: string };
   abertura?: { total: number; ultima: string };
   atraso: number;
 }) {
@@ -352,7 +355,7 @@ export default function CardLead({
           </p>
 
           {/* ------------ o que é urgente, só quando existe ------------ */}
-          {(abertura || resposta || p.nao_perturbar) && (
+          {(abertura || resposta || respostaAuto || p.nao_perturbar) && (
             <div className="mt-2.5 flex flex-col gap-1.5">
               {abertura && (
                 <p
@@ -371,6 +374,17 @@ export default function CardLead({
                 sem a caixa verde nem as respostas prontas, para o vendedor
                 não pular em cima de um "oi".
               */}
+              {/*
+                O robô da empresa. Discreto de propósito: é informação, não
+                oportunidade — quem responde assim não leu nada. Só aparece
+                quando ninguém de verdade respondeu ainda.
+              */}
+              {!resposta && respostaAuto && (
+                <p className="inline-flex w-fit max-w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs">
+                  <span className="font-bold text-paper-dim">🤖 respondeu o robô da empresa</span>
+                  <span className="min-w-0 truncate italic text-paper-dim">“{respostaAuto.texto}”</span>
+                </p>
+              )}
               {resposta?.tipo === "gancho" && (
                 <p className="inline-flex w-fit items-center gap-2 rounded-lg border border-brand-2/30 bg-brand/10 px-2.5 py-1 text-xs">
                   <span className="font-bold text-brand-2">👋 respondeu ao gancho</span>
