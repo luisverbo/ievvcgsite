@@ -214,18 +214,36 @@ function mesmoNumero(a: string, b: string): boolean {
   return da.length >= 8 && db.length >= 8 && da.slice(-8) === db.slice(-8);
 }
 
+/*
+ * Por onde o rodízio parou.
+ *
+ * A varredura da lista só identifica a conversa quando o título traz o
+ * número — e conta comercial mostra o NOME da empresa. Para esses (e para
+ * quem ficou fora das 40 primeiras conversas) existe o rodízio: algumas por
+ * volta, abrindo a conversa direto pelo número, até todos terem sido
+ * conferidos. Devagar de propósito: escutar é trabalho de fundo.
+ */
+let rodizio = 0;
+
 export async function lerRespostas(
   page: Page,
   numerosEsperados: string[],
   log: (m: string) => void = () => {},
+  opcoes: OpcoesEnvio & { porVolta?: number } = {},
 ): Promise<RespostaLida[]> {
   const saida: RespostaLida[] = [];
   if (numerosEsperados.length === 0) return saida;
-  if (!(await estaConectado(page))) return saida;
+  if (!(await estaConectado(page))) {
+    log("escuta: o WhatsApp ainda não mostrou a lista de conversas");
+    return saida;
+  }
+  const porVolta = Math.max(1, opcoes.porVolta ?? 5);
 
   // Garante a tela inicial (a lista) — pode ter ficado num chat do envio.
   if (!page.url().includes("web.whatsapp.com")) {
-    await page.goto("https://web.whatsapp.com", { waitUntil: "domcontentloaded", timeout: 60_000 }).catch(() => {});
+    await page
+      .goto(`${opcoes.base ?? "https://web.whatsapp.com"}`, { waitUntil: "domcontentloaded", timeout: 60_000 })
+      .catch(() => {});
     await espera(4000);
   }
 
@@ -247,6 +265,8 @@ export async function lerRespostas(
    * registrou — e o lead ficava parado em "Contactado" no funil para sempre.
    */
   const alvos: string[] = [];
+  // Conversas cujo título não casou com número nenhum — vai para o log.
+  const semNumero: string[] = [];
   for (let i = 0; i < total; i++) {
     const linha = linhas.nth(i);
     const naoLida = await linha
@@ -260,23 +280,69 @@ export async function lerRespostas(
       .catch(() => 0);
     if (naoLida === 0 && nossoTique > 0) continue;
 
-    const titulo = (await linha.locator("span[title]").first().getAttribute("title").catch(() => "")) ?? "";
-    const numero = numerosEsperados.find((n) => mesmoNumero(n, titulo));
+    /*
+     * O número da conversa. `span[title]` costuma trazer o nome/telefone da
+     * linha, mas conta comercial mostra o NOME da empresa — e aí não há
+     * dígito nenhum para casar. Por isso olhamos todos os títulos da linha,
+     * e não só o primeiro: em algum deles costuma vir o número.
+     */
+    const titulos = (await linha.locator("[title]").evaluateAll(
+      (els) => els.map((e) => e.getAttribute("title") ?? ""),
+    ).catch(() => [] as string[]));
+    const numero = numerosEsperados.find((n) => titulos.some((t) => mesmoNumero(n, t)));
     if (numero && !alvos.includes(numero)) alvos.push(numero);
-    if (alvos.length >= 5) break; // um punhado por volta chega; a próxima pega o resto
+    else if (!numero) semNumero.push((titulos[0] ?? "").slice(0, 24));
+    if (alvos.length >= porVolta) break; // o resto fica para a próxima volta
   }
 
-  for (const numero of alvos) {
+  /*
+   * O diagnóstico da escuta, no log da VPS. Sem isto, "não registrou
+   * resposta nenhuma" é indistinguível de "ninguém respondeu" — e foi
+   * exatamente nisso que se perdeu tempo: o envio funcionando ao lado e a
+   * escuta desistindo calada.
+   */
+  /*
+   * O rodízio preenche o que sobrou da cota da volta. Sem ele, um lead com
+   * conta comercial (nome no lugar do número na lista) nunca seria
+   * conferido — e foi assim que respostas de verdade passaram batido.
+   */
+  const porRodizio: string[] = [];
+  if (alvos.length < porVolta && numerosEsperados.length > 0) {
+    for (let k = 0; k < numerosEsperados.length && alvos.length + porRodizio.length < porVolta; k++) {
+      const n = numerosEsperados[(rodizio + k) % numerosEsperados.length];
+      if (!alvos.includes(n) && !porRodizio.includes(n)) porRodizio.push(n);
+    }
+    rodizio = (rodizio + porRodizio.length) % Math.max(1, numerosEsperados.length);
+  }
+
+  log(
+    `escuta: ${numerosEsperados.length} aguardando · ${total} conversas na lista · ` +
+      `${alvos.length} pela lista + ${porRodizio.length} por rodízio` +
+      (semNumero.length > 0 ? ` · sem número na lista: ${semNumero.slice(0, 3).join(", ")}` : ""),
+  );
+
+  for (const numero of [...alvos, ...porRodizio]) {
     try {
-      // Abrir pelo endereço é o caminho mais estável de chegar no chat certo.
-      await page.goto(`https://web.whatsapp.com/send?phone=${numero}`, {
-        waitUntil: "domcontentloaded",
-        timeout: 60_000,
+      /*
+       * A MESMA abertura do envio. Antes daqui saía um goto com 30 segundos
+       * de espera e um `continue` calado: numa VPS em que a conversa leva um
+       * minuto para montar, a escuta desistia de todas as vezes — envio
+       * funcionando, resposta nunca registrada, e nada no log.
+       */
+      /*
+       * Teto maior que o do envio de propósito. Aqui desistir cedo custa uma
+       * RESPOSTA perdida — e ninguém está esperando na fila atrás. Foi um
+       * teto curto (30s, calado) que segurou a escuta inteira nesta VPS.
+       */
+      const aberta = await abrirConversa(page, numero, {
+        esperaAberturaMs: 90_000,
+        esperaSilencioMs: 45_000,
+        ...opcoes,
       });
-      const caixa = page.locator(SELETOR_CAIXA).first();
-      const inicio = Date.now();
-      while (Date.now() - inicio < 30_000 && (await caixa.count()) === 0) await espera(1200);
-      if ((await caixa.count()) === 0) continue;
+      if (!aberta.ok) {
+        log(`escuta: não abri a conversa de ${numero} (${aberta.motivo.slice(0, 80)})`);
+        continue;
+      }
       await espera(1500);
 
       /*
@@ -441,23 +507,44 @@ export type OpcoesEnvio = {
  *   - Na falha final, foto da tela e o texto do painel principal vão no
  *     motivo — numa VPS sem monitor é a única forma de ver o que houve.
  */
-export async function enviarMensagem(
+/*
+ * Abre a conversa de um número e espera a caixa de texto aparecer.
+ *
+ * Extraída do envio porque a ESCUTA precisa exatamente da mesma coisa —
+ * e não tinha: ela dava 30 segundos e desistia calada. Numa VPS onde a
+ * conversa leva um minuto para montar, isso significava nunca registrar
+ * resposta nenhuma, com o envio funcionando ao lado. Uma função só para
+ * "abrir conversa" é o que impede os dois caminhos de divergirem de novo.
+ *
+ * O que ela carrega, aprendido na prática:
+ *
+ *   - cada goto recarrega o WhatsApp Web inteiro, e a lista aparece do
+ *     cache ANTES de a ligação com o celular voltar; se a busca do número
+ *     roda nessa janela, fica presa em "Iniciando conversa" ou some sem
+ *     abrir nada. Por isso: preso ou em silêncio, navega de novo;
+ *   - "Iniciando conversa" NÃO é aviso: Esc ali cancela a conversa;
+ *   - número inválido e conta restringida são lidos pelo TEXTO do
+ *     diálogo, não por seletor: o WhatsApp muda classe toda semana, as
+ *     palavras não.
+ */
+export async function abrirConversa(
   page: Page,
   telefone: string,
-  texto: string,
-  opcoes: OpcoesEnvio = {},
-): Promise<ResultadoEnvio> {
+  opcoes: OpcoesEnvio & { texto?: string } = {},
+): Promise<{ ok: true } | (ResultadoEnvio & { ok: false })> {
   const base = opcoes.base ?? "https://web.whatsapp.com";
   const esperaAbertura = opcoes.esperaAberturaMs ?? 120_000;
   const esperaIniciando = opcoes.esperaIniciandoMs ?? 60_000;
   const esperaSilencio = opcoes.esperaSilencioMs ?? 25_000;
   const tentativas = Math.max(1, opcoes.tentativas ?? 2);
-  const [pausaMin, pausaMax] = opcoes.pausaAntesMs ?? [1200, 3000];
-  const confirmacao = opcoes.confirmacaoMs ?? 2500;
   const log = opcoes.log ?? (() => {});
   const passo = Math.min(1500, Math.max(100, Math.floor(esperaSilencio / 5)));
 
-  const url = `${base}/send/?phone=${telefone}&text=${encodeURIComponent(texto)}&type=phone_number&app_absent=0`;
+  // Com texto, a caixa já vem preenchida (envio). Sem texto, só abre (escuta).
+  const url =
+    `${base}/send/?phone=${telefone}` +
+    (opcoes.texto ? `&text=${encodeURIComponent(opcoes.texto)}` : "") +
+    "&type=phone_number&app_absent=0";
   const caixa = page.locator(SELETOR_CAIXA).first();
   const dialogo = page.locator('div[role="dialog"]').first();
 
@@ -613,6 +700,27 @@ export async function enviarMensagem(
       tentarDeNovo: true,
     };
   }
+
+  return { ok: true };
+}
+
+/*
+ * Abre a conversa e manda o texto. O trabalho de ABRIR mora em
+ * abrirConversa (a mesma que a escuta usa); aqui fica o que é do envio:
+ * a pausa humana antes do Enter e a confirmação de que a mensagem saiu.
+ */
+export async function enviarMensagem(
+  page: Page,
+  telefone: string,
+  texto: string,
+  opcoes: OpcoesEnvio = {},
+): Promise<ResultadoEnvio> {
+  const [pausaMin, pausaMax] = opcoes.pausaAntesMs ?? [1200, 3000];
+  const confirmacao = opcoes.confirmacaoMs ?? 2500;
+  const caixa = page.locator(SELETOR_CAIXA).first();
+
+  const aberta = await abrirConversa(page, telefone, { ...opcoes, texto });
+  if (!aberta.ok) return aberta;
 
   // Pausa curta antes de enviar: digitar e mandar no mesmo instante é
   // comportamento de robô.

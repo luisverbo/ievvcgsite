@@ -42,6 +42,7 @@ import CancelarFila from "./CancelarFila";
 import TesteEnvio, { type ResultadoTeste } from "./TesteEnvio";
 import Aquecimento from "./Aquecimento";
 import HorarioEnvio from "./HorarioEnvio";
+import ApresentacaoManual, { type EsperandoApresentacao } from "./ApresentacaoManual";
 import type { Janela } from "@/lib/prospeccao/janela";
 
 // A primeira mensagem não precisa de etiqueta; as outras, sim — o usuário
@@ -214,6 +215,34 @@ export default function Painel({
   const pausado = config.envio_pausado === true;
   const naFilaAuto = pendentes.filter((m) => m.modo === "auto").length;
   const foraDoHorario = !!janelaInfo && janelaInfo.disponivel && !janelaInfo.aberta;
+
+  /*
+   * Quem recebeu o GANCHO e ainda não recebeu a apresentação.
+   *
+   * É a lista do card manual: quando a escuta do agente falha (a VPS não
+   * consegue abrir a conversa, o WhatsApp muda a lista), o dono vê a
+   * resposta no celular dele e manda daqui. Nada de adivinhar quem
+   * respondeu — quem sabe isso é ele, olhando o próprio WhatsApp.
+   */
+  const comApresentacao = new Set(
+    mensagens.filter((m) => m.tipo === "apresentacao").map((m) => m.prospecto_id),
+  );
+  const esperandoApresentacao: EsperandoApresentacao[] = mensagens
+    .filter(
+      (m) =>
+        m.tipo === "gancho" &&
+        m.status === "enviada" &&
+        m.prospecto_id &&
+        !comApresentacao.has(m.prospecto_id),
+    )
+    .map((m) => ({
+      prospectoId: m.prospecto_id,
+      nome: nomePorProspecto[m.prospecto_id] ?? m.telefone,
+      telefone: m.telefone,
+      enviadaEm: m.enviada_em,
+      robo: m.resposta_classe === "automatica",
+    }))
+    .sort((a, b) => (b.enviadaEm ?? "").localeCompare(a.enviadaEm ?? ""));
   const enviadasHoje = mensagens.filter(
     (m) => m.status === "enviada" && m.enviada_em && m.enviada_em > hojeInicio(),
   ).length;
@@ -360,6 +389,12 @@ export default function Painel({
         motivoEm={config.ultimo_motivo_em}
         fotoFalha={fotoFalha}
       />
+
+      {/*
+        Logo abaixo do estado do envio: quando alguém responde, é a próxima
+        coisa que a pessoa procura na tela.
+      */}
+      {config.abordagem_modo === "gancho" && <ApresentacaoManual leads={esperandoApresentacao} />}
 
       {janelaInfo && (
         <HorarioEnvio

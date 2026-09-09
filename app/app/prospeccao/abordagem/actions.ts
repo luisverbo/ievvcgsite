@@ -18,6 +18,7 @@ import {
 import { escreverMensagens } from "@/lib/prospeccao/escrever";
 import { ofertaDaOrg } from "@/lib/prospeccao/oferta";
 import { funcaoLigada } from "@/lib/painel/flags";
+import { enfileirarApresentacao } from "@/lib/prospeccao/gancho";
 import type { ProspectoRow } from "@/lib/prospeccao/tipos";
 import { janelaDeConfig, janelaAberta, descreverJanela, quandoAbre } from "@/lib/prospeccao/janela";
 
@@ -92,6 +93,7 @@ export type MensagemRow = {
   modo: "semi" | "auto";
   status: "pendente" | "enviada" | "erro" | "cancelada" | "sem_whatsapp";
   erro: string | null;
+  resposta_classe?: string | null;
   enviada_em: string | null;
   created_at: string;
 };
@@ -1285,4 +1287,68 @@ export async function salvarHorarioEnvio(_: EstadoAbordagem, formData: FormData)
   revalidatePath("/app/prospeccao/abordagem");
   revalidatePath("/app/prospeccao", "layout");
   return { ok: `Horário salvo: ${descreverJanela({ inicio, fim, dias })}.` };
+}
+
+
+/* --------------------- apresentação na mão (modo gancho) -------------------- */
+
+/*
+ * Mandar a apresentação para quem respondeu, sem esperar a escuta.
+ *
+ * A escuta do agente é ótima quando funciona, e quando não funciona o dono
+ * fica olhando a resposta no celular dele sem nada acontecer. Este botão é a
+ * saída: ele viu a resposta, ele manda. Enfileira a apresentação do mesmo
+ * jeito que a escuta enfileiraria — mesma trava de uma por lead, mesma
+ * prioridade, mesmo texto.
+ *
+ * Também marca o gancho como respondido, senão a escuta continuaria olhando
+ * aquele número para sempre e o remarketing acabaria caindo em cima de quem
+ * já está conversando.
+ */
+export async function mandarApresentacao(prospectoId: string): Promise<EstadoAbordagem> {
+  if (!(await podeUsar("prospeccao"))) return { error: "Sem permissão." };
+  const org = await getMinhaOrg();
+  if (!org) return { error: "Organização não encontrada." };
+
+  const supabase = await createClient();
+  const { data: gRaw } = await supabase
+    .from("prospeccao_mensagens")
+    .select("id, telefone, modo, resposta_em")
+    .eq("org_id", org.id)
+    .eq("prospecto_id", prospectoId)
+    .eq("tipo", "gancho")
+    .eq("status", "enviada")
+    .order("enviada_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const gancho = gRaw as { id: string; telefone: string; modo: string; resposta_em: string | null } | null;
+  if (!gancho) return { error: "Este lead não recebeu o gancho — não há apresentação para mandar." };
+
+  const entrou = await enfileirarApresentacao(
+    org.id,
+    prospectoId,
+    gancho.telefone,
+    gancho.modo === "semi" ? "semi" : "auto",
+  );
+  if (!entrou) {
+    return { error: "A apresentação já estava na fila (ou o lead pediu para não receber)." };
+  }
+
+  // O gancho passa a contar como respondido: encerra a escuta daquele número
+  // e tira o lead da fila do remarketing.
+  if (!gancho.resposta_em) {
+    await supabase
+      .from("prospeccao_mensagens")
+      .update({
+        resposta_em: new Date().toISOString(),
+        resposta_classe: "outro",
+        resposta_texto: "(respondeu — marcado por você no painel)",
+      })
+      .eq("id", gancho.id)
+      .eq("org_id", org.id);
+  }
+
+  revalidatePath("/app/prospeccao/abordagem");
+  revalidatePath("/app/prospeccao", "layout");
+  return { ok: "Apresentação na fila — o agente manda em instantes (ela fura o limite do dia e o intervalo)." };
 }

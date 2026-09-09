@@ -341,7 +341,7 @@ async function atenderLinha(linha: Linha, c: Comum): Promise<{ mandouResumo: boo
     try {
       const numeros = await api.aguardandoResposta(linha.id);
       if (numeros.length > 0) {
-        const respostas = await lerRespostas(sessao.page, numeros, log);
+        const respostas = await lerRespostas(sessao.page, numeros, (m) => log(`${rotulo}: ${m}`));
         for (const r of respostas) {
           const { classe } = await api.respostaRecebida(r.telefone, r.texto);
           log(`💬 ${r.telefone} respondeu${classe ? ` → ${classe}` : ""} — painel atualizado`);
