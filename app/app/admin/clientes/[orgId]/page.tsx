@@ -28,6 +28,9 @@ const emDolar = (micro: number) => `US$${(micro / 1_000_000).toFixed(2).replace(
 const dia = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
 
+/* Página que o cliente abriu e nunca gerou nada: não há o que ver. */
+const vazia = (s: { html: string | null }) => (s.html ?? "").length <= 200;
+
 type SiteRow = {
   id: string;
   titulo: string;
@@ -105,6 +108,24 @@ export default async function FichaDoCliente({ params }: { params: Promise<{ org
       .not("resposta_em", "is", null),
     admin.from("membros").select("user_id").eq("org_id", orgId),
   ]);
+
+  /*
+   * O domínio próprio, quando existe: é nele que o cliente enxerga o site
+   * dele, e é o endereço que ele manda para o cliente DELE. Tolerante — a
+   * tabela pode não existir numa instalação antiga.
+   */
+  const dominioPorSite = new Map<string, { dominio: string; status: string }>();
+  try {
+    const { data: doms } = await admin
+      .from("dominios")
+      .select("site_ia_id, dominio, status")
+      .eq("org_id", orgId);
+    for (const d of (doms as { site_ia_id: string; dominio: string; status: string }[] | null) ?? []) {
+      if (!dominioPorSite.has(d.site_ia_id)) dominioPorSite.set(d.site_ia_id, { dominio: d.dominio, status: d.status });
+    }
+  } catch {
+    /* sem domínios nesta instalação */
+  }
 
   const sites = (sitesRaw as SiteRow[] | null) ?? [];
 
@@ -268,14 +289,52 @@ export default async function FichaDoCliente({ params }: { params: Promise<{ org
                         <td className="px-5 py-3.5">
                           <div className="font-semibold">{s.titulo}</div>
                           <div className="flex flex-wrap items-center gap-2 text-xs text-paper-dim">
-                            <span>/{s.slug}</span>
-                            {s.publicado ? (
-                              <span className="rounded-full bg-ok/15 px-2 py-0.5 font-bold text-ok">no ar</span>
+                            {/*
+                              O endereço tem que ser CLICÁVEL e completo. Antes
+                              aparecia só "/slug", sem o /ia na frente e sem
+                              link: dava para ler, não dava para ver o site —
+                              que é exatamente o que se quer aqui.
+                            */}
+                            {vazia(s) ? (
+                              <span className="rounded-full bg-warn/15 px-2 py-0.5 font-bold text-warn">
+                                vazia — nunca gerou nada
+                              </span>
                             ) : (
-                              <span className="rounded-full bg-white/10 px-2 py-0.5">rascunho</span>
+                              <>
+                                <a
+                                  href={`/app/admin/ver/${s.id}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="font-semibold text-brand-2 underline decoration-brand-2/40 underline-offset-2 hover:decoration-brand-2"
+                                >
+                                  ver a página ↗
+                                </a>
+                                {s.publicado ? (
+                                  <a
+                                    href={`/ia/${s.slug}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-ok underline decoration-ok/40 underline-offset-2 hover:decoration-ok"
+                                  >
+                                    /ia/{s.slug} ↗
+                                  </a>
+                                ) : (
+                                  <span className="rounded-full bg-white/10 px-2 py-0.5">
+                                    rascunho · /ia/{s.slug} está fora do ar
+                                  </span>
+                                )}
+                              </>
                             )}
-                            {(s.html ?? "").length <= 200 && (
-                              <span className="rounded-full bg-warn/15 px-2 py-0.5 font-bold text-warn">vazia</span>
+                            {dominioPorSite.get(s.id) && (
+                              <a
+                                href={`https://${dominioPorSite.get(s.id)!.dominio}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-paper underline decoration-white/30 underline-offset-2 hover:decoration-white"
+                              >
+                                {dominioPorSite.get(s.id)!.dominio}
+                                {dominioPorSite.get(s.id)!.status !== "ativo" && " (DNS pendente)"} ↗
+                              </a>
                             )}
                           </div>
                         </td>
@@ -344,7 +403,9 @@ export default async function FichaDoCliente({ params }: { params: Promise<{ org
       </div>
 
       <p className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-xs text-paper-dim">
-        Esta ficha é só leitura e existe para decidir com número, não com memória. O crédito de IA
+        <b className="text-paper">Ver a página</b> abre o que o cliente criou, publicado ou não —
+        rascunho não fica no ar em /ia/slug, mas aqui você enxerga. Esta ficha é só leitura e existe
+        para decidir com número, não com memória. O crédito de IA
         gasto é dinheiro que já saiu — vale considerar num reembolso. <b className="text-paper">Downloads</b>{" "}
         só contam a partir da migração 2026-09-18: quem baixou antes dela não deixou rastro.
       </p>
