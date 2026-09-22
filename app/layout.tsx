@@ -3,10 +3,24 @@ import { urlDoApp } from "@/lib/site/url";
 import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import "./globals.css";
 
+/*
+ * As fontes, com pilha de reserva declarada.
+ *
+ * `fallback` não é enfeite: `next/font/google` baixa a fonte no BUILD, e
+ * quando essa busca falha (ou o cache do build guarda um módulo pela metade)
+ * a página fica sem fonte nenhuma. Com a reserva escrita, o texto continua
+ * legível em vez de cair numa serifada qualquer do navegador.
+ *
+ * `display: "swap"` é o padrão do Next, mas vai explícito: é a diferença
+ * entre o visitante ler o texto na hora ou olhar para um retângulo em branco
+ * enquanto a fonte carrega.
+ */
 const bricolage = Bricolage_Grotesque({
   variable: "--font-bricolage",
   weight: ["700", "800"],
   subsets: ["latin"],
+  display: "swap",
+  fallback: ["system-ui", "Segoe UI", "Helvetica Neue", "Arial", "sans-serif"],
 });
 
 const figtree = Figtree({
@@ -14,6 +28,8 @@ const figtree = Figtree({
   weight: ["400", "500", "600", "700"],
   style: ["normal", "italic"],
   subsets: ["latin"],
+  display: "swap",
+  fallback: ["system-ui", "Segoe UI", "Helvetica Neue", "Arial", "sans-serif"],
 });
 
 const TITULO = "PáginaPro — Landing pages e funis que convertem";
