@@ -1,5 +1,6 @@
 import JSZip from "jszip";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { podeUsar } from "@/lib/painel/permissoes";
 import {
   leiaMe,
@@ -24,10 +25,10 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   const supabase = await createClient();
   const { data } = await supabase
     .from("sites_ia")
-    .select("titulo, slug, html")
+    .select("titulo, slug, html, org_id")
     .eq("id", id)
     .maybeSingle();
-  const site = data as { titulo: string; slug: string; html: string } | null;
+  const site = data as { titulo: string; slug: string; html: string; org_id: string } | null;
   if (!site?.html) {
     return new Response("Esta página ainda não tem conteúdo.", { status: 404 });
   }
@@ -65,6 +66,29 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     compression: "DEFLATE",
     compressionOptions: { level: 6 },
   });
+
+  /*
+   * Fica o registro de que o site foi levado embora.
+   *
+   * O botão existia e não deixava rastro: quando um cliente pedia reembolso
+   * dizendo que não usou, não havia como saber se ele tinha baixado o site.
+   * Grava com a chave de serviço porque a tabela é de auditoria — o cliente
+   * não lê o próprio rastro. Falha em silêncio: o download é o que importa,
+   * e um erro de gravação não pode segurar o arquivo de quem pagou.
+   */
+  try {
+    const { data: sessao } = await supabase.auth.getUser();
+    await createAdminClient()
+      .from("sites_ia_downloads")
+      .insert({
+        org_id: site.org_id,
+        site_ia_id: id,
+        user_id: sessao?.user?.id ?? null,
+        bytes: conteudo.byteLength,
+      });
+  } catch {
+    /* migração pendente ou falha de rede: o cliente leva o zip do mesmo jeito */
+  }
 
   const nome = `${site.slug || "site"}.zip`;
   return new Response(new Uint8Array(conteudo), {

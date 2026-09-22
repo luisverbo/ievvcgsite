@@ -508,8 +508,22 @@ export default async function AdminPage() {
                             {org.nome.charAt(0).toUpperCase()}
                           </span>
                           <div className="min-w-0">
-                            <div className="truncate font-semibold">{org.nome}</div>
+                            {/* O nome vira a porta da ficha de uso: é onde a
+                                mão vai quando a pergunta é "esse cliente
+                                usou?". */}
+                            <Link
+                              href={`/app/admin/clientes/${org.id}`}
+                              className="truncate font-semibold underline-offset-2 hover:text-brand-2 hover:underline"
+                            >
+                              {org.nome}
+                            </Link>
                             <div className="truncate text-xs text-paper-dim">{dono}</div>
+                            <Link
+                              href={`/app/admin/clientes/${org.id}`}
+                              className="text-[11px] text-paper-dim underline-offset-2 hover:text-brand-2 hover:underline"
+                            >
+                              ver o que ele usou →
+                            </Link>
                           </div>
                         </div>
                       </td>
