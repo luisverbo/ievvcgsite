@@ -67,6 +67,7 @@ export default function Linhas({
   motivo,
   motivoEm,
   fotoFalha = null,
+  agenteOnline = false,
 }: {
   linhas: LinhaTela[];
   /* Migração pendente: só a linha principal, pelas colunas antigas. */
@@ -80,6 +81,8 @@ export default function Linhas({
   motivo?: string | null;
   motivoEm?: string | null;
   fotoFalha?: FotoFalha | null;
+  /* Algum agente desta conta deu sinal nos últimos 15 min? */
+  agenteOnline?: boolean;
 }) {
   const router = useRouter();
   const [, iniciar] = useTransition();
@@ -235,10 +238,24 @@ export default function Linhas({
                 </form>
               )}
 
-              {l.status === "aguardando_qr" && !l.qr && (
+              {/*
+                Sem agente ligado o QR não aparece NUNCA — e dizer "aguardando"
+                nesse caso é mentira que custa caro: o cliente espera, tenta
+                outro número, tenta outro, e conclui que o produto não
+                funciona. O que falta é ligar o programa na máquina dele.
+              */}
+              {l.status === "aguardando_qr" && !l.qr && !agenteOnline && (
+                <p className="mt-3 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-paper">
+                  <b className="text-danger">Nenhum agente ligado — o QR não vai aparecer.</b>{" "}
+                  Quem abre o WhatsApp é o programa instalado no seu computador ou na sua VPS. Abra{" "}
+                  <b className="text-paper">Prospecção › Meu agente</b>, baixe e ligue o programa; o QR
+                  aparece aqui sozinho em seguida.
+                </p>
+              )}
+              {l.status === "aguardando_qr" && !l.qr && agenteOnline && (
                 <p className="mt-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-brand-2">
                   Aguardando o agente abrir o WhatsApp… o QR aparece aqui em alguns segundos. Se não
-                  aparecer em 1 minuto, confira se o agente está ligado.
+                  aparecer em 1 minuto, veja a mensagem de erro no card do agente.
                 </p>
               )}
               {l.qr && l.status !== "conectado" && (

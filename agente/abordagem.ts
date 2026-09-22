@@ -222,7 +222,19 @@ export async function rodarAbordagem(headless: boolean, log: (m: string) => void
       const resultado = await atenderLinha(linha, { ...comum, resumo: resumoPendente });
       if (resultado.mandouResumo) resumoPendente = false;
     } catch (e) {
-      log(`⚠️  ${linha.nome}: ${(e as Error).message.slice(0, 160)}`);
+      const motivo = explicarFalhaNavegador((e as Error).message);
+      log(`⚠️  ${linha.nome}: ${motivo}`);
+      /*
+       * Se esta linha estava esperando o QR, o painel PRECISA saber que
+       * falhou. Antes o erro morria aqui no log da máquina do cliente e a
+       * tela dele ficava em "aguardando o agente abrir o WhatsApp…" para
+       * sempre — ele tentava outro número, outro, e concluía que o produto
+       * não funciona. O erro é do computador dele, mas quem tem que contar
+       * isso somos nós.
+       */
+      if (linha.status === "aguardando_qr") {
+        await api.zapEstado("erro", motivo, null, linha.id).catch(() => {});
+      }
     }
   }
 }
@@ -240,6 +252,34 @@ type Comum = {
   resumo: boolean;
   servidorComLinhas: boolean;
 };
+
+/*
+ * O que deu errado, em português, para a tela do cliente.
+ *
+ * Quando o navegador não abre, o erro do Playwright é uma parede de texto em
+ * inglês com caminho de arquivo — e quem está do outro lado é um corretor de
+ * seguros tentando ler um QR. Sem esta tradução, ele vê "aguardando o
+ * agente…" para sempre e conclui que o produto não funciona.
+ */
+function explicarFalhaNavegador(erro: string): string {
+  const e = erro.toLowerCase();
+  if (e.includes("executable doesn't exist") || e.includes("playwright install")) {
+    return "o navegador do agente não está instalado nesta máquina. Na pasta do agente, rode: npm run instalar-navegador";
+  }
+  if (e.includes("enospc") || e.includes("no space left")) {
+    return "o disco desta máquina está cheio — libere espaço e tente de novo";
+  }
+  if (e.includes("singletonlock") || e.includes("processsingleton") || e.includes("profile") && e.includes("in use")) {
+    return "já existe outro navegador usando esta sessão. Feche o agente, espere 10 segundos e ligue de novo";
+  }
+  if (e.includes("timeout") && e.includes("goto")) {
+    return "esta máquina não conseguiu abrir o web.whatsapp.com (internet ou firewall)";
+  }
+  if (e.includes("target closed") || e.includes("browser has been closed")) {
+    return "o navegador fechou sozinho no meio da conexão — pode ser falta de memória nesta máquina";
+  }
+  return erro.slice(0, 160);
+}
 
 async function atenderLinha(linha: Linha, c: Comum): Promise<{ mandouResumo: boolean }> {
   const { log } = c;

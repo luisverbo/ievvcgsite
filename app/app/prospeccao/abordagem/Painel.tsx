@@ -388,6 +388,7 @@ export default function Painel({
         motivo={config.ultimo_motivo}
         motivoEm={config.ultimo_motivo_em}
         fotoFalha={fotoFalha}
+        agenteOnline={agenteOnline}
       />
 
       {/*
