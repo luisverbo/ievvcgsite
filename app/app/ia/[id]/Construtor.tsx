@@ -17,6 +17,8 @@ import {
   type SiteIA,
   type VersaoRow,
 } from "../actions";
+import Midias from "./Midias";
+import type { Midia } from "@/lib/ia/midias";
 import {
   IconBack,
   IconMonitor,
@@ -125,6 +127,7 @@ export default function Construtor({
   pedidoInicial = "",
   empresa = null,
   admin = false,
+  midiasIniciais = [],
 }: {
   site: SiteIA;
   mensagensIniciais: MensagemRow[];
@@ -136,6 +139,8 @@ export default function Construtor({
   empresa?: EmpresaVinculada;
   /* Seletor de modelo é do dono do sistema — veja lib/ia/modelos.ts. */
   admin?: boolean;
+  /* Vídeo, áudio e PDF já hospedados para esta página. */
+  midiasIniciais?: Midia[];
 }) {
   const [html, setHtml] = useState(site.html);
   const [modelo, setModelo] = useState(site.modelo);
@@ -663,7 +668,9 @@ export default function Construtor({
                 <p>
                   Quanto mais específico, melhor: para quem é, o que vende, qual o preço, que
                   sensação a página tem que passar. Você pode anexar uma imagem de referência ou um
-                  PDF com o briefing.
+                  PDF com o briefing — e, se a página tem vídeo, suba em{" "}
+                  <b className="text-paper">Arquivos da página</b> aqui embaixo (aceita zip) e depois
+                  é só pedir onde ele entra.
                 </p>
                 <p className="mt-2">
                   Peça <b className="text-paper">uma página por vez</b>. Briefings gigantes, com
@@ -732,8 +739,19 @@ export default function Construtor({
             <div ref={fimChat} />
           </div>
 
+          {/*
+            Os arquivos da página ficam logo acima do campo de escrever: é
+            onde a mão está quando a pessoa pensa "preciso pôr o vídeo aqui".
+            Separado do anexo do chat de propósito — um é para a IA LER, o
+            outro é para HOSPEDAR, e misturar os dois é o que fazia o cliente
+            tentar subir vídeo pelo clipe e não conseguir.
+          */}
+          <div className="flex-none border-t border-white/10 px-3 pt-3">
+            <Midias siteId={site.id} orgId={site.org_id} iniciais={midiasIniciais} />
+          </div>
+
           {/* --------------------------- campo ---------------------------- */}
-          <div className="flex-none border-t border-white/10 p-3">
+          <div className="flex-none p-3">
             {!!anexos.length && (
               <div className="mb-2 flex flex-wrap gap-1.5">
                 {anexos.map((a, i) => (

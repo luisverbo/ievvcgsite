@@ -10,6 +10,7 @@ import {
   type MensagemChat,
 } from "@/lib/ia/anthropic";
 import { SYSTEM_CONSTRUTOR, promptInicial } from "@/lib/ia/prompt";
+import { blocoParaIA, type Midia } from "@/lib/ia/midias";
 import { contaDaOrg, contaDeRespaldo, cobrar, podeGastar, type ContaIA } from "@/lib/creditos/conta";
 import { planoVigente, planoFreeAtivo } from "@/lib/painel/permissoes";
 import { ehAdmin } from "@/lib/painel/admin";
@@ -158,12 +159,34 @@ export async function POST(req: Request) {
     .limit(40);
   const historico = (msgsRow as { papel: "user" | "assistant"; conteudo: string }[] | null) ?? [];
 
+  /*
+   * Os arquivos hospedados desta página (vídeo, áudio, PDF) entram no PEDIDO,
+   * não no histórico: assim a lista é sempre a de agora — arquivo apagado
+   * some, arquivo novo aparece — e a IA escreve a tag apontando para um
+   * endereço que existe de verdade. Sem isto ela inventava caminho e a página
+   * saía com vídeo quebrado.
+   *
+   * Consulta própria e tolerante: a tabela é da migração 2026-10-10, e sem
+   * ela o chat continua funcionando como sempre funcionou.
+   */
+  let listaDeArquivos = "";
+  try {
+    const { data: mids } = await supabase
+      .from("sites_ia_midias")
+      .select("id, nome, caminho, url, tipo, bytes, created_at")
+      .eq("site_ia_id", siteIaId)
+      .order("created_at", { ascending: false });
+    listaDeArquivos = blocoParaIA((mids as Midia[] | null) ?? []);
+  } catch {
+    /* migração pendente */
+  }
+
   const primeiraVez = !site.html;
   const mensagens: MensagemChat[] = [
     ...historico.map((m) => ({ papel: m.papel, conteudo: m.conteudo })),
     {
       papel: "user" as const,
-      conteudo: primeiraVez ? promptInicial(pedido) : pedido,
+      conteudo: (primeiraVez ? promptInicial(pedido) : pedido) + listaDeArquivos,
       anexos,
     },
   ];

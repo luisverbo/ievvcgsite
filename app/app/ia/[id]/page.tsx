@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { exigirRecurso } from "@/lib/painel/permissoes";
+import type { Midia } from "@/lib/ia/midias";
 import { ehAdmin } from "@/lib/painel/admin";
 import { statusDaConta } from "@/lib/creditos/conta";
 import Construtor from "./Construtor";
@@ -58,6 +59,23 @@ export default async function ConstrutorPage({
 
   const [conta, admin] = await Promise.all([statusDaConta(site.org_id), ehAdmin()]);
 
+  /*
+   * Os arquivos hospedados desta página. Consulta própria e tolerante: a
+   * tabela é da migração 2026-10-10, e sem ela o construtor abre igual — só
+   * sem a caixa de arquivos.
+   */
+  let midiasIniciais: Midia[] = [];
+  try {
+    const { data: mids } = await supabase
+      .from("sites_ia_midias")
+      .select("id, nome, caminho, url, tipo, bytes, created_at")
+      .eq("site_ia_id", site.id)
+      .order("created_at", { ascending: false });
+    midiasIniciais = (mids as Midia[] | null) ?? [];
+  } catch {
+    /* migração pendente */
+  }
+
   // Endereço público completo, para o link ser copiável e clicável.
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
@@ -66,6 +84,7 @@ export default async function ConstrutorPage({
 
   return (
     <Construtor
+      midiasIniciais={midiasIniciais}
       site={site}
       mensagensIniciais={(msgs as MensagemRow[] | null) ?? []}
       versoesIniciais={(versoes as VersaoRow[] | null) ?? []}

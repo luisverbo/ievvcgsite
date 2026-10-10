@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { slugify } from "@/lib/format";
+import { classificarArquivo, MAX_BYTES_MIDIA, type Midia } from "@/lib/ia/midias";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { podeUsar, planoVigente, FREE_MAX_PAGINAS } from "@/lib/painel/permissoes";
 import { ehAdmin } from "@/lib/painel/admin";
 import { modeloValido, MEDIA_TYPES_IMAGEM } from "@/lib/ia/anthropic";
@@ -450,4 +452,91 @@ export async function removerImagemIA(
   if (error) return { error: error.message };
 
   return { html };
+}
+
+/* ------------------------- arquivos da página (mídias) ------------------------ */
+
+/*
+ * Catalogar um arquivo que o NAVEGADOR acabou de subir.
+ *
+ * O arquivo não passa por aqui de propósito: vídeo de 40MB numa server action
+ * esbarra no teto de corpo da requisição antes de servir para alguma coisa.
+ * As políticas do bucket já prendem cada conta à própria pasta, então o
+ * navegador sobe direto e o servidor só confere e anota.
+ *
+ * Conferimos mesmo assim: o caminho TEM que começar pela pasta da org do
+ * site. Sem essa linha, um pedido forjado catalogaria arquivo de outra conta
+ * dentro da página desta.
+ */
+export async function registrarMidia(
+  siteIaId: string,
+  dados: { nome: string; caminho: string; bytes: number },
+): Promise<{ midia?: Midia; error?: string }> {
+  if (!(await podeUsar("construtor"))) return { error: "Sem permissão." };
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sites_ia")
+    .select("id, org_id")
+    .eq("id", siteIaId)
+    .maybeSingle();
+  const site = data as { id: string; org_id: string } | null;
+  if (!site) return { error: "Página não encontrada." };
+
+  const prefixo = `${site.org_id}/ia/${site.id}/arquivos/`;
+  if (!dados.caminho.startsWith(prefixo)) {
+    return { error: "Caminho de arquivo inválido." };
+  }
+  const classe = classificarArquivo(dados.nome);
+  if (!classe) return { error: `"${dados.nome}": formato não aceito.` };
+  if (dados.bytes > MAX_BYTES_MIDIA) return { error: `"${dados.nome}" passa do limite por arquivo.` };
+
+  const admin = createAdminClient();
+  const { data: pub } = admin.storage.from("midias").getPublicUrl(dados.caminho);
+
+  const { data: linha, error } = await supabase
+    .from("sites_ia_midias")
+    .insert({
+      org_id: site.org_id,
+      site_ia_id: site.id,
+      nome: dados.nome.slice(0, 160),
+      caminho: dados.caminho,
+      url: pub.publicUrl,
+      tipo: classe.tipo,
+      bytes: dados.bytes,
+    })
+    .select("id, nome, caminho, url, tipo, bytes, created_at")
+    .maybeSingle();
+
+  if (error) {
+    return /sites_ia_midias/.test(error.message)
+      ? { error: "Rode a migração dos arquivos no Supabase (2026-10-10_midias_pagina.sql) primeiro." }
+      : { error: error.message };
+  }
+  revalidatePath(`/app/ia/${siteIaId}`);
+  return { midia: linha as Midia };
+}
+
+/* Tira o arquivo do catálogo E do Storage — ficar pagando armazenamento por
+   vídeo que ninguém usa mais é desperdício silencioso. */
+export async function removerMidia(siteIaId: string, midiaId: string): Promise<{ error?: string }> {
+  if (!(await podeUsar("construtor"))) return { error: "Sem permissão." };
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("sites_ia_midias")
+    .select("id, caminho")
+    .eq("id", midiaId)
+    .eq("site_ia_id", siteIaId)
+    .maybeSingle();
+  const midia = data as { id: string; caminho: string } | null;
+  if (!midia) return { error: "Arquivo não encontrado." };
+
+  await supabase.from("sites_ia_midias").delete().eq("id", midia.id);
+  // O arquivo em si sai pelo admin: a política de delete do bucket pede
+  // sessão, e aqui já confirmamos que a mídia é desta página.
+  await createAdminClient().storage.from("midias").remove([midia.caminho]);
+
+  revalidatePath(`/app/ia/${siteIaId}`);
+  return {};
 }
