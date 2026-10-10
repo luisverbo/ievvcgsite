@@ -11,10 +11,22 @@
 
 export const MICRO = 1_000_000; // microdólares em 1 dólar
 
-// Preço por 1 milhão de tokens, em dólares (tabela da Anthropic/OpenAI).
-type Tabela = { entrada: number; saida: number };
+/*
+ * Preço por 1 milhão de tokens, em dólares (tabela da Anthropic/OpenAI).
+ *
+ * `cacheLido` é a fração do preço de ENTRADA que a leitura de cache custa.
+ * Não é igual em todo modelo — e isso importa aqui, porque o prompt do
+ * construtor vai com cache_control: a cada volta do chat o prefixo inteiro é
+ * lido do cache. Cobrar 10% num modelo que cobra 5% dobra a conta do cliente
+ * na parte que mais repete.
+ */
+type Tabela = { entrada: number; saida: number; cacheLido?: number };
 
 const PRECOS: Record<string, Tabela> = {
+  "claude-fable-5-1": { entrada: 10, saida: 50, cacheLido: 0.025 },
+  "claude-opus-5-5": { entrada: 4, saida: 20, cacheLido: 0.05 },
+  "claude-sonnet-5-5": { entrada: 2, saida: 10, cacheLido: 0.05 },
+  "claude-haiku-5-5": { entrada: 0.1, saida: 0.5 },
   "claude-fable-5": { entrada: 10, saida: 50 },
   "claude-opus-5": { entrada: 5, saida: 25 },
   "claude-sonnet-5": { entrada: 3, saida: 15 },
@@ -50,7 +62,7 @@ export function custoEmMicro(modelo: string, uso: UsoTokens): number {
     uso.entrada * porToken(p.entrada) +
     uso.saida * porToken(p.saida) +
     (uso.cacheGravado ?? 0) * porToken(p.entrada * 1.25) +
-    (uso.cacheLido ?? 0) * porToken(p.entrada * 0.1);
+    (uso.cacheLido ?? 0) * porToken(p.entrada * (p.cacheLido ?? 0.1));
 
   return Math.ceil(total);
 }
@@ -75,17 +87,18 @@ export function emDolar(micro: number): string {
  * entende — saldo em dólar sozinho não diz nada para quem nunca usou API.
  */
 /*
- * Medido: uma página cheia no Opus 5 dá ~US$0,51 (no Fable 5, ~US$1,06).
+ * Medido: uma página cheia no Opus 5 dava ~US$0,51. O Opus 5.5, que virou o
+ * padrão, custa 20% menos por token ($4/$20 contra $5/$25) — então ~US$0,41.
  *
- * A conta usa o Opus com uma folga, porque é o modelo que o CLIENTE usa —
- * desde que o seletor virou coisa de admin, todo site dele sai no Opus.
- * Estimar pelo Fable aqui faria a tela prometer metade das páginas que o
- * crédito realmente entrega, e o plano parecer mesquinho à toa.
+ * A conta usa o modelo que o CLIENTE usa, não o mais caro da casa: desde que
+ * o seletor virou coisa de admin, todo site dele sai no padrão. Estimar pelo
+ * Fable aqui faria a tela prometer metade das páginas que o crédito entrega,
+ * e o plano parecer mesquinho à toa.
  *
- * A folga (0,55 em vez de 0,51) cobre página longa e ajuste que regenera o
+ * A folga (0,45 em vez de 0,41) cobre página longa e ajuste que regenera o
  * documento inteiro — melhor entregar uma página a mais que uma a menos.
  */
-export const CUSTO_TIPICO_PAGINA = 550_000;
+export const CUSTO_TIPICO_PAGINA = 450_000;
 
 export function paginasRestantes(micro: number): number {
   return Math.floor(micro / CUSTO_TIPICO_PAGINA);

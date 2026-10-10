@@ -1072,7 +1072,7 @@ export default function Estudio({
               id="modelo_roteiro"
               name="modelo_roteiro"
               defaultValue={modeloRoteiro}
-              placeholder="anthropic:claude-opus-5"
+              placeholder="anthropic:claude-opus-5-5"
               className={`${inputClass} mt-1 w-72 font-mono text-xs`}
             />
           </div>

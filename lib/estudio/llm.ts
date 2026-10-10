@@ -12,8 +12,8 @@ import { chaveAnthropicDaPlataforma } from "@/lib/creditos/conta";
  * e um bom para o roteiro (onde a escrita importa). A escolha fica em
  * config_sistema:
  *
- *   estudio_llm_dissecacao = "anthropic:claude-sonnet-5"   (padrão)
- *   estudio_llm_roteiro    = "anthropic:claude-opus-5"     (padrão)
+ *   estudio_llm_dissecacao = "anthropic:claude-sonnet-5-5"  (padrão)
+ *   estudio_llm_roteiro    = "anthropic:claude-opus-5-5"    (padrão)
  *
  * Formato "provedor:modelo", editável na própria tela do Estúdio. As chaves
  * são as que a plataforma JÁ usa (ANTHROPIC_API_KEY / OPENAI_API_KEY ou as
@@ -25,9 +25,11 @@ import { chaveAnthropicDaPlataforma } from "@/lib/creditos/conta";
 
 export type TarefaLLM = "dissecacao" | "roteiro";
 
+// Geração 5.5: melhor e mais barata que a anterior nas duas pontas
+// (Opus $4/$20 contra $5/$25; Sonnet $2/$10 contra $3/$15).
 const PADRAO: Record<TarefaLLM, string> = {
-  dissecacao: "anthropic:claude-sonnet-5",
-  roteiro: "anthropic:claude-opus-5",
+  dissecacao: "anthropic:claude-sonnet-5-5",
+  roteiro: "anthropic:claude-opus-5-5",
 };
 
 export async function modeloDaTarefa(tarefa: TarefaLLM): Promise<{ provedor: string; modelo: string }> {
