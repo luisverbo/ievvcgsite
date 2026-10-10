@@ -540,3 +540,21 @@ export async function removerMidia(siteIaId: string, midiaId: string): Promise<{
   revalidatePath(`/app/ia/${siteIaId}`);
   return {};
 }
+
+/*
+ * O catálogo de arquivos já existe neste banco?
+ *
+ * Serve para o construtor PERGUNTAR antes de subir. Sem isto, quem ainda não
+ * rodou a migração mandava um zip com quinze vídeos para o armazenamento, via
+ * quinze avisos de erro e ficava com quinze arquivos órfãos ocupando espaço —
+ * foi exatamente o que aconteceu no primeiro uso.
+ */
+export async function midiasDisponivel(): Promise<boolean> {
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase.from("sites_ia_midias").select("id").limit(1);
+    return !error;
+  } catch {
+    return false;
+  }
+}

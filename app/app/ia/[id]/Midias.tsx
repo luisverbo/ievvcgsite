@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import JSZip from "jszip";
 import { createClient } from "@/lib/supabase/client";
-import { registrarMidia, removerMidia } from "../actions";
+import { midiasDisponivel, registrarMidia, removerMidia } from "../actions";
 import {
   classificarArquivo,
   emMb,
@@ -73,12 +73,39 @@ export default function Midias({
     if (error) throw new Error(error.message);
 
     const r = await registrarMidia(siteId, { nome, caminho, bytes: corpo.size });
-    if (r.error || !r.midia) throw new Error(r.error ?? "não deu para catalogar");
+    if (r.error || !r.midia) {
+      /*
+       * Catalogar falhou: o arquivo JÁ está no armazenamento e ninguém sabe
+       * dele. Sem desfazer, cada tentativa frustrada deixa um vídeo órfão
+       * ocupando espaço para sempre — e uma nova tentativa duplica tudo.
+       */
+      await supabase.storage.from("midias").remove([caminho]);
+      throw new Error(r.error ?? "não deu para catalogar");
+    }
     return r.midia;
   }
 
   async function escolher(files: FileList | File[] | null) {
     if (!files?.length) return;
+
+    /*
+     * Pergunta antes de mandar o primeiro byte. Subir quinze vídeos para
+     * descobrir que a tabela não existe é o pior dos dois mundos: demora e
+     * ainda deixa lixo no armazenamento.
+     */
+    if (!(await midiasDisponivel())) {
+      setFila([
+        {
+          nome: "Falta rodar a migração",
+          estado: "erro",
+          detalhe:
+            "rode 2026-10-10_midias_pagina.sql no Supabase e tente de novo — nenhum arquivo foi enviado",
+        },
+      ]);
+      setAberto(true);
+      if (input.current) input.current.value = "";
+      return;
+    }
 
     /*
      * Abre os zips primeiro, para a fila mostrar os arquivos de verdade —
