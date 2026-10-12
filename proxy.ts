@@ -42,6 +42,64 @@ const HOST_PROSPECTOR = (process.env.NEXT_PUBLIC_HOST_PROSPECTOR ?? "")
   .replace(/\/.*$/, "")
   .split(":")[0];
 
+/*
+ * Os domínios próprios que moram DEBAIXO do nosso domínio raiz.
+ *
+ * O caso real: o dono aponta plugue.luismarketing.com.br para uma página de
+ * IA. Para o proxy esse host é indistinguível de um site de blocos publicado
+ * em {slug}.luismarketing.com.br — os dois são "alguma coisa + o nosso
+ * domínio". Sem saber qual é qual, ele mandava TODOS para /s/{slug}, e a
+ * página de IA nunca era alcançada: 404 sem pista nenhuma.
+ *
+ * Consultar o banco em todo request está fora de questão, então guardamos a
+ * lista inteira — que é curta, só os domínios sob o NOSSO raiz — e a
+ * recarregamos a cada cinco minutos. Na prática é uma consulta a cada cinco
+ * minutos por instância, e o resto é decisão em memória.
+ *
+ * Falhou a consulta? Fica valendo o que já estava em mãos e tentamos de novo
+ * em trinta segundos: um soluço de rede não pode derrubar site nenhum.
+ */
+const VALIDADE_MS = 5 * 60_000;
+const VALIDADE_ERRO_MS = 30_000;
+let cacheDominios: { ate: number; hosts: Set<string> } = { ate: 0, hosts: new Set() };
+let buscaEmCurso: Promise<void> | null = null;
+
+async function dominiosSobNossoRoot(): Promise<Set<string>> {
+  if (!ROOT) return cacheDominios.hosts;
+  if (Date.now() < cacheDominios.ate) return cacheDominios.hosts;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const chave = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !chave) return cacheDominios.hosts;
+
+  // Uma busca por vez: numa rajada de visitas, as outras esperam esta.
+  buscaEmCurso ??= (async () => {
+    try {
+      const res = await fetch(
+        `${url}/rest/v1/dominios?select=dominio&dominio=like.${encodeURIComponent(`*.${ROOT}`)}`,
+        {
+          headers: { apikey: chave, Authorization: `Bearer ${chave}` },
+          cache: "no-store",
+          signal: AbortSignal.timeout(2_500),
+        },
+      );
+      if (!res.ok) throw new Error(String(res.status));
+      const linhas = (await res.json()) as { dominio: string }[];
+      cacheDominios = {
+        ate: Date.now() + VALIDADE_MS,
+        hosts: new Set(linhas.map((l) => l.dominio.toLowerCase())),
+      };
+    } catch {
+      cacheDominios = { ...cacheDominios, ate: Date.now() + VALIDADE_ERRO_MS };
+    } finally {
+      buscaEmCurso = null;
+    }
+  })();
+
+  await buscaEmCurso;
+  return cacheDominios.hosts;
+}
+
 export default async function proxy(request: NextRequest) {
   const host = request.headers.get("host")?.toLowerCase().split(":")[0] ?? "";
   const { pathname } = request.nextUrl;
@@ -87,20 +145,36 @@ export default async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  /*
+   * Este host é um subdomínio nosso — e, se for, é site de blocos (slug) ou
+   * domínio próprio apontado para uma página de IA?
+   *
+   * A pergunta só é feita nos subdomínios; o domínio raiz, o painel e o
+   * Prospector nem passam por aqui, e domínio de fora já segue outro caminho.
+   */
+  // O que vem antes do nosso domínio raiz ("loja" em loja.nossodominio.com.br).
+  const prefixoDoHost = ROOT && host.endsWith(`.${ROOT}`) ? host.slice(0, -(ROOT.length + 1)) : "";
+  const ehSubdominioNosso =
+    Boolean(prefixoDoHost) &&
+    !ehProspector && // o nosso domínio não é site de cliente
+    prefixoDoHost !== "www" &&
+    prefixoDoHost !== "app";
+
+  const ehDominioProprio =
+    ehSubdominioNosso && !pathname.startsWith("/_next")
+      ? (await dominiosSobNossoRoot()).has(host)
+      : false;
+
   // Subdomínio de cliente → reescreve para a rota interna /s/[site]
   if (
-    ROOT &&
-    !ehProspector && // o nosso domínio não é site de cliente
-    host !== ROOT &&
-    host !== `www.${ROOT}` &&
-    host !== `app.${ROOT}` &&
-    host.endsWith(`.${ROOT}`) &&
+    ehSubdominioNosso &&
+    !ehDominioProprio &&
     !pathname.startsWith("/s/") &&
+    !pathname.startsWith("/dominio/") &&
     !pathname.startsWith("/_next")
   ) {
-    const slug = host.slice(0, -(ROOT.length + 1));
     const url = request.nextUrl.clone();
-    url.pathname = `/s/${slug}${pathname === "/" ? "" : pathname}`;
+    url.pathname = `/s/${prefixoDoHost}${pathname === "/" ? "" : pathname}`;
     return NextResponse.rewrite(url);
   }
 
@@ -126,9 +200,27 @@ export default async function proxy(request: NextRequest) {
     ].filter(Boolean) as string[],
   );
   const ehNosso =
-    nossosHosts.has(host) || (ROOT ? host.endsWith(`.${ROOT}`) : false) || host.endsWith(".vercel.app");
+    !ehDominioProprio &&
+    (nossosHosts.has(host) ||
+      (ROOT ? host.endsWith(`.${ROOT}`) : false) ||
+      host.endsWith(".vercel.app"));
 
-  if (host && !ehNosso && !pathname.startsWith("/_next") && !pathname.startsWith("/dominio/")) {
+  /*
+   * /api fica de fora de propósito.
+   *
+   * O script de métricas da página manda a saída do visitante para
+   * /api/pp-saida no domínio onde ele está — que é o domínio do cliente.
+   * Reescrevendo isso para /dominio/..., o POST batia numa rota que só
+   * responde GET e o tempo de permanência sumia de todo site com domínio
+   * próprio.
+   */
+  if (
+    host &&
+    !ehNosso &&
+    !pathname.startsWith("/_next") &&
+    !pathname.startsWith("/api/") &&
+    !pathname.startsWith("/dominio/")
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = `/dominio/${host}`;
     return NextResponse.rewrite(url);

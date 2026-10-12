@@ -29,21 +29,54 @@ export type DominioState =
     }
   | undefined;
 
+const INVALIDO =
+  "Endereço inválido. Digite só o domínio, como clinicasorriso.com.br";
+
+type Normalizado = { ok: true; dominio: string } | { ok: false; motivo: string };
+
 /*
  * "clinicasorriso.com.br", "https://www.clinicasorriso.com.br/" e
  * "CLINICASORRISO.COM.BR " são a mesma intenção. Normalizamos aqui, uma vez,
  * em vez de pedir para o cliente digitar "do jeito certo".
+ *
+ * Subdomínio do NOSSO domínio raiz é caso à parte. Antes era recusado sempre,
+ * e foi assim que o dono levou um "endereço inválido" ao tentar conectar
+ * plugue.luismarketing.com.br — o domínio dele. A trava existe por um motivo
+ * real (ninguém pode sequestrar o painel ou a landing), mas quem controla o
+ * DNS do nosso domínio é só o dono, então para ele o atalho é legítimo: a
+ * recusa fica nos hosts reservados, e o resto é liberado só para o dono.
  */
-function normalizar(bruto: string): string | null {
+function normalizar(bruto: string, dono: boolean): Normalizado {
   let d = bruto.trim().toLowerCase();
   d = d.replace(/^https?:\/\//, "").replace(/\/.*$/, "").replace(/\.$/, "").split(":")[0];
-  if (!/^[a-z0-9][a-z0-9.-]{2,251}[a-z0-9]$/.test(d)) return null;
-  if (!d.includes(".") || d.includes("..")) return null;
-  // Domínio nosso não pode: criaria um vínculo que sequestra o próprio painel.
-  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.toLowerCase();
-  if (d.endsWith(".vercel.app")) return null;
-  if (root && (d === root || d.endsWith(`.${root}`))) return null;
-  return d;
+  if (!/^[a-z0-9][a-z0-9.-]{2,251}[a-z0-9]$/.test(d)) return { ok: false, motivo: INVALIDO };
+  if (!d.includes(".") || d.includes("..")) return { ok: false, motivo: INVALIDO };
+  if (d.endsWith(".vercel.app")) return { ok: false, motivo: INVALIDO };
+
+  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.toLowerCase().trim();
+  const prospector = (process.env.NEXT_PUBLIC_HOST_PROSPECTOR ?? "")
+    .toLowerCase()
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "")
+    .split(":")[0];
+
+  // Hosts que o sistema usa para si. Estes não liberam nem para o dono:
+  // conectar um deles tiraria do ar o painel, a landing ou o Prospector.
+  const reservados = new Set(
+    [root, root && `www.${root}`, root && `app.${root}`, prospector, prospector && `www.${prospector}`]
+      .filter(Boolean) as string[],
+  );
+  if (reservados.has(d)) {
+    return { ok: false, motivo: "Este endereço é usado pelo próprio sistema e não pode ser conectado." };
+  }
+  if (root && d.endsWith(`.${root}`) && !dono) {
+    return {
+      ok: false,
+      motivo: `Endereços terminados em .${root} são do sistema. Use um domínio seu — ou um subdomínio dele, como site.seudominio.com.br.`,
+    };
+  }
+  return { ok: true, dominio: d };
 }
 
 export async function adicionarDominio(
@@ -60,9 +93,29 @@ export async function adicionarDominio(
     return { error: "A hospedagem ainda não está configurada. Fale com o suporte." };
   }
 
-  const dominio = normalizar(String(formData.get("dominio") ?? ""));
-  if (!dominio) {
-    return { error: "Endereço inválido. Digite só o domínio, como clinicasorriso.com.br" };
+  const dono = await ehAdmin();
+  const normalizado = normalizar(String(formData.get("dominio") ?? ""), dono);
+  if (!normalizado.ok) return { error: normalizado.motivo };
+  const dominio = normalizado.dominio;
+
+  /*
+   * Subdomínio do nosso raiz também é endereço de site de blocos
+   * ({slug}.nossodominio). Conectar um que já pertence a um site publicado
+   * tiraria aquele site do ar — e o dono do site não teria como adivinhar
+   * o motivo. O slug existente ganha; o domínio é recusado aqui, antes de
+   * virar registro.
+   */
+  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN?.toLowerCase().trim();
+  if (root && dominio.endsWith(`.${root}`)) {
+    const slug = dominio.slice(0, -(root.length + 1));
+    const { data: ocupado } = await createAdminClient()
+      .from("sites")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (ocupado) {
+      return { error: `Já existe um site publicado em ${dominio}. Escolha outro nome.` };
+    }
   }
 
   // A página precisa ser desta organização — o supabase com RLS garante.
@@ -94,7 +147,7 @@ export async function adicionarDominio(
   const siteNovo = !chaves.has(chaveDeCobranca(dominio));
   let cobrouExtra = false;
 
-  if (siteNovo && !(await ehAdmin())) {
+  if (siteNovo && !dono) {
     const cota = await cotaDeHospedagem(org.id);
     if (cota.livre <= 0) {
       // Primeiro clique só informa o preço. Cobrar sem um "sim" explícito é
