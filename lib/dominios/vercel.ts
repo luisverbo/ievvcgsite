@@ -271,7 +271,12 @@ export function explicarEstado(estado: EstadoDominio, dominio: string): string {
     case "fora_do_projeto":
       return `O endereço ${dominio} ainda não está pendurado na hospedagem — por isso o navegador fecha a ligação em vez de mostrar a página. Clique em "Conferir agora" que eu reconecto sozinho.`;
     case "falta_verificar":
-      return "Este domínio já está em uso em outra conta de hospedagem. Para provar que ele é seu, crie também o registro TXT abaixo.";
+      /*
+       * Sem acusar nada. A hospedagem pede esta prova de posse em mais de uma
+       * situação (o endereço já estar em outra conta é só a mais comum), e
+       * afirmar a causa errada manda o cliente caçar uma conta que não existe.
+       */
+      return "Falta provar que o domínio é seu: crie também o registro TXT abaixo, no mesmo lugar onde você cria o outro. Costuma acontecer quando o endereço já esteve ligado a outra hospedagem.";
     case "dns_errado":
       return "O DNS ainda não aponta para cá. Confira o registro no site onde o domínio foi comprado — a propagação pode levar de minutos a algumas horas.";
     case "indisponivel":
