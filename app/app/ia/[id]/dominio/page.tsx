@@ -115,6 +115,7 @@ export default async function DominioPage({ params }: { params: Promise<{ id: st
         (): EstadoDominio => ({
           situacao: "indisponivel",
           motivo: "Não consegui falar com a hospedagem agora. Tente de novo em instantes.",
+          dns: instrucaoDns(d.dominio),
         }),
       ),
     })),
@@ -187,7 +188,9 @@ export default async function DominioPage({ params }: { params: Promise<{ id: st
       />
 
       {comEstado.map((d) => {
-        const dns = instrucaoDns(d.dominio);
+        // O endereço vem da hospedagem (cada projeto tem o seu); a conta fixa
+        // só entra se ela não responder.
+        const dns = d.estado.dns;
         const noAr = d.estado.situacao === "pronto";
         return (
           <div key={d.id} className={cardClass}>

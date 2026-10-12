@@ -51,7 +51,14 @@ export type InstrucaoDns = {
 };
 
 /*
- * O que o cliente precisa configurar no registrador dele.
+ * O que o cliente precisa configurar no registrador dele — a RESERVA.
+ *
+ * Vale só quando a hospedagem não responde. O endereço de verdade vem dela
+ * (veja `dnsRecomendado`): hoje cada projeto tem o seu, do tipo
+ * "f34c59bcf32150f5.vercel-dns-017.com", e o valor genérico aqui embaixo
+ * leva a um domínio que nunca sobe. Foi assim que um domínio com DNS
+ * aparentemente certo passou dias fechando a ligação no navegador — o
+ * painel ditava o valor errado com toda a confiança do mundo.
  *
  * Domínio raiz não aceita CNAME (regra do DNS, não nossa), então lá vai um
  * registro A. Subdomínio (www, site, etc.) vai de CNAME, que sobrevive a
@@ -76,6 +83,48 @@ export function instrucaoDns(dominio: string): InstrucaoDns {
     return { tipo: "A", nome: "", valor: "76.76.21.21", raiz: true };
   }
   return { tipo: "CNAME", nome: partes[0], valor: "cname.vercel-dns.com", raiz: false };
+}
+
+/*
+ * O primeiro endereço aproveitável de uma resposta que pode vir de várias
+ * formas: "valor", ["valor"], [{ value: "valor" }], [{ value: ["valor"] }].
+ *
+ * A tolerância é de propósito. Esta parte da API da hospedagem já mudou de
+ * formato antes, e o preço de errar aqui é alto: o cliente copia um endereço
+ * que não existe e fica dias achando que é propagação de DNS. Formato que eu
+ * não reconheço vira "não achei", e aí entra a reserva — nunca um palpite.
+ */
+function primeiroValor(bruto: unknown): string | null {
+  if (typeof bruto === "string") {
+    const limpo = bruto.trim().replace(/\.$/, ""); // a Vercel mostra com ponto no fim
+    return limpo || null;
+  }
+  if (Array.isArray(bruto)) {
+    for (const item of bruto) {
+      const dentro =
+        item && typeof item === "object" && "value" in (item as object)
+          ? (item as { value: unknown }).value
+          : item;
+      const achado = primeiroValor(dentro);
+      if (achado) return achado;
+    }
+  }
+  return null;
+}
+
+/*
+ * O endereço que a PRÓPRIA hospedagem manda usar para este domínio.
+ *
+ * É o mesmo que aparece no painel dela em "Vercel recommends updating your
+ * DNS records". Cada projeto tem o seu, então ditar um valor fixo daqui é
+ * mandar o cliente apontar para o lugar errado.
+ */
+function dnsRecomendado(dominio: string, cfg: Record<string, unknown>): InstrucaoDns {
+  const reserva = instrucaoDns(dominio);
+  const sugerido = reserva.raiz
+    ? primeiroValor(cfg.recommendedIPv4)
+    : primeiroValor(cfg.recommendedCNAME);
+  return sugerido ? { ...reserva, valor: sugerido } : reserva;
 }
 
 export type ResultadoDominio =
@@ -139,31 +188,44 @@ export type RegistroExtra = { tipo: string; nome: string; valor: string };
  *   2. está verificado?            (senão: falta um TXT, caso raro)
  *   3. o DNS aponta para cá?       (senão: o CNAME/A do registrador)
  */
-export type EstadoDominio =
+export type EstadoDominio = {
+  /** O registro de DNS a criar, como a hospedagem manda — não como a gente acha. */
+  dns: InstrucaoDns;
+} & (
   | { situacao: "pronto" }
   | { situacao: "fora_do_projeto" }
   | { situacao: "falta_verificar"; registros: RegistroExtra[] }
   | { situacao: "dns_errado" }
-  | { situacao: "indisponivel"; motivo: string };
+  | { situacao: "indisponivel"; motivo: string }
+);
 
 export async function estadoDoDominio(dominio: string): Promise<EstadoDominio> {
   if (!vercelConfigurada()) {
     return {
       situacao: "indisponivel",
       motivo: "A hospedagem não está configurada no servidor (TOKEN_VERCEL e PROJETO_VERCEL).",
+      dns: instrucaoDns(dominio),
     };
   }
   const projeto = process.env.PROJETO_VERCEL!.trim();
 
-  const noProjeto = await chamar(
-    "GET",
-    `/v9/projects/${projeto}/domains/${encodeURIComponent(dominio)}`,
-  );
-  if (noProjeto.status === 404) return { situacao: "fora_do_projeto" };
+  /*
+   * As duas perguntas saem juntas: "está no projeto?" e "qual endereço eu
+   * mando o cliente apontar?". A segunda vale até quando a primeira dá não —
+   * é justamente aí que ele precisa da instrução para sair do lugar.
+   */
+  const [noProjeto, cfg] = await Promise.all([
+    chamar("GET", `/v9/projects/${projeto}/domains/${encodeURIComponent(dominio)}`),
+    chamar("GET", `/v6/domains/${encodeURIComponent(dominio)}/config?projectIdOrName=${projeto}`),
+  ]);
+  const dns = cfg.ok ? dnsRecomendado(dominio, cfg.json) : instrucaoDns(dominio);
+
+  if (noProjeto.status === 404) return { situacao: "fora_do_projeto", dns };
   if (!noProjeto.ok) {
     return {
       situacao: "indisponivel",
       motivo: noProjeto.json.error?.message ?? `A Vercel respondeu ${noProjeto.status}.`,
+      dns,
     };
   }
 
@@ -183,20 +245,20 @@ export async function estadoDoDominio(dominio: string): Promise<EstadoDominio> {
         nome: v.domain ?? "",
         valor: v.value ?? "",
       })),
+      dns,
     };
   }
 
-  const cfg = await chamar(
-    "GET",
-    `/v6/domains/${encodeURIComponent(dominio)}/config?projectIdOrName=${projeto}`,
-  );
   if (!cfg.ok) {
     return {
       situacao: "indisponivel",
       motivo: cfg.json.error?.message ?? `A Vercel respondeu ${cfg.status}.`,
+      dns,
     };
   }
-  return cfg.json.misconfigured === false ? { situacao: "pronto" } : { situacao: "dns_errado" };
+  return cfg.json.misconfigured === false
+    ? { situacao: "pronto", dns }
+    : { situacao: "dns_errado", dns };
 }
 
 /*
