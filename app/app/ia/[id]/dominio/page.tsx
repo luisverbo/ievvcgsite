@@ -5,7 +5,13 @@ import { podeUsar, PLANOS } from "@/lib/painel/permissoes";
 import { getMinhaOrg } from "@/lib/painel/queries";
 import { ehAdmin } from "@/lib/painel/admin";
 import { cotaDeHospedagem, precoExtraEmReais } from "@/lib/dominios/cota";
-import { instrucaoDns, vercelConfigurada } from "@/lib/dominios/vercel";
+import {
+  instrucaoDns,
+  vercelConfigurada,
+  estadoDoDominio,
+  explicarEstado,
+  type EstadoDominio,
+} from "@/lib/dominios/vercel";
 import { verificarDominio, apagarDominio } from "./actions";
 import FormDominio from "./FormDominio";
 import { cardClass } from "@/components/painel/ui";
@@ -93,6 +99,27 @@ export default async function DominioPage({ params }: { params: Promise<{ id: st
   const cota = org ? await cotaDeHospedagem(org.id) : null;
   const semLimite = await ehAdmin();
 
+  /*
+   * O estado vem da hospedagem AGORA, não do que ficou guardado.
+   *
+   * O guardado é a foto do último clique em "conferir" e envelhece mal: o
+   * certificado sai sozinho minutos depois e a tela continua dizendo
+   * "aguardando DNS", ou o domínio cai do projeto e a tela continua dizendo
+   * "no ar". Quem abre esta página quer saber do agora — são duas chamadas,
+   * e a página já é dinâmica.
+   */
+  const comEstado = await Promise.all(
+    dominios.map(async (d) => ({
+      ...d,
+      estado: await estadoDoDominio(d.dominio).catch(
+        (): EstadoDominio => ({
+          situacao: "indisponivel",
+          motivo: "Não consegui falar com a hospedagem agora. Tente de novo em instantes.",
+        }),
+      ),
+    })),
+  );
+
   return (
     <div className="painel-wrap flex max-w-3xl flex-col gap-6">
       <div>
@@ -102,7 +129,8 @@ export default async function DominioPage({ params }: { params: Promise<{ id: st
         <h1 className="mt-2 font-display text-3xl font-extrabold">Domínio próprio 🌐</h1>
         <p className="mt-1 text-sm text-paper-dim">
           Esta página no endereço do seu cliente — com certificado de segurança automático. É o que
-          transforma a página num site &quot;de verdade&quot; aos olhos dele.
+          transforma a página num site &quot;de verdade&quot; aos olhos dele. Tudo acontece por aqui:
+          você só mexe no DNS do registrador, o resto da hospedagem é por nossa conta.
         </p>
       </div>
 
@@ -158,19 +186,20 @@ export default async function DominioPage({ params }: { params: Promise<{ id: st
         precoExtra={precoExtraEmReais()}
       />
 
-      {dominios.map((d) => {
+      {comEstado.map((d) => {
         const dns = instrucaoDns(d.dominio);
+        const noAr = d.estado.situacao === "pronto";
         return (
           <div key={d.id} className={cardClass}>
             <div className="flex flex-wrap items-center gap-3">
               <span className="font-mono text-sm font-bold text-paper">{d.dominio}</span>
-              {d.status === "ativo" ? (
+              {noAr ? (
                 <span className="rounded-full bg-ok/15 px-2.5 py-0.5 text-[11px] font-bold text-ok">
                   ✓ no ar
                 </span>
               ) : (
                 <span className="rounded-full bg-warn/15 px-2.5 py-0.5 text-[11px] font-bold text-warn">
-                  aguardando DNS
+                  {d.estado.situacao === "fora_do_projeto" ? "precisa reconectar" : "aguardando DNS"}
                 </span>
               )}
               <form action={apagarDominio.bind(null, id, d.id)} className="ml-auto">
@@ -184,7 +213,7 @@ export default async function DominioPage({ params }: { params: Promise<{ id: st
               </form>
             </div>
 
-            {d.status === "ativo" ? (
+            {noAr ? (
               <p className="mt-2 text-sm text-paper-dim">
                 Funcionando. Abra{" "}
                 <a
@@ -199,6 +228,28 @@ export default async function DominioPage({ params }: { params: Promise<{ id: st
               </p>
             ) : (
               <>
+                <p
+                  className={`mt-3 text-sm ${d.estado.situacao === "fora_do_projeto" ? "text-warn" : "text-paper"}`}
+                >
+                  {explicarEstado(d.estado, d.dominio)}
+                </p>
+
+                {d.estado.situacao === "falta_verificar" && d.estado.registros.length > 0 && (
+                  <div className="mt-2 overflow-x-auto rounded-lg bg-ink p-3">
+                    <table className="w-full text-left font-mono text-xs">
+                      <tbody>
+                        {d.estado.registros.map((r) => (
+                          <tr key={r.valor} className="text-paper">
+                            <td className="pr-6 pt-1 font-bold">{r.tipo}</td>
+                            <td className="pr-6 pt-1 font-bold">{r.nome}</td>
+                            <td className="pt-1 break-all font-bold">{r.valor}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
                 <p className="mt-3 text-sm text-paper">
                   Falta um passo, no site onde o domínio foi comprado (Registro.br, GoDaddy,
                   Hostinger…). Crie este registro de DNS:
@@ -248,13 +299,12 @@ export default async function DominioPage({ params }: { params: Promise<{ id: st
                     muita gente digita o endereço com &quot;www&quot; na frente.
                   </p>
                 )}
-                {d.detalhe && <p className="mt-2 text-xs text-warn">{d.detalhe}</p>}
                 <form action={verificarDominio.bind(null, id, d.id)} className="mt-3">
                   <button
                     type="submit"
                     className="rounded-lg border border-white/15 px-4 py-2 text-xs font-bold text-paper transition hover:border-brand-2"
                   >
-                    Já configurei — verificar agora
+                    Conferir agora
                   </button>
                 </form>
               </>

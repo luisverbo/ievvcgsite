@@ -122,29 +122,120 @@ export async function removerDominio(dominio: string): Promise<void> {
   );
 }
 
-export type EstadoDns =
-  | { pronto: true }
-  | { pronto: false; motivo: string };
+export type RegistroExtra = { tipo: string; nome: string; valor: string };
 
 /*
- * O DNS do cliente já aponta para cá?
+ * Em que pé está o domínio, do ponto de vista de quem serve a página.
  *
- * A resposta vem da própria Vercel — é ela quem serve o domínio, então é a
- * única opinião que importa. "misconfigured" é o campo que diz.
+ * Antes aqui só se perguntava "o DNS aponta para cá?". Faltava a pergunta
+ * anterior, que é a que mais dói: o domínio está PENDURADO no projeto? Um
+ * endereço que a Vercel não conhece não dá 404 — ela derruba a ligação no
+ * aperto de mão do https, e o navegador mostra ERR_CONNECTION_CLOSED. Para
+ * quem olha, isso é idêntico a "o DNS não propagou", e a pessoa fica
+ * esperando por uma propagação que já aconteceu.
+ *
+ * Então são três perguntas, nesta ordem — e a tela responde a que falhou:
+ *   1. está no projeto?            (senão: reconectar, que é automático)
+ *   2. está verificado?            (senão: falta um TXT, caso raro)
+ *   3. o DNS aponta para cá?       (senão: o CNAME/A do registrador)
  */
-export async function conferirDns(dominio: string): Promise<EstadoDns> {
+export type EstadoDominio =
+  | { situacao: "pronto" }
+  | { situacao: "fora_do_projeto" }
+  | { situacao: "falta_verificar"; registros: RegistroExtra[] }
+  | { situacao: "dns_errado" }
+  | { situacao: "indisponivel"; motivo: string };
+
+export async function estadoDoDominio(dominio: string): Promise<EstadoDominio> {
+  if (!vercelConfigurada()) {
+    return {
+      situacao: "indisponivel",
+      motivo: "A hospedagem não está configurada no servidor (TOKEN_VERCEL e PROJETO_VERCEL).",
+    };
+  }
   const projeto = process.env.PROJETO_VERCEL!.trim();
+
+  const noProjeto = await chamar(
+    "GET",
+    `/v9/projects/${projeto}/domains/${encodeURIComponent(dominio)}`,
+  );
+  if (noProjeto.status === 404) return { situacao: "fora_do_projeto" };
+  if (!noProjeto.ok) {
+    return {
+      situacao: "indisponivel",
+      motivo: noProjeto.json.error?.message ?? `A Vercel respondeu ${noProjeto.status}.`,
+    };
+  }
+
+  // Verificação por TXT: só aparece quando o domínio já está em outra conta da
+  // Vercel. É raro, mas sem mostrar o registro a pessoa não tem como sair do
+  // lugar — e não existe nada no DNS do registrador que denuncie isso.
+  if (noProjeto.json.verified === false) {
+    const bruto = (noProjeto.json.verification ?? []) as {
+      type?: string;
+      domain?: string;
+      value?: string;
+    }[];
+    return {
+      situacao: "falta_verificar",
+      registros: bruto.map((v) => ({
+        tipo: (v.type ?? "TXT").toUpperCase(),
+        nome: v.domain ?? "",
+        valor: v.value ?? "",
+      })),
+    };
+  }
+
   const cfg = await chamar(
     "GET",
     `/v6/domains/${encodeURIComponent(dominio)}/config?projectIdOrName=${projeto}`,
   );
   if (!cfg.ok) {
-    return { pronto: false, motivo: cfg.json.error?.message ?? `A Vercel respondeu ${cfg.status}.` };
+    return {
+      situacao: "indisponivel",
+      motivo: cfg.json.error?.message ?? `A Vercel respondeu ${cfg.status}.`,
+    };
   }
-  if (cfg.json.misconfigured === false) return { pronto: true };
-  return {
-    pronto: false,
-    motivo:
-      "O DNS ainda não aponta para cá. Confira o registro no site onde o domínio foi comprado — a propagação pode levar de minutos a algumas horas.",
-  };
+  return cfg.json.misconfigured === false ? { situacao: "pronto" } : { situacao: "dns_errado" };
+}
+
+/*
+ * A mesma situação dita em português, para a tela e para o campo `detalhe`.
+ */
+export function explicarEstado(estado: EstadoDominio, dominio: string): string {
+  switch (estado.situacao) {
+    case "pronto":
+      return "Funcionando.";
+    case "fora_do_projeto":
+      return `O endereço ${dominio} ainda não está pendurado na hospedagem — por isso o navegador fecha a ligação em vez de mostrar a página. Clique em "Conferir agora" que eu reconecto sozinho.`;
+    case "falta_verificar":
+      return "Este domínio já está em uso em outra conta de hospedagem. Para provar que ele é seu, crie também o registro TXT abaixo.";
+    case "dns_errado":
+      return "O DNS ainda não aponta para cá. Confira o registro no site onde o domínio foi comprado — a propagação pode levar de minutos a algumas horas.";
+    case "indisponivel":
+      return estado.motivo;
+  }
+}
+
+/*
+ * Conta da hospedagem respondendo? (para o diagnóstico do Admin)
+ */
+export async function conferirConta(): Promise<{ ok: boolean; detalhe: string }> {
+  if (!vercelConfigurada()) {
+    return { ok: false, detalhe: "TOKEN_VERCEL e/ou PROJETO_VERCEL não chegaram ao servidor." };
+  }
+  const projeto = process.env.PROJETO_VERCEL!.trim();
+  const r = await chamar("GET", `/v9/projects/${projeto}`).catch(() => null);
+  if (!r) return { ok: false, detalhe: "Não consegui falar com a hospedagem." };
+  if (r.ok) return { ok: true, detalhe: `Projeto "${projeto}" respondendo.` };
+  if (r.status === 403) {
+    return { ok: false, detalhe: "O token foi recusado (403). Gere outro e atualize TOKEN_VERCEL." };
+  }
+  if (r.status === 404) {
+    return {
+      ok: false,
+      detalhe: `Projeto "${projeto}" não encontrado. Se ele está num time, falta a variável TIME_VERCEL.`,
+    };
+  }
+  return { ok: false, detalhe: r.json.error?.message ?? `A hospedagem respondeu ${r.status}.` };
 }

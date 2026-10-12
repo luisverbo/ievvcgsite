@@ -10,7 +10,8 @@ import {
   vercelConfigurada,
   registrarDominio,
   removerDominio,
-  conferirDns,
+  estadoDoDominio,
+  explicarEstado,
 } from "@/lib/dominios/vercel";
 import {
   cotaDeHospedagem,
@@ -216,13 +217,27 @@ export async function verificarDominio(siteIaId: string, dominioId: string) {
   const linha = data as { id: string; dominio: string } | null;
   if (!linha) return;
 
-  const estado = await conferirDns(linha.dominio);
+  /*
+   * Conferir é também CONSERTAR.
+   *
+   * O domínio pode estar cadastrado aqui e não estar pendurado na hospedagem —
+   * foi assim que um endereço com o DNS perfeito passou dias fechando a ligação
+   * no navegador. Quando é esse o caso, registrar de novo é uma chamada idem-
+   * potente e resolve na hora; mandar o cliente "entrar na Vercel" seria
+   * confessar que o painel não dá conta do próprio serviço.
+   */
+  let estado = await estadoDoDominio(linha.dominio);
+  if (estado.situacao === "fora_do_projeto") {
+    const r = await registrarDominio(linha.dominio);
+    if (r.ok) estado = await estadoDoDominio(linha.dominio);
+  }
+
   await admin
     .from("dominios")
     .update(
-      estado.pronto
+      estado.situacao === "pronto"
         ? { status: "ativo", detalhe: null, verificado_em: new Date().toISOString() }
-        : { status: "aguardando_dns", detalhe: estado.motivo },
+        : { status: "aguardando_dns", detalhe: explicarEstado(estado, linha.dominio) },
     )
     .eq("id", linha.id);
 

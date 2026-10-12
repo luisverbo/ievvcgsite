@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { cardClass } from "@/components/painel/ui";
+import { conferirConta } from "@/lib/dominios/vercel";
 import TesteMp from "./TesteMp";
 
 /*
@@ -238,8 +240,47 @@ export default function Diagnostico() {
       </div>
 
       <Roteamento />
+      {/*
+       * Suspense: a resposta vem de fora e pode demorar. Sem isto, a página
+       * inteira do Admin fica esperando a hospedagem responder para aparecer.
+       */}
+      <Suspense
+        fallback={
+          <div className="mt-4 rounded-lg border border-white/10 bg-ink px-3 py-2.5">
+            <p className="text-xs text-paper-dim">Conferindo a hospedagem…</p>
+          </div>
+        }
+      >
+        <Hospedagem />
+      </Suspense>
       <TesteMp />
     </details>
+  );
+}
+
+/*
+ * A chave da hospedagem existe é uma coisa; ela FUNCIONAR é outra.
+ *
+ * Variável presente e token vencido dá no mesmo para o cliente: o domínio
+ * dele não entra no ar. E o erro só aparecia na hora de conectar, como um
+ * "fale com o suporte" — sem dizer o que o suporte deveria fazer.
+ */
+async function Hospedagem() {
+  const { ok, detalhe } = await conferirConta();
+  return (
+    <div className="mt-4 rounded-lg border border-white/10 bg-ink px-3 py-2.5">
+      <p className="text-xs font-bold text-paper">Hospedagem de domínios</p>
+      <p className={`mt-1 text-[11px] ${ok ? "text-ok" : "text-danger"}`}>
+        {ok ? "✓ " : "— "}
+        {detalhe}
+      </p>
+      {!ok && (
+        <p className="mt-1.5 text-[11px] text-paper-dim">
+          Enquanto isto não responder, nenhum cliente consegue conectar domínio próprio: o painel
+          precisa desta conexão para pendurar o endereço na hospedagem.
+        </p>
+      )}
+    </div>
   );
 }
 
