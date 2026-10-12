@@ -1,7 +1,37 @@
-import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { notFound, redirect } from "next/navigation";
 import BlockRenderer from "@/components/blocks/BlockRenderer";
 import { getSitePorSlug, getPaginaComBlocos } from "@/lib/painel/site-publico";
 import { buildThemeCss, googleFontsHref, mesclarTema, temPersonalizacao } from "@/lib/theme";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+/*
+ * Este host é um domínio PRÓPRIO cadastrado, e não um slug?
+ *
+ * O caso que isto conserta: o dono do sistema aponta um subdomínio do próprio
+ * domínio dele (plugue.luismarketing.com.br) para uma página. O proxy vê que
+ * o host termina no domínio raiz do produto e reescreve para /s/plugue,
+ * procurando um site com slug "plugue" — que não existe. A página do cliente
+ * nunca era alcançada, e ele via 404 sem entender por quê.
+ *
+ * O proxy não pode resolver isso sozinho: ele roda em TODO request e não
+ * consulta banco. Aqui dá: só perguntamos quando o slug já falhou, que é o
+ * caminho raro.
+ */
+async function ehDominioProprio(): Promise<boolean> {
+  try {
+    const host = (await headers()).get("host")?.toLowerCase().split(":")[0] ?? "";
+    if (!host) return false;
+    const { data } = await createAdminClient()
+      .from("dominios")
+      .select("site_ia_id")
+      .eq("dominio", host)
+      .maybeSingle();
+    return !!data;
+  } catch {
+    return false;
+  }
+}
 
 // Render compartilhado entre a home ('') e as demais páginas ([slug]).
 export default async function PaginaRender({
@@ -12,7 +42,12 @@ export default async function PaginaRender({
   paginaSlug: string;
 }) {
   const site = await getSitePorSlug(siteSlug);
-  if (!site) notFound();
+  if (!site) {
+    // Slug não existe, mas o host é um domínio próprio: a página é a de lá.
+    const host = (await headers()).get("host")?.toLowerCase().split(":")[0] ?? "";
+    if (await ehDominioProprio()) redirect(`/dominio/${host}`);
+    notFound();
+  }
 
   const dados = await getPaginaComBlocos(site.id, paginaSlug);
   if (!dados) notFound();
