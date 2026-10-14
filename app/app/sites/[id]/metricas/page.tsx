@@ -4,6 +4,7 @@ import { getSite } from "@/lib/painel/queries";
 import { createClient } from "@/lib/supabase/server";
 import {
   getMetricasSite,
+  getPulso,
   type BotaoPorOrigem,
   type ConversaoOrigem,
   type LinhaContagem,
@@ -295,17 +296,20 @@ export default async function MetricasPage({
 
   let site = landing ? ({ id, nome: landing.nome } as { id: string; nome: string }) : await getSite(id);
   let voltarPara = landing ? "/app/admin" : site ? `/app/sites/${site.id}` : "";
+  // Página fora do ar não mede nada — e esse é o motivo mais comum de um zero.
+  let publicada = landing ? true : ((site as { publicado?: boolean } | null)?.publicado ?? true);
   if (!site) {
     const supabase = await createClient();
     const { data } = await supabase
       .from("sites_ia")
-      .select("id, titulo")
+      .select("id, titulo, publicado")
       .eq("id", id)
       .maybeSingle();
-    const ia = data as { id: string; titulo: string } | null;
+    const ia = data as { id: string; titulo: string; publicado: boolean } | null;
     if (!ia) notFound();
     site = { id: ia.id, nome: ia.titulo } as NonNullable<typeof site>;
     voltarPara = `/app/ia/${ia.id}`;
+    publicada = ia.publicado;
   }
 
   // As landings vivem numa organização reservada, sem membros: a leitura só
@@ -317,6 +321,16 @@ export default async function MetricasPage({
     Boolean(landing),
   );
   const urlBase = `/app/sites/${site.id}/metricas`;
+
+  /*
+   * Zero não é uma resposta: é uma pergunta.
+   *
+   * Nada no período pode ser "ninguém entrou", "entraram mês passado" ou "a
+   * medição não está chegando" — três coisas com conserto diferente, e quem
+   * vê só o zero chuta sempre a terceira. Duas contagens baratas, e só quando
+   * o período veio vazio, transformam o zero em diagnóstico.
+   */
+  const pulso = m.visitas === 0 && m.cliques === 0 ? await getPulso(site.id, Boolean(landing)) : null;
 
   // Link de um preset, preservando o filtro de página atual.
   const linkPreset = (chave: string) => {
@@ -442,6 +456,53 @@ export default async function MetricasPage({
           </div>
         ))}
       </div>
+
+      {pulso && (
+        <div className="rounded-xl border border-white/10 bg-ink-2 px-5 py-4">
+          {!publicada ? (
+            <p className="text-sm text-paper">
+              <b>Esta página não está publicada.</b> Página fora do ar não recebe visita e não mede
+              nada — publique e as métricas começam a aparecer sozinhas.
+            </p>
+          ) : pulso.total === 0 ? (
+            <>
+              <p className="text-sm text-paper">
+                <b>Nenhuma visita jamais registrada aqui.</b> Se ninguém abriu o link ainda, é só
+                isso mesmo: compartilhe e volte depois.
+              </p>
+              <p className="mt-1.5 text-xs text-paper-dim">
+                Mas se você <b className="text-paper">sabe que teve gente na página</b>, a medição
+                não está chegando ao banco. Rode{" "}
+                <code className="rounded bg-white/10 px-1">2026-10-14_metricas_pagina_ia.sql</code>{" "}
+                no Supabase: as páginas de IA estavam tendo os eventos recusados pela trava de
+                segurança da tabela.
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-paper">
+              Nada <b>neste período</b> — mas esta página já registrou{" "}
+              <b>{pulso.total.toLocaleString("pt-BR")}</b>{" "}
+              {pulso.total === 1 ? "evento" : "eventos"}
+              {pulso.ultimo && (
+                <>
+                  , o último em{" "}
+                  <b>
+                    {new Intl.DateTimeFormat("pt-BR", {
+                      timeZone: TZ,
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(new Date(pulso.ultimo))}
+                  </b>
+                </>
+              )}
+              . Experimente um período maior aí em cima.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* mapa de calor de rolagem — só na visão de uma página */}
       {filtroPagina && (

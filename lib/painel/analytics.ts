@@ -81,6 +81,41 @@ function top(mapa: Map<string, number>, limite = 8): LinhaContagem[] {
     .slice(0, limite);
 }
 
+/*
+ * Tem pulso? Quantos eventos esta página já registrou, em toda a vida dela, e
+ * quando foi o último.
+ *
+ * Serve para a tela não dar a mesma resposta ("0") para três situações bem
+ * diferentes: ninguém visitou ainda, visitaram fora do período escolhido, ou
+ * a medição está quebrada e nunca chegou nada. Quem olha um zero sem contexto
+ * conclui sempre a terceira — e foi exatamente o que aconteceu.
+ *
+ * Duas contagens baratas, só quando o período veio vazio.
+ */
+export async function getPulso(
+  siteId: string,
+  usarAdmin = false,
+): Promise<{ total: number; ultimo: string | null }> {
+  const supabase = usarAdmin ? createAdminClient() : await createClient();
+  const [{ count }, { data }] = await Promise.all([
+    supabase
+      .from("analytics_eventos")
+      .select("id", { count: "exact", head: true })
+      .eq("site_id", siteId),
+    supabase
+      .from("analytics_eventos")
+      .select("created_at")
+      .eq("site_id", siteId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  return {
+    total: count ?? 0,
+    ultimo: (data as { created_at: string } | null)?.created_at ?? null,
+  };
+}
+
 export async function getMetricasSite(
   siteId: string,
   intervalo: { desde: Date; ate: Date },
